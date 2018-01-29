@@ -8,6 +8,8 @@ import (
 	"os"
 	"strings"
 	"time"
+    //"log"
+    //"bufio"
 )
 
 /*
@@ -21,7 +23,7 @@ func main() {
 		os.Exit(1)
 	}
 	wks := flag.Int("wks", 1, "how many workers?")
-	conf := flag.Bool("conf", false, "run conflict?")
+	oconf := flag.String("oconf", "", "run conflict by giving an output filename")
 	rf := flag.Bool("rf", false, "run rf?")
 	oed := flag.Bool("oed", false, "output edges?")
 	fn := flag.String("fn", "", "filename")
@@ -99,6 +101,7 @@ func main() {
 	   output edges
 	*/
 	if *oed {
+        fmt.Println("--edges--")
 		for i, b := range bps {
 			fmt.Println(b.StringWithNames(mapints), len(bpbpts[i]), float64(len(bpbpts[i]))/float64(ntrees))
 		}
@@ -106,7 +109,14 @@ func main() {
 	/*
 	   checking conflicts between all the biparts
 	*/
-	if *conf {
+	if len(*oconf) > 0 {
+        fmt.Println("--conflict--")
+        /*f, err := os.Create(*oconf)
+        if err != nil {
+            log.Fatal(err)
+        }
+        defer f.Close()
+        w := bufio.NewWriter(f)*/
 		jobs := make(chan []int, len(bps)*len(bps))
 		results := make(chan []int, len(bps)*len(bps))
 		start := time.Now()
@@ -123,19 +133,39 @@ func main() {
 			}
 		}
 		close(jobs)
+        confs := make(map[int][]int) // key is bipart and value are the conflicts
 		for i, _ := range bps {
 			for j, _ := range bps {
 				if i < j {
-					<-results
-					//fmt.Println(x)
+                    x := <-results
+                    if x[2] == 1 {
+                        confs[x[0]] = append(confs[x[0]],x[1])
+                    }
 				}
 			}
 		}
+        // printing this takes a long time. wonder how we can speed this up
+        /*
+        for x, y := range confs {
+            fmt.Fprint(w,bps[x].StringWithNames(mapints)+"\n")
+            //fmt.Println(bps[x].StringWithNames(mapints))
+            for _, n := range y {
+                fmt.Fprint(w," "+bps[n].StringWithNames(mapints)+"\n")
+                //fmt.Println(" ",bps[n].StringWithNames(mapints))
+                //fmt.Println(" ",bps[n])
+            }
+        }*/
 		end := time.Now()
+        /*err = w.Flush()
+        if err != nil{
+            log.Fatal(err)
+        }*/
 		fmt.Println("conf done:", end.Sub(start))
 	}
 	/*
 	   calculate rf
+
+       need to add ignoring taxa if they are missing
 	*/
 	if *rf {
 		jobs := make(chan []int, ntrees*ntrees)
