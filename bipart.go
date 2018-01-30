@@ -108,4 +108,15 @@ func PConflicts(bps []Bipart, jobs <-chan []int, results chan<- []int) {
 	}
 }
 
+func PConflictsCompTree(bps []Bipart, comptreebps []Bipart, jobs <-chan []int, results chan<- []int) {
+	for j := range jobs {
+		in1, in2 := j[0], j[1]
+		b := 0
+		if bps[in1].Conflicts(comptreebps[in2]) {
+			b = 1
+		}
+		results <- []int{in1, in2, b}
+	}
+}
+
 

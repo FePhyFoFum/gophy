@@ -1,15 +1,13 @@
 package main
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
 	"gophy"
-	"io/ioutil"
+	"log"
 	"os"
-	"strings"
 	"time"
-    //"log"
-    //"bufio"
 )
 
 /*
@@ -23,6 +21,7 @@ func main() {
 		os.Exit(1)
 	}
 	wks := flag.Int("wks", 1, "how many workers?")
+	comp := flag.String("comp", "", "compare biparts to those in this file")
 	oconf := flag.String("oconf", "", "run conflict by giving an output filename")
 	rf := flag.Bool("rf", false, "run rf?")
 	oed := flag.Bool("oed", false, "output edges?")
@@ -33,11 +32,12 @@ func main() {
 		fmt.Println("need a filename")
 		os.Exit(1)
 	}
-	b, err := ioutil.ReadFile(*fn)
+	f, err := os.Open(*fn)
 	if err != nil {
 		fmt.Println(err)
 	}
-	ss := string(b)
+	defer f.Close()
+	scanner := bufio.NewScanner(f)
 	bps := make([]gophy.Bipart, 0) // list of all biparts
 	bpts := make(map[int][]int)    // key tree index, value bipart index list
 	bpbpts := make(map[int][]int)  // key bipart index, value tree index list
@@ -46,7 +46,8 @@ func main() {
 	maptips := make(map[string]int)
 	mapints := make(map[int]string)
 	start := time.Now()
-	for _, ln := range strings.Split(ss, "\n") {
+	for scanner.Scan() {
+		ln := scanner.Text()
 		if len(ln) < 2 {
 			continue
 		}
@@ -101,22 +102,105 @@ func main() {
 	   output edges
 	*/
 	if *oed {
-        fmt.Println("--edges--")
+		fmt.Println("--edges--")
 		for i, b := range bps {
 			fmt.Println(b.StringWithNames(mapints), len(bpbpts[i]), float64(len(bpbpts[i]))/float64(ntrees))
 		}
 	}
 	/*
+	   checking conflicts between biparts and those in this tree
+	*/
+	if len(*comp) > 0 {
+		fmt.Println("--biparts compared to those in", *comp, "--")
+		fc, err := os.Open(*comp)
+		if err != nil {
+			fmt.Println(err)
+		}
+		defer fc.Close()
+		csc := bufio.NewScanner(fc)
+		comptreebps := make([]gophy.Bipart, 0)
+		/*
+		   read tree and get biparts
+		*/
+		for csc.Scan() {
+			ln := csc.Text()
+			if len(ln) < 2 {
+				continue
+			}
+			rt := gophy.ReadNewickString(ln)
+			var t gophy.Tree
+			t.Instantiate(rt)
+			for _, n := range t.Tips {
+				if _, ok := maptips[n.Nam]; !ok {
+					fmt.Println("need to figure out what to do when these tips don't map on the compare tree")
+				}
+			}
+			for _, n := range t.Post {
+				if len(n.Chs) > 1 && n != t.Rt {
+					lt := make(map[int]bool)
+					rt := make(map[int]bool)
+					for _, t := range t.Tips {
+						rt[maptips[t.Nam]] = true
+					}
+					for _, t := range n.Tips() {
+						lt[maptips[t.Nam]] = true
+						delete(rt, maptips[t.Nam])
+					}
+					if len(rt) < 2 {
+						continue
+					}
+					tbp := gophy.Bipart{lt, rt}
+					comptreebps = append(comptreebps, tbp)
+
+				}
+			}
+			break
+		}
+		fmt.Println("read", len(comptreebps), "biparts from compare tree")
+		jobs := make(chan []int, len(bps)*len(comptreebps))
+		results := make(chan []int, len(bps)*len(comptreebps))
+		start := time.Now()
+		for w := 1; w <= *wks; w++ {
+			go gophy.PConflictsCompTree(bps, comptreebps, jobs, results)
+		}
+		for j, _ := range comptreebps {
+			for i, _ := range bps {
+				jobs <- []int{i, j}
+			}
+		}
+		close(jobs)
+		confs := make(map[int][]int) // key is bipart and value are the conflicts
+		for range comptreebps {
+			for range bps {
+				x := <-results
+				if x[2] == 1 {
+					confs[x[1]] = append(confs[x[1]], x[0])
+				}
+			}
+		}
+		for x, y := range confs {
+			fmt.Print(comptreebps[x].StringWithNames(mapints) + "\n")
+			//fmt.Println(bps[x].StringWithNames(mapints))
+			for _, n := range y {
+				fmt.Print(" " + bps[n].StringWithNames(mapints) + "\n")
+				//fmt.Println(" ",bps[n].StringWithNames(mapints))
+				//fmt.Println(" ",bps[n])
+			}
+		}
+		end := time.Now()
+		fmt.Println("comp done:", end.Sub(start))
+	}
+	/*
 	   checking conflicts between all the biparts
 	*/
 	if len(*oconf) > 0 {
-        fmt.Println("--conflict--")
-        /*f, err := os.Create(*oconf)
-        if err != nil {
-            log.Fatal(err)
-        }
-        defer f.Close()
-        w := bufio.NewWriter(f)*/
+		fmt.Println("--general conflict--")
+		f, err := os.Create(*oconf)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer f.Close()
+		w := bufio.NewWriter(f)
 		jobs := make(chan []int, len(bps)*len(bps))
 		results := make(chan []int, len(bps)*len(bps))
 		start := time.Now()
@@ -133,39 +217,39 @@ func main() {
 			}
 		}
 		close(jobs)
-        confs := make(map[int][]int) // key is bipart and value are the conflicts
+		confs := make(map[int][]int) // key is bipart and value are the conflicts
 		for i, _ := range bps {
 			for j, _ := range bps {
 				if i < j {
-                    x := <-results
-                    if x[2] == 1 {
-                        confs[x[0]] = append(confs[x[0]],x[1])
-                    }
+					x := <-results
+					if x[2] == 1 {
+						confs[x[0]] = append(confs[x[0]], x[1])
+					}
 				}
 			}
 		}
-        // printing this takes a long time. wonder how we can speed this up
-        /*
-        for x, y := range confs {
-            fmt.Fprint(w,bps[x].StringWithNames(mapints)+"\n")
-            //fmt.Println(bps[x].StringWithNames(mapints))
-            for _, n := range y {
-                fmt.Fprint(w," "+bps[n].StringWithNames(mapints)+"\n")
-                //fmt.Println(" ",bps[n].StringWithNames(mapints))
-                //fmt.Println(" ",bps[n])
-            }
-        }*/
+		// printing this takes a long time. wonder how we can speed this up
+
+		for x, y := range confs {
+			fmt.Fprint(w, bps[x].StringWithNames(mapints)+"\n")
+			//fmt.Println(bps[x].StringWithNames(mapints))
+			for _, n := range y {
+				fmt.Fprint(w, " "+bps[n].StringWithNames(mapints)+"\n")
+				//fmt.Println(" ",bps[n].StringWithNames(mapints))
+				//fmt.Println(" ",bps[n])
+			}
+		}
 		end := time.Now()
-        /*err = w.Flush()
-        if err != nil{
-            log.Fatal(err)
-        }*/
+		err = w.Flush()
+		if err != nil {
+			log.Fatal(err)
+		}
 		fmt.Println("conf done:", end.Sub(start))
 	}
 	/*
-	   calculate rf
+		   calculate rf
 
-       need to add ignoring taxa if they are missing
+	       need to add ignoring taxa if they are missing
 	*/
 	if *rf {
 		jobs := make(chan []int, ntrees*ntrees)
