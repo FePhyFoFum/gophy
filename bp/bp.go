@@ -44,10 +44,10 @@ func main() {
 	}
 	defer f.Close()
 	scanner := bufio.NewScanner(f)
-	bps := make([]gophy.Bipart, 0)  // list of all biparts
-	bpts := make(map[int][]int)     // key tree index, value bipart index list
-	bpbpts := make(map[int][]int)   // key bipart index, value tree index list
-	bps_counts := make(map[int]int) // key bipart index, value count
+	bps := make([]gophy.Bipart, 0) // list of all biparts
+	bpts := make(map[int][]int)    // key tree index, value bipart index list
+	bpbpts := make(map[int][]int)  // key bipart index, value tree index list
+	bpsCounts := make(map[int]int) // key bipart index, value count
 	ntrees := 0
 	numtips := 0
 	skipped := 0
@@ -67,7 +67,7 @@ func main() {
 			if _, ok := maptips[n.Nam]; !ok {
 				maptips[n.Nam] = numtips
 				mapints[numtips] = n.Nam
-				numtips += 1
+				numtips++
 			}
 		}
 		for _, n := range t.Post {
@@ -75,7 +75,7 @@ func main() {
 				if *cut > 0.0 && len(n.Nam) > 0 {
 					if s, err := strconv.ParseFloat(n.Nam, 32); err == nil {
 						if s < *cut {
-							skipped += 1
+							skipped++
 							continue
 						}
 					}
@@ -92,25 +92,25 @@ func main() {
 				if len(rt) < 2 {
 					continue
 				}
-				tbp := gophy.Bipart{lt, rt}
+				tbp := gophy.Bipart{Lt: lt, Rt: rt}
 				//could check to merge here and if we already have one, use the one we have
 				index := gophy.BipartSliceContains(bps, tbp)
 				if index == -1 {
 					bpind := len(bps)
 					bps = append(bps, tbp)
-					bps_counts[len(bps)-1] = 1
+					bpsCounts[len(bps)-1]++
 					bpts[ntrees] = append(bpts[ntrees], bpind)
 					bpbpts[bpind] = append(bpbpts[bpind], ntrees)
 				} else {
 					if gophy.IntSliceContains(bpts[ntrees], index) == false {
 						bpts[ntrees] = append(bpts[ntrees], index)
 						bpbpts[index] = append(bpbpts[index], ntrees)
-						bps_counts[index] += 1
+						bpsCounts[index]++
 					}
 				}
 			}
 		}
-		ntrees += 1
+		ntrees++
 	}
 	end := time.Now()
 	fmt.Println("trees read:", ntrees)
@@ -152,7 +152,7 @@ func main() {
 			t.Instantiate(rt)
 			for _, n := range t.Tips {
 				if _, ok := maptips[n.Nam]; !ok {
-					fmt.Println("need to figure out what to do when these tips don't map on the compare tree")
+					fmt.Println("need to figure out what to do when these tips don't map on the compare tree", n.Nam)
 				}
 			}
 			for _, n := range t.Post {
@@ -169,8 +169,7 @@ func main() {
 					if len(rt) < 2 {
 						continue
 					}
-					tbp := gophy.Bipart{lt, rt}
-					fmt.Println(lt)
+					tbp := gophy.Bipart{Lt: lt, Rt: rt}
 					comptreebps = append(comptreebps, tbp)
 				}
 			}
@@ -183,18 +182,57 @@ func main() {
 		for w := 1; w <= *wks; w++ {
 			go gophy.PConflictsCompTree(bps, comptreebps, jobs, results)
 		}
-		for j, _ := range comptreebps {
-			for i, _ := range bps {
+		for j := range comptreebps {
+			for i := range bps {
 				jobs <- []int{i, j}
 			}
 		}
 		close(jobs)
-		confs := make(map[int][]int) // key is bipart and value are the conflicts
+		confs := make(map[int][]int)   // key is bipart and value are the conflicts
+		allconfs := make(map[int]bool) // list of all the conflicting biparts
 		for range comptreebps {
 			for range bps {
 				x := <-results
 				if x[2] == 1 {
 					confs[x[1]] = append(confs[x[1]], x[0])
+					allconfs[x[0]] = true
+				}
+			}
+		}
+		/*
+		 going to make a set of concordance biparts of the set of conflicting biparts
+		*/
+		jobs = make(chan []int, len(allconfs)*len(allconfs))
+		results = make(chan []int, len(allconfs)*len(allconfs))
+		start = time.Now()
+
+		for w := 1; w <= *wks; w++ {
+			go gophy.PConcordance(bps, jobs, results)
+		}
+
+		for i := range allconfs {
+			for j := range allconfs {
+				jobs <- []int{i, j}
+			}
+		}
+		close(jobs)
+		bpsConcCounts := make(map[int]int) // key bipart index, value number of concordant bps
+		for i := range allconfs {
+			for j := range allconfs {
+				if i < j {
+					x := <-results
+					if x[2] == 1 {
+						if _, ok := bpsConcCounts[x[0]]; ok {
+							bpsConcCounts[x[0]]++
+						} else {
+							bpsConcCounts[x[0]] = 0
+						}
+						if _, ok := bpsConcCounts[x[1]]; ok {
+							bpsConcCounts[x[1]]++
+						} else {
+							bpsConcCounts[x[1]] = 0
+						}
+					}
 				}
 			}
 		}
@@ -207,7 +245,8 @@ func main() {
 			n := map[int][]int{}
 			var a []int
 			for _, v := range y {
-				n[bps_counts[v]] = append(n[bps_counts[v]], v)
+				//n[bpsCounts[v]] = append(n[bpsCounts[v]], v)
+				n[bpsConcCounts[v]] = append(n[bpsConcCounts[v]], v)
 			}
 			for k := range n {
 				a = append(a, k)
@@ -217,12 +256,13 @@ func main() {
 			for _, k := range a {
 				for _, s := range n[k] {
 					//s is the bps index, k is the count
-					fmt.Print(" ", bps_counts[s], " "+bps[s].NewickWithNames(mapints)+"\n")
-					fmt.Println(s, k)
-					if count >= 5 {
+					//fmt.Print(" ", bpsCounts[s], " "+bps[s].NewickWithNames(mapints)+"\n")
+					fmt.Print(" ", bpsConcCounts[s], " "+bps[s].NewickWithNames(mapints)+"\n")
+					// fmt.Println(s, k)
+					if count >= 10 {
 						break
 					}
-					count += 1
+					count++
 				}
 				if count >= 5 {
 					break
@@ -251,8 +291,8 @@ func main() {
 			go gophy.PConflicts(bps, jobs, results)
 		}
 
-		for i, _ := range bps {
-			for j, _ := range bps {
+		for i := range bps {
+			for j := range bps {
 				if i < j {
 					jobs <- []int{i, j}
 				}
@@ -260,8 +300,8 @@ func main() {
 		}
 		close(jobs)
 		confs := make(map[int][]int) // key is bipart and value are the conflicts
-		for i, _ := range bps {
-			for j, _ := range bps {
+		for i := range bps {
+			for j := range bps {
 				if i < j {
 					x := <-results
 					if x[2] == 1 {

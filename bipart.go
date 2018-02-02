@@ -190,3 +190,16 @@ func PConflictsCompTree(bps []Bipart, comptreebps []Bipart, jobs <-chan []int, r
 		results <- []int{in1, in2, b}
 	}
 }
+
+// PConcordance is similar to the other comparison code but for concordance. The input jobs are the i, j for the bipart
+// comparisons. The results are the i, j, and 0 for not concordant and 1 for concordant
+func PConcordance(bps []Bipart, jobs <-chan []int, results chan<- []int) {
+	for j := range jobs {
+		in1, in2 := j[0], j[1]
+		b := 0
+		if bps[in1].ConcordantWith(bps[in2]) {
+			b = 1
+		}
+		results <- []int{in1, in2, b}
+	}
+}

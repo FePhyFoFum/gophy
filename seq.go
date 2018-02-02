@@ -7,11 +7,13 @@ import (
 	"os"
 )
 
+// Seq minimal seq struct
 type Seq struct {
 	NM string
 	SQ string
 }
 
+// GetFasta return a fasta string
 func (s Seq) GetFasta() (ret string) {
 	ret = ">" + s.NM + "\n" + s.SQ + "\n"
 	return
@@ -31,8 +33,8 @@ func maxF(F [][]float32) (ini int, inj int, ret float32) {
 	ret = -99999.9
 	ini = -1
 	inj = -1
-	for i, _ := range F {
-		for j, _ := range F[i] {
+	for i := range F {
+		for j := range F[i] {
 			if F[i][j] > ret {
 				ret = F[i][j]
 				ini = i
@@ -43,9 +45,10 @@ func maxF(F [][]float32) (ini int, inj int, ret float32) {
 	return
 }
 
+// NW toy example, scores are all default
 func NW(seqs []Seq, in1 int, in2 int) {
 	F := make([][]float32, len(seqs[in1].SQ))
-	for i, _ := range F {
+	for i := range F {
 		F[i] = make([]float32, len(seqs[in2].SQ))
 	}
 	for i := 0; i < len(seqs[in1].SQ); i++ {
@@ -72,12 +75,13 @@ func NW(seqs []Seq, in1 int, in2 int) {
 	fmt.Println(besti, bestj, bestscore)
 }
 
+// PNW NW but parallel
 func PNW(seqs []Seq, jobs <-chan []int, results chan<- float32) {
 	for j := range jobs {
 		in1, in2 := j[0], j[1]
 		//fmt.Println(in1, in2)
 		F := make([][]float32, len(seqs[in1].SQ))
-		for i, _ := range F {
+		for i := range F {
 			F[i] = make([]float32, len(seqs[in2].SQ))
 		}
 		for i := 0; i < len(seqs[in1].SQ); i++ {
@@ -106,6 +110,7 @@ func PNW(seqs []Seq, jobs <-chan []int, results chan<- float32) {
 	}
 }
 
+// ReadSeqsFromFile give filename seq slice
 func ReadSeqsFromFile(filen string) (seqs []Seq) {
 	file, err := os.Open(filen)
 	if err != nil {
@@ -157,4 +162,3 @@ func ReadSeqsFromFile(filen string) (seqs []Seq) {
 	seqs = append(seqs, cs)
 	return
 }
-

@@ -6,6 +6,7 @@ import (
 	"strconv"
 )
 
+// ReadNewickString given a string it will return a pointer to the root node
 func ReadNewickString(ts string) (root *Node) {
 	rt := Node{nil, nil, "root", 0.}
 	x := 0
@@ -84,4 +85,3 @@ func ReadNewickString(ts string) (root *Node) {
 	root = &rt
 	return
 }
-

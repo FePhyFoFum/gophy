@@ -1,6 +1,6 @@
 package gophy
 
-// calculate the size of the difference (set) between two int slices
+// CalcSliceIntDifferenceInt calculate the size of the difference (set) between two int slices
 func CalcSliceIntDifferenceInt(a, b []int) int {
 	mb := map[int]bool{}
 	for _, x := range b {
@@ -15,7 +15,7 @@ func CalcSliceIntDifferenceInt(a, b []int) int {
 	return ab
 }
 
-// calculate the difference (set) between two int slices
+// CalcSliceIntDifference calculate the difference (set) between two int slices
 func CalcSliceIntDifference(a, b []int) []int {
 	mb := map[int]bool{}
 	for _, x := range b {
@@ -30,7 +30,7 @@ func CalcSliceIntDifference(a, b []int) []int {
 	return ab
 }
 
-// calculate the size of the difference (set) between two int slices in parallel
+// PCalcSliceIntDifferenceInt calculate the size of the difference (set) between two int slices in parallel
 // used for: RF distance where the bpts is the tree index -> bipart index list map
 func PCalcSliceIntDifferenceInt(bpts map[int][]int, jobs <-chan []int, results chan<- []int) {
 	for j := range jobs {
@@ -48,4 +48,3 @@ func PCalcSliceIntDifferenceInt(bpts map[int][]int, jobs <-chan []int, results c
 		results <- []int{in1, in2, ab}
 	}
 }
-
