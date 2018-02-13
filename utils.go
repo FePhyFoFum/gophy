@@ -48,3 +48,37 @@ func PCalcSliceIntDifferenceInt(bpts map[int][]int, jobs <-chan []int, results c
 		results <- []int{in1, in2, ab}
 	}
 }
+
+//PCalcRFDistancesPartial calculates the partial rf, bpts is the tree index, bipart list,
+// bps is the list of biparts
+func PCalcRFDistancesPartial(bpts map[int][]int, bps []Bipart, jobs <-chan []int, results chan<- []int) {
+	for j := range jobs {
+		in1, in2 := j[0], j[1]
+		mb := map[string]bool{}
+		for _, x := range bpts[in1] {
+			for _, y := range bpts[in2] {
+				if bps[x].ConflictsWith(bps[y]) {
+					mb["t1"+string(x)] = true
+					mb["t2"+string(y)] = true
+				}
+			}
+		}
+		ab := 0
+		for _, x := range mb {
+			if x == true {
+				ab++
+			}
+		}
+		results <- []int{in1, in2, ab}
+	}
+}
+
+//SliceStringContains tells you whether the e string is in the slice
+func SliceStringContains(s []string, e string) bool {
+	for _, a := range s {
+		if a == e {
+			return true
+		}
+	}
+	return false
+}

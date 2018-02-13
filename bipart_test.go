@@ -30,3 +30,29 @@ func TestConcordantWith(t *testing.T) {
 		t.Fail()
 	}
 }
+
+func TestConflictsWith(t *testing.T) {
+	blt := make(map[int]bool)
+	blt[0] = true
+	blt[1] = true
+	blt[2] = true
+	brt := make(map[int]bool)
+	brt[3] = true
+	brt[4] = true
+	brt[5] = true
+	glt := make(map[int]bool)
+	glt[0] = true
+	glt[3] = true
+	grt := make(map[int]bool)
+	grt[2] = true
+	grt[4] = true
+	grt[5] = true
+	b := gophy.Bipart{blt, brt}
+	g := gophy.Bipart{glt, grt}
+	if b.ConflictsWith(g) == false {
+		t.Fail()
+	}
+	if g.ConflictsWith(b) == false {
+		t.Fail()
+	}
+}

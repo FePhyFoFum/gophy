@@ -9,6 +9,7 @@ import (
 	"os"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -19,24 +20,35 @@ import (
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Println("bipart -fn filename")
+		fmt.Println("bp -fn filename")
 		os.Exit(1)
 	}
 	wks := flag.Int("wks", 1, "how many workers?")
 	cut := flag.Float64("cutoff", 0.0, "cutoff (if support is present in the trees)")
+	blcut := flag.Float64("blcut", 0.0, "branch length cutoff")
 	comp := flag.String("comp", "", "compare biparts to those in this file")
 	oconf := flag.String("oconf", "", "run conflict by giving an output filename")
 	rf := flag.Bool("rf", false, "run rf?")
-	oed := flag.Bool("oed", false, "output edges?")
-	fn := flag.String("fn", "", "filename")
+	rfp := flag.Bool("rfp", false, "run rf (partial overlap)?")
+	oed := flag.Bool("ed", false, "output edges?")
+	fn := flag.String("t", "", "tree filename")
+	ig := flag.String("ig", "", "ignore these taxa (comma not space separated)")
 	flag.Parse()
 	//filename things
 	if *cut > 0.0 {
-		fmt.Println("cutoff set to:", *cut)
+		fmt.Fprintln(os.Stderr, "cutoff set to:", *cut)
+	}
+	if *blcut > 0.0 {
+		fmt.Fprintln(os.Stderr, "blcutoff set to:", *blcut)
 	}
 	if len(*fn) == 0 {
-		fmt.Println("need a filename")
+		fmt.Fprintln(os.Stderr, "need a filename")
 		os.Exit(1)
+	}
+	ignore := []string{}
+	if len(*ig) > 0 {
+		ignore = strings.Split(*ig, ",")
+		fmt.Fprintln(os.Stderr, "ignoring:", ignore)
 	}
 	f, err := os.Open(*fn)
 	if err != nil {
@@ -64,6 +76,9 @@ func main() {
 		t.Instantiate(rt)
 		//trees = append(trees, t)
 		for _, n := range t.Tips {
+			if gophy.SliceStringContains(ignore, n.Nam) {
+				continue
+			}
 			if _, ok := maptips[n.Nam]; !ok {
 				maptips[n.Nam] = numtips
 				mapints[numtips] = n.Nam
@@ -71,6 +86,10 @@ func main() {
 			}
 		}
 		for _, n := range t.Post {
+			if *blcut > 0 && n.Len < *blcut {
+				skipped++
+				continue
+			}
 			if len(n.Chs) > 1 && n != t.Rt {
 				if *cut > 0.0 && len(n.Nam) > 0 {
 					if s, err := strconv.ParseFloat(n.Nam, 32); err == nil {
@@ -83,11 +102,15 @@ func main() {
 				lt := make(map[int]bool)
 				rt := make(map[int]bool)
 				for _, t := range t.Tips {
-					rt[maptips[t.Nam]] = true
+					if gophy.SliceStringContains(ignore, t.Nam) == false {
+						rt[maptips[t.Nam]] = true
+					}
 				}
 				for _, t := range n.Tips() {
-					lt[maptips[t.Nam]] = true
-					delete(rt, maptips[t.Nam])
+					if gophy.SliceStringContains(ignore, t.Nam) == false {
+						lt[maptips[t.Nam]] = true
+						delete(rt, maptips[t.Nam])
+					}
 				}
 				if len(rt) < 2 {
 					continue
@@ -113,9 +136,9 @@ func main() {
 		ntrees++
 	}
 	end := time.Now()
-	fmt.Println("trees read:", ntrees)
-	fmt.Println("edges skipped:", skipped)
-	fmt.Println("edges read:", len(bps), end.Sub(start))
+	fmt.Fprintln(os.Stderr, "trees read:", ntrees)
+	fmt.Fprintln(os.Stderr, "edges skipped:", skipped)
+	fmt.Fprintln(os.Stderr, "edges read:", len(bps), end.Sub(start))
 
 	/*
 	   output edges
@@ -160,11 +183,15 @@ func main() {
 					lt := make(map[int]bool)
 					rt := make(map[int]bool)
 					for _, t := range t.Tips {
-						rt[maptips[t.Nam]] = true
+						if gophy.SliceStringContains(ignore, t.Nam) == false {
+							rt[maptips[t.Nam]] = true
+						}
 					}
 					for _, t := range n.Tips() {
-						lt[maptips[t.Nam]] = true
-						delete(rt, maptips[t.Nam])
+						if gophy.SliceStringContains(ignore, t.Nam) == false {
+							lt[maptips[t.Nam]] = true
+							delete(rt, maptips[t.Nam])
+						}
 					}
 					if len(rt) < 2 {
 						continue
@@ -270,7 +297,7 @@ func main() {
 			}
 		}
 		end := time.Now()
-		fmt.Println("comp done:", end.Sub(start))
+		fmt.Fprintln(os.Stderr, "comp done:", end.Sub(start))
 	}
 	/*
 	   checking conflicts between all the biparts
@@ -329,9 +356,7 @@ func main() {
 		fmt.Println("conf done:", end.Sub(start))
 	}
 	/*
-			   calculate rf
-
-		       need to add ignoring taxa if they are missing
+		calculate rf
 	*/
 	if *rf {
 		jobs := make(chan []int, ntrees*ntrees)
@@ -353,11 +378,41 @@ func main() {
 			for j := 0; j < ntrees; j++ {
 				if i < j {
 					val := <-results
-					fmt.Println(val[0], val[1], ":", val[2])
+					fmt.Println(val[0], val[1], ":", val[2]*2)
 				}
 			}
 		}
 		end := time.Now()
 		fmt.Println(end.Sub(start))
+	}
+	/*
+		calculate rf (partial overlap)
+	*/
+	if *rfp {
+		jobs := make(chan []int, ntrees*ntrees)
+		results := make(chan []int, ntrees*ntrees)
+		start := time.Now()
+		for w := 1; w <= *wks; w++ {
+			go gophy.PCalcRFDistancesPartial(bpts, bps, jobs, results)
+		}
+
+		for i := 0; i < ntrees; i++ {
+			for j := 0; j < ntrees; j++ {
+				if i < j {
+					jobs <- []int{i, j}
+				}
+			}
+		}
+		close(jobs)
+		for i := 0; i < ntrees; i++ {
+			for j := 0; j < ntrees; j++ {
+				if i < j {
+					val := <-results
+					fmt.Println(strconv.Itoa(val[0]) + " " + strconv.Itoa(val[1]) + ": " + strconv.Itoa(val[2]))
+				}
+			}
+		}
+		end := time.Now()
+		fmt.Fprintln(os.Stderr, end.Sub(start))
 	}
 }
