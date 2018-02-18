@@ -3,10 +3,11 @@ package gophy
 // Tree minimal phylogenetic tree struct
 // don't need this, can use root but here if you want these convienence functions below
 type Tree struct {
-	Rt   *Node
-	Post []*Node
-	Pre  []*Node
-	Tips []*Node
+	Rt    *Node
+	Post  []*Node
+	Pre   []*Node
+	Tips  []*Node
+	Index int // if there is an identifying index
 }
 
 func (t *Tree) populatePrePostIt(rt *Node) {

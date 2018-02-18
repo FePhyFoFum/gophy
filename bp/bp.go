@@ -8,7 +8,6 @@ import (
 	"log"
 	"os"
 	"runtime/pprof"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -163,9 +162,7 @@ func main() {
 	*/
 	if *oed {
 		fmt.Println("--edges--")
-		for i, b := range bps {
-			fmt.Println(b.StringWithNames(mapints), len(bpbpts[i]), float64(len(bpbpts[i]))/float64(ntrees))
-		}
+		gophy.OutputEdges(bpbpts, mapints, bps, ntrees)
 	}
 	/*
 			   checking conflicts between biparts and those in this tree
@@ -221,99 +218,8 @@ func main() {
 			break
 		}
 		fmt.Println("read", len(comptreebps), "biparts from compare tree")
-		jobs := make(chan []int, len(bps)*len(comptreebps))
-		results := make(chan []int, len(bps)*len(comptreebps))
 		start := time.Now()
-		for w := 1; w <= *wks; w++ {
-			go gophy.PConflictsCompTree(bps, comptreebps, jobs, results)
-		}
-		for j := range comptreebps {
-			for i := range bps {
-				jobs <- []int{i, j}
-			}
-		}
-		close(jobs)
-		confs := make(map[int][]int)   // key is bipart and value are the conflicts
-		allconfs := make(map[int]bool) // list of all the conflicting biparts
-		for range comptreebps {
-			for range bps {
-				x := <-results
-				if x[2] == 1 {
-					confs[x[1]] = append(confs[x[1]], x[0])
-					allconfs[x[0]] = true
-				}
-			}
-		}
-		/*
-		 going to make a set of concordance biparts of the set of conflicting biparts
-		*/
-		jobs = make(chan []int, len(allconfs)*len(allconfs))
-		results = make(chan []int, len(allconfs)*len(allconfs))
-		start = time.Now()
-
-		for w := 1; w <= *wks; w++ {
-			go gophy.PConcordance(bps, jobs, results)
-		}
-
-		for i := range allconfs {
-			for j := range allconfs {
-				jobs <- []int{i, j}
-			}
-		}
-		close(jobs)
-		bpsConcCounts := make(map[int]int) // key bipart index, value number of concordant bps
-		for i := range allconfs {
-			for j := range allconfs {
-				if i < j {
-					x := <-results
-					if x[2] == 1 {
-						if _, ok := bpsConcCounts[x[0]]; ok {
-							bpsConcCounts[x[0]]++
-						} else {
-							bpsConcCounts[x[0]] = 0
-						}
-						if _, ok := bpsConcCounts[x[1]]; ok {
-							bpsConcCounts[x[1]]++
-						} else {
-							bpsConcCounts[x[1]] = 0
-						}
-					}
-				}
-			}
-		}
-		/*
-		   sorting the results so that the larger bps are listed first. stop printing after a few.
-		   add a sys command for listing all the results
-		*/
-		for x, y := range confs {
-			fmt.Print(comptreebps[x].NewickWithNames(mapints) + "\n")
-			n := map[int][]int{}
-			var a []int
-			for _, v := range y {
-				//n[bpsCounts[v]] = append(n[bpsCounts[v]], v)
-				n[bpsConcCounts[v]] = append(n[bpsConcCounts[v]], v)
-			}
-			for k := range n {
-				a = append(a, k)
-			}
-			sort.Sort(sort.Reverse(sort.IntSlice(a)))
-			count := 0
-			for _, k := range a {
-				for _, s := range n[k] {
-					//s is the bps index, k is the count
-					//fmt.Print(" ", bpsCounts[s], " "+bps[s].NewickWithNames(mapints)+"\n")
-					fmt.Print(" ", bpsConcCounts[s], " "+bps[s].NewickWithNames(mapints)+"\n")
-					// fmt.Println(s, k)
-					if count >= 10 {
-						break
-					}
-					count++
-				}
-				if count >= 5 {
-					break
-				}
-			}
-		}
+		gophy.CompareTreeToBiparts(bps, comptreebps, *wks, mapints)
 		end := time.Now()
 		fmt.Fprintln(os.Stderr, "comp done:", end.Sub(start))
 	}

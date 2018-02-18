@@ -31,6 +31,8 @@ func PmergeBps(jobs <-chan [][]gophy.Bipart, results chan<- []gophy.Bipart) {
 				for k := range bpst1 {
 					if bpst1[k].Equals(bpst2[i]) == true {
 						match = true
+						bpst1[k].Ct = bpst1[k].Ct + bpst2[i].Ct
+						bpst1[k].TreeIndices = append(bpst1[k].TreeIndices, bpst2[i].TreeIndices...)
 						break
 					}
 				}
@@ -78,7 +80,8 @@ func PDeconstructTrees(rp RunParams, maptips map[string]int, mapints map[int]str
 				if len(rt) < 2 {
 					continue
 				}
-				tbp := gophy.Bipart{Lt: lt, Rt: rt}
+				tbp := gophy.Bipart{Lt: lt, Rt: rt, Ct: 1}
+				tbp.TreeIndices = append(tbp.TreeIndices, t.Index)
 				//checks just the root case where there can be dups given how we get things
 				if n.Par == t.Rt {
 					index := gophy.BipartSliceContains(bps, tbp)
@@ -116,10 +119,14 @@ func main() {
 		os.Exit(1)
 	}
 	rp := RunParams{BlCut: 0, SupCut: 0, TIgnore: nil}
-	wks := flag.Int("wks", 1, "how many workers?")
+	wks := flag.Int("wks", 2, "how many workers?")
 	cut := flag.Float64("cutoff", 0.0, "cutoff (if support is present in the trees)")
 	blcut := flag.Float64("blcut", 0.0, "branch length cutoff")
-	//oed := flag.Bool("ed", false, "output edges?")
+	//oed := flag.Bool(p"ed", false, "output edges?")
+	oconf := flag.String("oconf", "", "run conflict by giving an output filename")
+	rf := flag.Bool("rf", false, "run rf?")
+	rfp := flag.Bool("rfp", false, "run rf (partial overlap)?")
+	comp := flag.String("comp", "", "compare biparts to those in this file")
 	fn := flag.String("t", "", "tree filename")
 	ig := flag.String("ig", "", "ignore these taxa (comma not space separated)")
 	cpuprofile := flag.String("cpuprofile", "", "write cpu profile to file")
@@ -157,13 +164,12 @@ func main() {
 	f, err := os.Open(*fn)
 	if err != nil {
 		fmt.Println(err)
+		os.Exit(1)
 	}
 	defer f.Close()
 	scanner := bufio.NewScanner(f)
 	bps := make([]gophy.Bipart, 0) // list of all biparts
-	//bpts := make(map[int][]int)    // key tree index, value bipart index list
-	//bpbpts := make(map[int][]int) // key bipart index, value tree index list
-	//bpsCounts := make(map[int]int) // key bipart index, value count
+	bpts := make(map[int][]int)    // key tree index, value bipart index list
 	ntrees := 0
 	trees := make([]gophy.Tree, 0)
 	numtips := 0
@@ -171,6 +177,7 @@ func main() {
 	maptips := make(map[string]int)
 	mapints := make(map[int]string)
 	start := time.Now()
+	// reading the trees
 	fmt.Fprint(os.Stderr, "reading trees.")
 	for scanner.Scan() {
 		ln := scanner.Text()
@@ -179,6 +186,7 @@ func main() {
 		}
 		rt := gophy.ReadNewickString(ln)
 		var t gophy.Tree
+		t.Index = ntrees
 		t.Instantiate(rt)
 		trees = append(trees, t)
 		for _, n := range t.Tips {
@@ -201,21 +209,16 @@ func main() {
 	}
 	fmt.Fprint(os.Stderr, "\n")
 
-	/*
-	 parallel edge reading
-	*/
+	//parallel edge reading
 	jobs := make(chan gophy.Tree, len(trees))
 	results := make(chan []gophy.Bipart, len(trees))
-
 	for w := 1; w <= *wks; w++ {
 		go PDeconstructTrees(rp, maptips, mapints, jobs, results)
 	}
-
 	for _, i := range trees {
 		jobs <- i
 	}
 	close(jobs)
-
 	jobs2 := make(chan [][]gophy.Bipart, len(trees))
 	results2 := make(chan []gophy.Bipart, len(trees))
 	for w := 1; w < *wks; w++ {
@@ -293,9 +296,185 @@ func main() {
 	fmt.Print("\n")
 	close(jobs2)
 	end := time.Now()
+	//end parallel edge reading
 	fmt.Fprintln(os.Stderr, "trees read:", ntrees)
 	fmt.Fprintln(os.Stderr, "edges skipped:", skipped)
 	fmt.Fprintln(os.Stderr, "edges read:", len(bps), end.Sub(start))
 
-	fmt.Fprintln(os.Stderr, "")
+	if len(*comp) > 0 {
+		fmt.Println("--biparts compared to those in", *comp, "--")
+		fc, err := os.Open(*comp)
+		if err != nil {
+			fmt.Println(err)
+		}
+		defer fc.Close()
+		csc := bufio.NewScanner(fc)
+		comptreebps := make([]gophy.Bipart, 0)
+		/*
+		   read tree and get biparts
+		*/
+		for csc.Scan() {
+			ln := csc.Text()
+			if len(ln) < 2 {
+				continue
+			}
+			rt := gophy.ReadNewickString(ln)
+			var t gophy.Tree
+			t.Instantiate(rt)
+			for _, n := range t.Tips {
+				if _, ok := maptips[n.Nam]; !ok {
+					fmt.Println("need to figure out what to do when these tips don't map on the compare tree", n.Nam)
+				}
+			}
+			for _, n := range t.Post {
+				if len(n.Chs) > 1 && n != t.Rt {
+					lt := make(map[int]bool)
+					rt := make(map[int]bool)
+					for _, t := range t.Tips {
+						if gophy.SliceStringContains(ignore, t.Nam) == false {
+							rt[maptips[t.Nam]] = true
+						}
+					}
+					for _, t := range n.GetTips() {
+						if gophy.SliceStringContains(ignore, t.Nam) == false {
+							lt[maptips[t.Nam]] = true
+							delete(rt, maptips[t.Nam])
+						}
+					}
+					if len(rt) < 2 {
+						continue
+					}
+					tbp := gophy.Bipart{Lt: lt, Rt: rt}
+					comptreebps = append(comptreebps, tbp)
+				}
+			}
+			break
+		}
+		fmt.Println("read", len(comptreebps), "biparts from compare tree")
+		start := time.Now()
+		gophy.CompareTreeToBiparts(bps, comptreebps, *wks, mapints)
+		end := time.Now()
+		fmt.Fprintln(os.Stderr, "comp done:", end.Sub(start))
+	}
+	if len(*oconf) > 0 {
+		fmt.Println("--general conflict--")
+		f, err := os.Create(*oconf)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer f.Close()
+		w := bufio.NewWriter(f)
+		jobs := make(chan []int, len(bps)*len(bps))
+		results := make(chan []int, len(bps)*len(bps))
+		start := time.Now()
+
+		for w := 1; w <= *wks; w++ {
+			go gophy.PConflicts(bps, jobs, results)
+		}
+
+		for i := range bps {
+			for j := range bps {
+				if i < j {
+					jobs <- []int{i, j}
+				}
+			}
+		}
+		close(jobs)
+		confs := make(map[int][]int) // key is bipart and value are the conflicts
+		for i := range bps {
+			for j := range bps {
+				if i < j {
+					x := <-results
+					if x[2] == 1 {
+						confs[x[0]] = append(confs[x[0]], x[1])
+					}
+				}
+			}
+		}
+		// printing this takes a long time. wonder how we can speed this up
+
+		for x, y := range confs {
+			fmt.Fprint(w, bps[x].StringWithNames(mapints)+"\n")
+			//fmt.Println(bps[x].StringWithNames(mapints))
+			for _, n := range y {
+				fmt.Fprint(w, " "+bps[n].StringWithNames(mapints)+"\n")
+				//fmt.Println(" ",bps[n].StringWithNames(mapints))
+				//fmt.Println(" ",bps[n])
+			}
+		}
+		end := time.Now()
+		err = w.Flush()
+		if err != nil {
+			log.Fatal(err)
+		}
+		fmt.Println("conf done:", end.Sub(start))
+	}
+	/*
+		calculate rf
+	*/
+	if *rf || *rfp {
+		bpts = make(map[int][]int, ntrees)
+		for i, b := range bps {
+			for _, j := range b.TreeIndices {
+				bpts[j] = append(bpts[j], i)
+			}
+		}
+	}
+	if *rf {
+		jobs := make(chan []int, ntrees*ntrees)
+		results := make(chan []int, ntrees*ntrees)
+		start := time.Now()
+		for w := 1; w <= *wks; w++ {
+			go gophy.PCalcSliceIntDifferenceInt(bpts, jobs, results)
+		}
+
+		for i := 0; i < ntrees; i++ {
+			for j := 0; j < ntrees; j++ {
+				if i < j {
+					jobs <- []int{i, j}
+				}
+			}
+		}
+		close(jobs)
+		for i := 0; i < ntrees; i++ {
+			for j := 0; j < ntrees; j++ {
+				if i < j {
+					val := <-results
+					fmt.Println(val[0], val[1], ":", val[2]*2)
+				}
+			}
+		}
+		end := time.Now()
+		fmt.Println(end.Sub(start))
+	}
+	/*
+		calculate rf (partial overlap)
+	*/
+	if *rfp {
+		jobs := make(chan []int, ntrees*ntrees)
+		results := make(chan []int, ntrees*ntrees)
+		start := time.Now()
+		for w := 1; w <= *wks; w++ {
+			go gophy.PCalcRFDistancesPartial(bpts, bps, jobs, results)
+		}
+
+		for i := 0; i < ntrees; i++ {
+			for j := 0; j < ntrees; j++ {
+				if i < j {
+					jobs <- []int{i, j}
+				}
+			}
+		}
+		close(jobs)
+		for i := 0; i < ntrees; i++ {
+			for j := 0; j < ntrees; j++ {
+				if i < j {
+					val := <-results
+					fmt.Println(strconv.Itoa(val[0]) + " " + strconv.Itoa(val[1]) + ": " + strconv.Itoa(val[2]))
+				}
+			}
+		}
+		end := time.Now()
+		fmt.Fprintln(os.Stderr, end.Sub(start))
+	}
 }
