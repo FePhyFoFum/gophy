@@ -3,6 +3,7 @@ package gophy
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"strconv"
 )
 
@@ -59,7 +60,7 @@ func ReadNewickString(ts string) (root *Node) {
 			}
 			b, err := strconv.ParseFloat(bl.String(), 64)
 			if err != nil {
-				fmt.Printf("There is an error %s in branch length processing\n")
+				fmt.Fprintf(os.Stderr, "There is an error in branch length processing\n")
 			}
 			cn.Len = b
 			x--

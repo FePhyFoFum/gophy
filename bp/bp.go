@@ -7,6 +7,7 @@ import (
 	"gophy"
 	"log"
 	"os"
+	"runtime/pprof"
 	"sort"
 	"strconv"
 	"strings"
@@ -20,7 +21,7 @@ import (
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Println("bp -fn filename")
+		fmt.Println("bp -t treefile")
 		os.Exit(1)
 	}
 	wks := flag.Int("wks", 1, "how many workers?")
@@ -33,6 +34,7 @@ func main() {
 	oed := flag.Bool("ed", false, "output edges?")
 	fn := flag.String("t", "", "tree filename")
 	ig := flag.String("ig", "", "ignore these taxa (comma not space separated)")
+	cpuprofile := flag.String("cpuprofile", "", "write cpu profile to file")
 	flag.Parse()
 	//filename things
 	if *cut > 0.0 {
@@ -44,6 +46,14 @@ func main() {
 	if len(*fn) == 0 {
 		fmt.Fprintln(os.Stderr, "need a filename")
 		os.Exit(1)
+	}
+	if *cpuprofile != "" {
+		f, err := os.Create(*cpuprofile)
+		if err != nil {
+			log.Fatal(err)
+		}
+		pprof.StartCPUProfile(f)
+		defer pprof.StopCPUProfile()
 	}
 	ignore := []string{}
 	if len(*ig) > 0 {
@@ -66,6 +76,7 @@ func main() {
 	maptips := make(map[string]int)
 	mapints := make(map[int]string)
 	start := time.Now()
+	fmt.Fprint(os.Stderr, "reading trees.")
 	for scanner.Scan() {
 		ln := scanner.Text()
 		if len(ln) < 2 {
@@ -106,7 +117,7 @@ func main() {
 						rt[maptips[t.Nam]] = true
 					}
 				}
-				for _, t := range n.Tips() {
+				for _, t := range n.GetTips() {
 					if gophy.SliceStringContains(ignore, t.Nam) == false {
 						lt[maptips[t.Nam]] = true
 						delete(rt, maptips[t.Nam])
@@ -134,7 +145,14 @@ func main() {
 			}
 		}
 		ntrees++
+		if ntrees%10 == 0 {
+			fmt.Fprint(os.Stderr, ".")
+		}
+		if ntrees%100 == 0 {
+			fmt.Fprint(os.Stderr, "\n             ")
+		}
 	}
+	fmt.Fprint(os.Stderr, "\n")
 	end := time.Now()
 	fmt.Fprintln(os.Stderr, "trees read:", ntrees)
 	fmt.Fprintln(os.Stderr, "edges skipped:", skipped)
@@ -187,7 +205,7 @@ func main() {
 							rt[maptips[t.Nam]] = true
 						}
 					}
-					for _, t := range n.Tips() {
+					for _, t := range n.GetTips() {
 						if gophy.SliceStringContains(ignore, t.Nam) == false {
 							lt[maptips[t.Nam]] = true
 							delete(rt, maptips[t.Nam])

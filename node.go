@@ -13,12 +13,36 @@ type Node struct {
 	Len float64 //branch length
 }
 
-// Tips returns a slice with node pointers
-func (n Node) Tips() (tips []*Node) {
+// Walk just a simple walker with chans
+// can use this with this
+/*
+ch := make(chan *Node)
+go func() {
+	rt.Walk(ch)
+	close(ch)
+}()
+for n := range ch {
+	t.Post = append(t.Post, n)
+	if len(n.Chs) == 0 {
+		t.Tips = append(t.Tips, n)
+	}
+}*/
+func (n *Node) Walk(ch chan *Node) {
+	if n == nil {
+		return
+	}
+	for i := range n.Chs {
+		n.Chs[i].Walk(ch)
+	}
+	ch <- n
+}
+
+// GetTips returns a slice with node pointers
+func (n Node) GetTips() (tips []*Node) {
 	x := NewNodeStack()
 	x.Push(&n)
 	for x.Empty() == false {
-		_, c := x.Pop()
+		c, _ := x.Pop()
 		if len(c.Chs) == 0 {
 			tips = append(tips, c)
 		} else {

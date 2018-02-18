@@ -34,16 +34,16 @@ func (s *NodeStack) Empty() (ret bool) {
 }
 
 // Pop a node off the stack
-func (s *NodeStack) Pop() (error, *Node) {
+func (s *NodeStack) Pop() (*Node, error) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
 	l := len(s.s)
 	if l == 0 {
-		return errors.New("Empty NodeStack"), nil
+		return nil, errors.New("Empty NodeStack")
 	}
 
 	res := s.s[l-1]
 	s.s = s.s[:l-1]
-	return nil, res
+	return res, nil
 }

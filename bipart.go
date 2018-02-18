@@ -37,10 +37,47 @@ func (b Bipart) NewickWithNames(nmmap map[int]string) (ret string) {
 	return
 }
 
-// Equals checks whether two biparts are the same
+// Equals trying to be faster
 func (b Bipart) Equals(ib Bipart) (eq bool) {
 	eq = false
 	if len(b.Rt) == len(ib.Rt) && len(b.Lt) == len(ib.Lt) {
+		// if the lengths of left and right are the same, we have to check a special case
+		// where they could be reversed
+		if len(b.Rt) == len(b.Lt) {
+			reverse := false
+			for m := range b.Rt {
+				if _, ok := ib.Rt[m]; !ok {
+					reverse = true
+				}
+				break
+			}
+			if reverse == false {
+				for m := range b.Rt {
+					if _, ok := ib.Rt[m]; !ok {
+						return
+					}
+				}
+				for m := range b.Lt {
+					if _, ok := ib.Lt[m]; !ok {
+						return
+					}
+				}
+				eq = true
+				return
+			}
+			for m := range b.Rt {
+				if _, ok := ib.Lt[m]; !ok {
+					return
+				}
+			}
+			for m := range b.Lt {
+				if _, ok := ib.Rt[m]; !ok {
+					return
+				}
+			}
+			eq = true
+			return
+		}
 		for m := range b.Rt {
 			if _, ok := ib.Rt[m]; !ok {
 				return
@@ -96,8 +133,8 @@ func (b Bipart) ConcordantWith(ib Bipart) (con bool) {
 		}
 	}
 	if IntMapIntersects2(ib.Lt, b.Rt) && IntMapIntersects2(ib.Rt, b.Lt) {
-		if IntMapIntersects(ib.Rt, b.Lt) == false {
-			if IntMapIntersects(ib.Lt, b.Rt) == false {
+		if IntMapIntersects(ib.Rt, b.Rt) == false {
+			if IntMapIntersects(ib.Lt, b.Lt) == false {
 				con = true
 				return
 			}
