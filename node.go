@@ -7,10 +7,11 @@ import (
 
 // Node minimal node struct
 type Node struct {
-	Par *Node   //parent
-	Chs []*Node //childs
-	Nam string  //name
-	Len float64 //branch length
+	Par  *Node   //parent
+	Chs  []*Node //childs
+	Nam  string  //name
+	Len  float64 //branch length
+	Data [][]float64
 }
 
 // Walk just a simple walker with chans

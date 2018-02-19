@@ -5,6 +5,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"strings"
 )
 
 // Seq minimal seq struct
@@ -132,7 +133,7 @@ func ReadSeqsFromFile(filen string) (seqs []Seq) {
 				if first == true {
 					first = false
 				} else {
-					cs := Seq{cnm, csq}
+					cs := Seq{cnm, strings.ToUpper(csq)}
 					csq = ""
 					cnm = ""
 					seqs = append(seqs, cs)
@@ -158,7 +159,7 @@ func ReadSeqsFromFile(filen string) (seqs []Seq) {
 		}
 	}
 	//get the last one
-	cs := Seq{cnm, csq}
+	cs := Seq{cnm, strings.ToUpper(csq)}
 	seqs = append(seqs, cs)
 	return
 }

@@ -1,5 +1,7 @@
 package gophy
 
+import "math"
+
 // CalcSliceIntDifferenceInt calculate the size of the difference (set) between two int slices
 func CalcSliceIntDifferenceInt(a, b []int) int {
 	mb := map[int]bool{}
@@ -81,4 +83,25 @@ func SliceStringContains(s []string, e string) bool {
 		}
 	}
 	return false
+}
+
+func SumFloatVec(x []float64) (s float64) {
+	for _, a := range x {
+		s += a
+	}
+	return
+}
+
+func SumLogExp(a, b float64) float64 {
+	return a + log1exp(b-a)
+}
+
+func log1exp(x float64) float64 {
+	if x > 35 {
+		return x
+	}
+	if x < -10 {
+		return math.Exp(x)
+	}
+	return math.Log1p(math.Exp(x))
 }
