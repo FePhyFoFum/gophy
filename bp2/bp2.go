@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"runtime/pprof"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -92,16 +93,6 @@ func PDeconstructTrees(rp RunParams, maptips map[string]int, mapints map[int]str
 				} else {
 					bps = append(bps, tbp)
 				}
-				//	bpsCounts[len(bps)-1]++
-				//	bpts[ntrees] = append(bpts[ntrees], bpind)
-				//	bpbpts[bpind] = append(bpbpts[bpind], ntrees)
-				//} else {
-				//	if gophy.IntSliceContains(bpts[ntrees], index) == false {
-				//		bpts[ntrees] = append(bpts[ntrees], index)
-				//		bpbpts[index] = append(bpbpts[index], ntrees)
-				//		bpsCounts[index]++
-				//	}
-				//}
 			}
 		}
 		results <- bps
@@ -209,7 +200,9 @@ func main() {
 	}
 	fmt.Fprint(os.Stderr, "\n")
 
+	//
 	//parallel edge reading
+	//
 	jobs := make(chan gophy.Tree, len(trees))
 	results := make(chan []gophy.Bipart, len(trees))
 	for w := 1; w <= *wks; w++ {
@@ -296,7 +289,9 @@ func main() {
 	fmt.Print("\n")
 	close(jobs2)
 	end := time.Now()
+	//
 	//end parallel edge reading
+	//
 	fmt.Fprintln(os.Stderr, "trees read:", ntrees)
 	fmt.Fprintln(os.Stderr, "edges skipped:", skipped)
 	fmt.Fprintln(os.Stderr, "edges read:", len(bps), end.Sub(start))
@@ -392,15 +387,58 @@ func main() {
 			}
 		}
 		// printing this takes a long time. wonder how we can speed this up
-
-		for x, y := range confs {
-			fmt.Fprint(w, bps[x].StringWithNames(mapints)+"\n")
-			//fmt.Println(bps[x].StringWithNames(mapints))
-			for _, n := range y {
-				fmt.Fprint(w, " "+bps[n].StringWithNames(mapints)+"\n")
-				//fmt.Println(" ",bps[n].StringWithNames(mapints))
-				//fmt.Println(" ",bps[n])
+		//presenting results by sorting
+		count2 := 0
+		maxcount2 := 20
+		maxcount := 20
+		//first sort the confs
+		nn := map[int][]int{}
+		var sortedCounts []int
+		for v := range confs {
+			nn[bps[v].Ct] = append(nn[bps[v].Ct], v)
+		}
+		for k := range nn {
+			sortedCounts = append(sortedCounts, k)
+		}
+		sort.Sort(sort.Reverse(sort.IntSlice(sortedCounts)))
+		var sortedConfs []int
+		for _, m := range sortedCounts {
+			for _, k := range nn[m] {
+				sortedConfs = append(sortedConfs, k)
 			}
+		}
+		//then sort the list within
+		//for x, y := range confs {
+		for _, x := range sortedConfs {
+			y := confs[x]
+			fmt.Fprint(w, bps[x].Ct, " ", bps[x].NewickWithNames(mapints)+"\n")
+			n := map[int][]int{}
+			var a []int
+			for _, v := range y {
+				n[bps[v].Ct] = append(n[bps[v].Ct], v)
+			}
+			for k := range n {
+				a = append(a, k)
+			}
+			sort.Sort(sort.Reverse(sort.IntSlice(a)))
+			count := 0
+			for _, k := range a {
+				for _, s := range n[k] {
+					//s is the bps index, k is the count
+					fmt.Fprint(w, "  ", bps[s].Ct, " "+bps[s].NewickWithNames(mapints)+"\n")
+					if count >= maxcount {
+						break
+					}
+					count++
+				}
+				if count >= maxcount {
+					break
+				}
+			}
+			if count2 > maxcount2 {
+				break
+			}
+			count2++
 		}
 		end := time.Now()
 		err = w.Flush()
