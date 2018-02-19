@@ -169,7 +169,7 @@ func main() {
 	mapints := make(map[int]string)
 	start := time.Now()
 	// reading the trees
-	fmt.Fprint(os.Stderr, "reading trees.")
+	fmt.Fprint(os.Stderr, "reading trees\n")
 	for scanner.Scan() {
 		ln := scanner.Text()
 		if len(ln) < 2 {
@@ -195,7 +195,7 @@ func main() {
 			fmt.Fprint(os.Stderr, ".")
 		}
 		if ntrees%100 == 0 {
-			fmt.Fprint(os.Stderr, "\n             ")
+			fmt.Fprint(os.Stderr, "\n")
 		}
 	}
 	fmt.Fprint(os.Stderr, "\n")
@@ -234,7 +234,7 @@ func main() {
 			second = true
 		}
 		if i%50 == 0 {
-			fmt.Println(i)
+			fmt.Fprintln(os.Stderr, i)
 		}
 	}
 	// if there is an odd number
@@ -267,7 +267,7 @@ func main() {
 				second = true
 			}
 			if i%10 == 0 {
-				fmt.Print("-")
+				fmt.Fprint(os.Stderr, "-")
 			}
 		}
 		if njobs == 1 && x1 != nil && second == false {
@@ -286,7 +286,7 @@ func main() {
 			break
 		}
 	}
-	fmt.Print("\n")
+	fmt.Fprint(os.Stderr, "\n")
 	close(jobs2)
 	end := time.Now()
 	//
@@ -319,6 +319,7 @@ func main() {
 			for _, n := range t.Tips {
 				if _, ok := maptips[n.Nam]; !ok {
 					fmt.Println("need to figure out what to do when these tips don't map on the compare tree", n.Nam)
+					ignore = append(ignore, n.Nam)
 				}
 			}
 			for _, n := range t.Post {
