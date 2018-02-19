@@ -113,7 +113,7 @@ func main() {
 	wks := flag.Int("wks", 2, "how many workers?")
 	cut := flag.Float64("cutoff", 0.0, "cutoff (if support is present in the trees)")
 	blcut := flag.Float64("blcut", 0.0, "branch length cutoff")
-	//oed := flag.Bool(p"ed", false, "output edges?")
+	oed := flag.Bool("ed", false, "output edges?")
 	oconf := flag.String("oconf", "", "run conflict by giving an output filename")
 	rf := flag.Bool("rf", false, "run rf?")
 	rfp := flag.Bool("rfp", false, "run rf (partial overlap)?")
@@ -296,6 +296,15 @@ func main() {
 	fmt.Fprintln(os.Stderr, "edges skipped:", skipped)
 	fmt.Fprintln(os.Stderr, "edges read:", len(bps), end.Sub(start))
 
+	//-----------------
+	// now doing things with these edges
+	//------------------
+	// output edges
+	if *oed {
+		fmt.Println("--edges--")
+		gophy.OutputEdges(mapints, bps, ntrees)
+	}
+	// compare to some other tree or bipart
 	if len(*comp) > 0 {
 		fmt.Println("--biparts compared to those in", *comp, "--")
 		fc, err := os.Open(*comp)
@@ -352,6 +361,7 @@ func main() {
 		end := time.Now()
 		fmt.Fprintln(os.Stderr, "comp done:", end.Sub(start))
 	}
+	// output verbose conflict information
 	if len(*oconf) > 0 {
 		fmt.Println("--general conflict--")
 		f, err := os.Create(*oconf)
@@ -448,9 +458,8 @@ func main() {
 		}
 		fmt.Println("conf done:", end.Sub(start))
 	}
-	/*
-		calculate rf
-	*/
+
+	//calculate rf
 	if *rf || *rfp {
 		bpts = make(map[int][]int, ntrees)
 		for i, b := range bps {
@@ -459,6 +468,7 @@ func main() {
 			}
 		}
 	}
+
 	if *rf {
 		jobs := make(chan []int, ntrees*ntrees)
 		results := make(chan []int, ntrees*ntrees)

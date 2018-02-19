@@ -249,13 +249,31 @@ func PConcordance(bps []Bipart, jobs <-chan []int, results chan<- []int) {
 }
 
 // OutputEdges just print the edges
-// bpbpts bipart int to tree index int list
 // mapints are int to string names for the taxa
 // bps list of biparts
 // ntrees number of trees
-func OutputEdges(bpbpts map[int][]int, mapints map[int]string, bps []Bipart, ntrees int) {
-	for i, b := range bps {
-		fmt.Println(b.StringWithNames(mapints), len(bpbpts[i]), float64(len(bpbpts[i]))/float64(ntrees))
+func OutputEdges(mapints map[int]string, bps []Bipart, ntrees int) {
+	//sorted
+	nn := map[int][]int{}
+	var sortedCounts []int
+	for v := range bps {
+		nn[bps[v].Ct] = append(nn[bps[v].Ct], v)
+	}
+	for k := range nn {
+		sortedCounts = append(sortedCounts, k)
+	}
+	sort.Sort(sort.Reverse(sort.IntSlice(sortedCounts)))
+	var sortedBps []int
+	for _, m := range sortedCounts {
+		for _, k := range nn[m] {
+			sortedBps = append(sortedBps, k)
+		}
+	}
+	fmt.Println("numintrees percintrees bipart")
+	for _, x := range sortedBps {
+		i := x
+		b := bps[x]
+		fmt.Println(len(bps[i].TreeIndices), float64(len(bps[i].TreeIndices))/float64(ntrees), b.NewickWithNames(mapints))
 	}
 }
 
