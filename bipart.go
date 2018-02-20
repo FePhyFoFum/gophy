@@ -10,7 +10,8 @@ type Bipart struct {
 	Lt          map[int]bool
 	Rt          map[int]bool
 	Ct          int   // counts
-	TreeIndices []int //index of which trees this is in
+	TreeIndices []int // index of which trees this is in
+	Index       int   // just a unique id
 }
 
 // StringWithNames converts the ints to the the strings from nmmap
@@ -158,35 +159,6 @@ func (b Bipart) CompatibleWith(ib Bipart) (con bool) {
 	return
 }
 
-// IntMapIntersects checks to see if the two map[int]bool intersect (in the set sense)
-func IntMapIntersects(s1 map[int]bool, s2 map[int]bool) (in bool) {
-	in = false
-	for k := range s1 {
-		if s2[k] {
-			in = true
-			return
-		}
-	}
-	return
-}
-
-// IntMapIntersects2 checks to see if the two map[int]bool intersect (in the set sense)
-// with at least 2 matches
-func IntMapIntersects2(s1 map[int]bool, s2 map[int]bool) (in bool) {
-	in = false
-	count := 0
-	for k := range s1 {
-		if s2[k] {
-			count++
-			if count >= 2 {
-				in = true
-				return
-			}
-		}
-	}
-	return
-}
-
 // BipartSliceContains checks to see if the bipart slice contains the bipart and returns the index
 func BipartSliceContains(bps []Bipart, bp Bipart) (ind int) {
 	ind = -1
@@ -197,16 +169,6 @@ func BipartSliceContains(bps []Bipart, bp Bipart) (ind int) {
 		}
 	}
 	return
-}
-
-// IntSliceContains checks to see if the int slice contains an int and returns the bool
-func IntSliceContains(is []int, s int) (rb bool) {
-	for _, a := range is {
-		if a == s {
-			return true
-		}
-	}
-	return false
 }
 
 // PConflicts is a parallel conflict check. The slice is sent. The jobs are the two indices to check.
@@ -241,7 +203,23 @@ func PConcordance(bps []Bipart, jobs <-chan []int, results chan<- []int) {
 	for j := range jobs {
 		in1, in2 := j[0], j[1]
 		b := 0
-		if bps[in1].ConcordantWith(bps[in2]) {
+		// there must be at least one difference in the Trees so it isn't just the same tree
+		if CalcSliceIntDifferenceInt(bps[in1].TreeIndices, bps[in2].TreeIndices) > 0 {
+			if bps[in1].ConcordantWith(bps[in2]) {
+				b = 1
+			}
+		}
+		results <- []int{in1, in2, b}
+	}
+}
+
+// PConcordanceTwoSets same as the one above but where there are two sets
+func PConcordanceTwoSets(comp []Bipart, bps []Bipart, jobs <-chan []int, results chan<- []int) {
+	for j := range jobs {
+		in1, in2 := j[0], j[1]
+		b := 0
+		// there must be at least one difference in the Trees so it isn't just the same tree
+		if comp[in1].ConcordantWith(bps[in2]) {
 			b = 1
 		}
 		results <- []int{in1, in2, b}
@@ -278,29 +256,31 @@ func OutputEdges(mapints map[int]string, bps []Bipart, ntrees int) {
 }
 
 // CompareTreeToBiparts take biparts from a set , comparetreebps, and compre them to another set bps
-func CompareTreeToBiparts(bps []Bipart, comptreebps []Bipart, workers int, mapints map[int]string) {
+// this one is complicated so keep with it
+func CompareTreeToBiparts(bps []Bipart, comptreebps []Bipart, workers int, mapints map[int]string, verbose bool) {
 	jobs := make(chan []int, len(bps)*len(comptreebps))
 	results := make(chan []int, len(bps)*len(comptreebps))
 	for w := 1; w <= workers; w++ {
 		go PConflictsCompTree(bps, comptreebps, jobs, results)
 	}
+	njobs := 0
 	for j := range comptreebps {
 		for i := range bps {
 			jobs <- []int{i, j}
+			njobs++
 		}
 	}
 	close(jobs)
 	confs := make(map[int][]int)   // key is bipart and value are the conflicts
 	allconfs := make(map[int]bool) // list of all the conflicting biparts
-	for range comptreebps {
-		for range bps {
-			x := <-results
-			if x[2] == 1 {
-				confs[x[1]] = append(confs[x[1]], x[0])
-				allconfs[x[0]] = true
-			}
+	for i := 0; i < njobs; i++ {
+		x := <-results
+		if x[2] == 1 {
+			confs[x[1]] = append(confs[x[1]], x[0])
+			allconfs[x[0]] = true
 		}
 	}
+
 	/*
 	 going to make a set of concordance biparts of the set of conflicting biparts
 	*/
@@ -310,29 +290,70 @@ func CompareTreeToBiparts(bps []Bipart, comptreebps []Bipart, workers int, mapin
 	for w := 1; w <= workers; w++ {
 		go PConcordance(bps, jobs, results)
 	}
-
+	njobs = 0
 	for i := range allconfs {
 		for j := range allconfs {
 			jobs <- []int{i, j}
+			njobs++
 		}
 	}
 	close(jobs)
-	bpsConcCounts := make(map[int]int) // key bipart index, value number of concordant bps
-	for i := range allconfs {
-		for j := range allconfs {
-			if i < j {
-				x := <-results
-				if x[2] == 1 {
-					if _, ok := bpsConcCounts[x[0]]; ok {
-						bpsConcCounts[x[0]]++
-					} else {
-						bpsConcCounts[x[0]] = 0
-					}
-					if _, ok := bpsConcCounts[x[1]]; ok {
-						bpsConcCounts[x[1]]++
-					} else {
-						bpsConcCounts[x[1]] = 0
-					}
+	bpsConcCounts := make(map[int]int)             // key bipart index, value number of concordant bps
+	bpsConcTrees := make(map[int]map[int]bool)     // key bipart index, value is list of concordant tree
+	compbpsConcTrees := make(map[int]map[int]bool) // key bipart index, value is list of concordant tree
+	for i := 0; i < njobs; i++ {
+		x := <-results
+		if x[2] == 1 {
+			if _, ok := bpsConcCounts[x[0]]; ok {
+				bpsConcCounts[x[0]]++
+
+			} else {
+				bpsConcCounts[x[0]] = 0
+				bpsConcTrees[x[0]] = make(map[int]bool)
+			}
+			if _, ok := bpsConcCounts[x[1]]; ok {
+				bpsConcCounts[x[1]]++
+			} else {
+				bpsConcCounts[x[1]] = 0
+				bpsConcTrees[x[1]] = make(map[int]bool)
+			}
+			if verbose {
+				for _, m := range bps[x[0]].TreeIndices {
+					bpsConcTrees[x[0]][m] = true
+					bpsConcTrees[x[1]][m] = true
+				}
+				for _, m := range bps[x[1]].TreeIndices {
+					bpsConcTrees[x[0]][m] = true
+					bpsConcTrees[x[1]][m] = true
+				}
+			}
+		}
+	}
+
+	// verbose comp concordance with bps
+	if verbose {
+		jobs = make(chan []int, len(comptreebps)*len(bps))
+		results = make(chan []int, len(comptreebps)*len(bps))
+
+		for w := 1; w <= workers; w++ {
+			go PConcordanceTwoSets(comptreebps, bps, jobs, results)
+		}
+		njobs = 0
+		for i := range comptreebps {
+			for j := range bps {
+				jobs <- []int{i, j}
+				njobs++
+			}
+		}
+		close(jobs)
+		for i := 0; i < njobs; i++ {
+			x := <-results // x[0] is compbpsindex, x[1] is bpsindex
+			if x[2] == 1 {
+				if _, ok := compbpsConcTrees[x[0]]; !ok {
+					compbpsConcTrees[x[0]] = make(map[int]bool)
+				}
+				for _, m := range bps[x[1]].TreeIndices {
+					compbpsConcTrees[x[0]][m] = true
 				}
 			}
 		}
@@ -341,13 +362,34 @@ func CompareTreeToBiparts(bps []Bipart, comptreebps []Bipart, workers int, mapin
 	   sorting the results so that the larger bps are listed first. stop printing after a few.
 	   add a sys command for listing all the results
 	*/
+	minout := 100
+	// add things that don't conflict so that we can get concordance
+	if verbose {
+		for x := range comptreebps {
+			if _, ok := confs[x]; !ok {
+				fmt.Print("(", comptreebps[x].Index, ") ", comptreebps[x].NewickWithNames(mapints)+"\n")
+				fmt.Print("  trees: ", IntMapSetString(compbpsConcTrees[x])+"\n")
+			}
+		}
+	}
 	for x, y := range confs {
-		fmt.Print(comptreebps[x].NewickWithNames(mapints) + "\n")
+		fmt.Print("(", comptreebps[x].Index, ") ", comptreebps[x].NewickWithNames(mapints)+"\n")
+		if verbose {
+			fmt.Print("  trees: ", IntMapSetString(compbpsConcTrees[x])+"\n")
+		}
 		n := map[int][]int{}
 		var a []int
 		for _, v := range y {
 			//n[bpsCounts[v]] = append(n[bpsCounts[v]], v)
 			n[bpsConcCounts[v]] = append(n[bpsConcCounts[v]], v)
+			if verbose {
+				if _, ok := bpsConcTrees[v]; !ok {
+					bpsConcTrees[v] = make(map[int]bool)
+				}
+				for _, m := range bps[v].TreeIndices {
+					bpsConcTrees[v][m] = true
+				}
+			}
 		}
 		for k := range n {
 			a = append(a, k)
@@ -358,14 +400,17 @@ func CompareTreeToBiparts(bps []Bipart, comptreebps []Bipart, workers int, mapin
 			for _, s := range n[k] {
 				//s is the bps index, k is the count
 				//fmt.Print(" ", bpsCounts[s], " "+bps[s].NewickWithNames(mapints)+"\n")
-				fmt.Print("  ", bps[s].Ct, " ", bpsConcCounts[s], " "+bps[s].NewickWithNames(mapints)+"\n")
+				fmt.Print("  ", "(", bps[s].Index, ") ", bps[s].Ct, " ", bpsConcCounts[s], " "+bps[s].NewickWithNames(mapints)+"\n")
+				if verbose {
+					fmt.Print("    trees:", IntMapSetString(bpsConcTrees[s]), "\n")
+				}
 				// fmt.Println(s, k)
 				if count >= 10 {
 					break
 				}
 				count++
 			}
-			if count >= 5 {
+			if count >= minout {
 				break
 			}
 		}

@@ -1,6 +1,9 @@
 package gophy
 
-import "math"
+import (
+	"math"
+	"strconv"
+)
 
 // CalcSliceIntDifferenceInt calculate the size of the difference (set) between two int slices
 func CalcSliceIntDifferenceInt(a, b []int) int {
@@ -75,8 +78,72 @@ func PCalcRFDistancesPartial(bpts map[int][]int, bps []Bipart, jobs <-chan []int
 	}
 }
 
-//SliceStringContains tells you whether the e string is in the slice
-func SliceStringContains(s []string, e string) bool {
+// IntSliceIntersects checks to see whether two int slices intersect
+func IntSliceIntersects(a, b []int) (rb bool) {
+	rb = false
+	for _, k := range a {
+		for _, l := range b {
+			if k == l {
+				rb = true
+				return
+			}
+		}
+	}
+	return
+}
+
+// IntSliceContains checks to see if the int slice contains an int and returns the bool
+func IntSliceContains(is []int, s int) (rb bool) {
+	rb = false
+	for _, a := range is {
+		if a == s {
+			rb = true
+			return
+		}
+	}
+	return
+}
+
+// IntMapIntersects checks to see if the two map[int]bool intersect (in the set sense)
+func IntMapIntersects(s1 map[int]bool, s2 map[int]bool) (in bool) {
+	in = false
+	for k := range s1 {
+		if s2[k] {
+			in = true
+			return
+		}
+	}
+	return
+}
+
+// IntMapIntersects2 checks to see if the two map[int]bool intersect (in the set sense)
+// with at least 2 matches
+func IntMapIntersects2(s1 map[int]bool, s2 map[int]bool) (in bool) {
+	in = false
+	count := 0
+	for k := range s1 {
+		if s2[k] {
+			count++
+			if count >= 2 {
+				in = true
+				return
+			}
+		}
+	}
+	return
+}
+
+// IntMapSetString get a string for printing off a set
+func IntMapSetString(intmap map[int]bool) (s string) {
+	s = ""
+	for m := range intmap {
+		s += strconv.Itoa(m) + " "
+	}
+	return
+}
+
+// StringSliceContains tells you whether the e string is in the slice
+func StringSliceContains(s []string, e string) bool {
 	for _, a := range s {
 		if a == e {
 			return true
@@ -85,6 +152,7 @@ func SliceStringContains(s []string, e string) bool {
 	return false
 }
 
+// SumFloatVec sum the float vectors
 func SumFloatVec(x []float64) (s float64) {
 	for _, a := range x {
 		s += a
@@ -92,6 +160,7 @@ func SumFloatVec(x []float64) (s float64) {
 	return
 }
 
+// SumLogExp sum log of exps
 func SumLogExp(a, b float64) float64 {
 	return a + log1exp(b-a)
 }
