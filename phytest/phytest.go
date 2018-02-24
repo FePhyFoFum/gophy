@@ -11,29 +11,140 @@ import (
 	"runtime/pprof"
 	"time"
 
+	"golang.org/x/exp/rand"
+
+	"gonum.org/v1/gonum/diff/fd"
+
 	"gonum.org/v1/gonum/floats"
+	"gonum.org/v1/gonum/optimize"
 )
 
+// OptimizeBL ...
+func OptimizeBL(t *gophy.Tree, x *gophy.DNAModel, nsites int, wks int) {
+	count := 0
+	fcn := func(bl []float64) float64 {
+		for _, i := range bl {
+			if i < 0 {
+				return 1000000000000
+			}
+		}
+		for i, j := range t.Post {
+			j.Len = bl[i]
+		}
+		lnl := PCalcLogLike(t, x, nsites, wks)
+		if count%100 == 0 {
+			fmt.Println(count, lnl)
+		}
+		count++
+		return -lnl
+	}
+	grad := func(grad, x []float64) {
+		fd.Gradient(grad, fcn, x, nil)
+	}
+	settings := optimize.DefaultSettings()
+	settings.UseInitialData = false
+	settings.FunctionThreshold = 10
+	settings.GradientThreshold = 100
+	settings.Concurrent = 0
+	//settings.Recorder = nil
+	FC := optimize.FunctionConverge{}
+	FC.Absolute = 10.
+	FC.Relative = 10.
+	FC.Iterations = 10
+	settings.FunctionConverge = &FC
+	p := optimize.Problem{Func: fcn, Grad: grad, Hess: nil}
+	var p0 []float64
+	for _, i := range t.Post {
+		p0 = append(p0, i.Len)
+	}
+	res, err := optimize.Local(p, p0, settings, nil)
+	if err != nil {
+		//fmt.Println(err)
+	}
+	for i, j := range t.Post {
+		j.Len = res.X[i]
+	}
+	fmt.Println(t.Rt.Newick(true))
+}
+
+func slidingWindow(x, w float64) float64 {
+	return (rand.Float64() * ((x + w/2) - (x - w/2))) + (x - w/2.)
+}
+
+// MCMC simple MCMC for branch lengths
+func MCMC(t *gophy.Tree, x *gophy.DNAModel, nsites int, wks int) {
+	w := 0.01
+	printf := 100
+	iter := 10000
+	curlike := PCalcLogLike(t, x, nsites, wks)
+	start := time.Now()
+	for _, i := range t.Post {
+		i.Len = i.Len + 0.5
+	}
+	for i := 0; i < iter; i++ {
+		nd := rand.Intn(len(t.Post))
+		odv := t.Post[nd].Len
+		newv := slidingWindow(odv, w)
+		t.Post[nd].Len = newv
+		lnl := PCalcLogLike(t, x, nsites, wks)
+		r := math.Log(rand.Float64())
+		if r < lnl-curlike {
+			curlike = lnl
+		} else {
+			t.Post[nd].Len = odv
+		}
+		if i%printf == 0 {
+			curt := time.Now()
+			fmt.Println(i, lnl, "(last 100:", curt.Sub(start), ")")
+		}
+	}
+	end := time.Now()
+	fmt.Println(end.Sub(start))
+
+}
+
 // PCalcLogLike this will calculate log like in parallel
-func PCalcLogLike(t gophy.Tree, x gophy.DNAModel, nsites int, wks int) (fl float64) {
+func PCalcLogLike(t *gophy.Tree, x *gophy.DNAModel, nsites int, wks int) (fl float64) {
 	fl = 0.0
 	jobs := make(chan int, nsites)
 	results := make(chan float64, nsites)
+	// populate the P matrix dictionary without problems of race conditions
+	// just the first site
+	//x.EmptyPDict()
+	fl += CalcLogLikeOneSite(t, x, 0)
 	for i := 0; i < wks; i++ {
 		go CalcLogLikeWork(t, x, jobs, results)
 	}
-	for i := 0; i < nsites; i++ {
+	for i := 1; i < nsites; i++ {
 		jobs <- i
 	}
 	close(jobs)
-	for i := 0; i < nsites; i++ {
+	for i := 1; i < nsites; i++ {
 		fl += <-results
 	}
 	return
 }
 
+// CalcLogLikeOneSite just calculate the likelihood of one site
+// probably used to populate the PDict in the DNA Model so that we can reuse the calculations
+func CalcLogLikeOneSite(t *gophy.Tree, x *gophy.DNAModel, site int) float64 {
+	sl := 0.0
+	for _, n := range t.Post {
+		if len(n.Chs) > 0 {
+			CalcLogLikeNode(n, x, site)
+		}
+		if t.Rt == n {
+			for i := 0; i < 4; i++ {
+				t.Rt.Data[site][i] += math.Log(0.25)
+			}
+			sl = floats.LogSumExp(t.Rt.Data[site])
+		}
+	}
+	return sl
+}
+
 // CalcLogLikeWork this is intended for a worker that will be executing this per site
-func CalcLogLikeWork(t gophy.Tree, x gophy.DNAModel, jobs <-chan int, results chan<- float64) {
+func CalcLogLikeWork(t *gophy.Tree, x *gophy.DNAModel, jobs <-chan int, results chan<- float64) {
 	for j := range jobs {
 		sl := 0.0
 		for _, n := range t.Post {
@@ -52,7 +163,7 @@ func CalcLogLikeWork(t gophy.Tree, x gophy.DNAModel, jobs <-chan int, results ch
 }
 
 // CalcLogLikeNode calculates likelihood for node
-func CalcLogLikeNode(nd *gophy.Node, model gophy.DNAModel, site int) {
+func CalcLogLikeNode(nd *gophy.Node, model *gophy.DNAModel, site int) {
 	for i := 0; i < 4; i++ {
 		nd.Data[site][i] = 0.
 	}
@@ -80,6 +191,7 @@ func CalcLogLikeNode(nd *gophy.Node, model gophy.DNAModel, site int) {
 }
 
 func main() {
+	rand.Seed(uint64(time.Now().UTC().UnixNano()))
 	tfn := flag.String("t", "", "tree filename")
 	afn := flag.String("s", "", "seq filename")
 	cpuprofile := flag.String("cpuprofile", "", "write cpu profile to file")
@@ -100,7 +212,7 @@ func main() {
 		pprof.StartCPUProfile(f)
 		defer pprof.StopCPUProfile()
 	}
-	x := gophy.DNAModel{}
+	x := gophy.NewDNAModel()
 	x.SetupQ()
 	x.SetNucMap()
 
@@ -119,7 +231,7 @@ func main() {
 	defer f.Close()
 	scanner := bufio.NewScanner(f)
 	var rt *gophy.Node
-	var t gophy.Tree
+	t := gophy.NewTree()
 	for scanner.Scan() {
 		ln := scanner.Text()
 		if len(ln) < 2 {
@@ -139,8 +251,6 @@ func main() {
 				n.Data[i][x.CharMap[string(seqs[n.Nam][i])]] = 1.0
 			}
 		}
-		//populate Pmatrices
-		x.SetP(n.Len)
 	}
 
 	// calc likelihood
@@ -153,5 +263,10 @@ func main() {
 	end := time.Now()
 	fmt.Println("lnL:", l)
 	fmt.Println(end.Sub(start))
-	//fmt.Println(math.Log(l))
+	fmt.Println(t.Rt.Newick(true))
+	start = time.Now()
+	//OptimizeBL(t, x, nsites, 10)
+	MCMC(t, x, nsites, 10)
+	end = time.Now()
+	fmt.Println(end.Sub(start))
 }

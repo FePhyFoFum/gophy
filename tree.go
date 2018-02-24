@@ -10,6 +10,10 @@ type Tree struct {
 	Index int // if there is an identifying index
 }
 
+func NewTree() *Tree {
+	return &Tree{}
+}
+
 func (t *Tree) populatePrePostIt(rt *Node) {
 	stk := NewNodeStack()
 	stk.Push(rt)
