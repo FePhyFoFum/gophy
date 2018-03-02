@@ -40,7 +40,6 @@ func main() {
 	rf := flag.Bool("rf", false, "run rf?")
 	rfp := flag.Bool("rfp", false, "run rf (partial overlap)?")
 	comp := flag.String("c", "", "compare biparts to those in this file")
-	cc := flag.String("cc", "", "combine -c results from two runs")
 	pca := flag.Bool("pca", false, "pairwise compare all trees (with a pool of biparts)")
 	pc := flag.Bool("pc", false, "pairwise compare each tree (with each tree)")
 	fn := flag.String("t", "", "tree filename")
@@ -166,11 +165,6 @@ func main() {
 		runCompare(rp, ignore, *comp, *wks, mapints, maptips, bps, *v)
 	}
 
-	// combine compare
-	if len(*cc) > 0 {
-		runCombineCompare()
-
-	}
 	// output verbose conflict information
 	if len(*oconf) > 0 {
 		runConflict(*oconf, *wks, bps, mapints)
@@ -449,10 +443,6 @@ func runCompare(rp RunParams, ignore []string, compfile string, workers int, map
 	gophy.CompareTreeToBiparts(bps, comptreebps, workers, mapints, verbose)
 	end := time.Now()
 	fmt.Fprintln(os.Stderr, "comp done:", end.Sub(start))
-}
-
-func runCombineCompare() {
-
 }
 
 // PmergeBps merge the biparts from two sets for parallel use
