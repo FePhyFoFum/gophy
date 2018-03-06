@@ -1,6 +1,7 @@
 package gophy
 
 import (
+	"bufio"
 	"fmt"
 	"io"
 	"log"
@@ -133,55 +134,43 @@ func PNW(seqs []Seq, jobs <-chan []int, results chan<- float32) {
 	}
 }
 
-// ReadSeqsFromFile give filename seq slice
 func ReadSeqsFromFile(filen string) (seqs []Seq) {
 	file, err := os.Open(filen)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer file.Close()
-	buf := make([]byte, 1)
-	var cc string
 	var csq string
 	var cnm string
 	first := true
-	onname := false
+	reader := bufio.NewReader(file)
 	for {
-		n, err := file.Read(buf)
-		if n > 0 {
-			cc = string(buf[:n])
-			if cc == ">" {
-				onname = true
+		st, err := reader.ReadString('\n')
+		if len(st) > 0 {
+			if string(st[0]) == ">" {
 				if first == true {
 					first = false
+					cnm = strings.TrimRight(st[1:], "\n")
 				} else {
-					cs := Seq{cnm, strings.ToUpper(csq)}
-					csq = ""
-					cnm = ""
+					cs := Seq{cnm, csq}
 					seqs = append(seqs, cs)
-				}
-			} else if onname == true {
-				if cc == "\n" {
-					onname = false
-				} else {
-					cnm += cc
+					csq = ""
+					cnm = strings.TrimRight(st[1:], "\n")
 				}
 			} else {
-				if cc != "\n" {
-					csq += cc
-				}
+				csq += strings.TrimRight(st, "\n")
 			}
 		}
 		if err == io.EOF {
 			break
 		}
 		if err != nil {
-			log.Printf("read %d bytes: %v", n, err)
+			log.Printf("read %d bytes: %v", st, err)
 			break
 		}
 	}
-	//get the last one
-	cs := Seq{cnm, strings.ToUpper(csq)}
+	// get the last one
+	cs := Seq{cnm, csq}
 	seqs = append(seqs, cs)
 	return
 }
