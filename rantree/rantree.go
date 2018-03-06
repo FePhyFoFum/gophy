@@ -19,7 +19,7 @@ func main() {
 		fmt.Fprint(os.Stderr, "rantree -n numtips\n")
 		os.Exit(1)
 	}
-	nt := flag.Int("nt", 3, "how many tips")
+	nt := flag.Int("n", 3, "how many tips")
 	flag.Parse()
 	nodeints := []int{}
 	nodemap := make(map[int]*gophy.Node)
