@@ -98,6 +98,7 @@ func main() {
 	tfn := flag.String("t", "", "tree filename")
 	afn := flag.String("s", "", "seq filename")
 	md := flag.String("m", "1.0,1.0,1.0,1.0,1.0", "five params for GTR")
+	wks := flag.Int("w", 4, "number of threads")
 	cpuprofile := flag.String("cpuprofile", "", "write cpu profile to file")
 	flag.Parse()
 	if len(*tfn) == 0 {
@@ -184,7 +185,7 @@ func main() {
 	if nsites < w {
 		w = nsites
 	}
-	l := gophy.PCalcLogLike(t, x, nsites, 10)
+	l := gophy.PCalcLogLike(t, x, nsites, *wks)
 	end := time.Now()
 	fmt.Println("lnL:", l)
 	fmt.Println(end.Sub(start))
