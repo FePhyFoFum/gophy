@@ -8,7 +8,7 @@ import (
 
 // DNAModel standard DNA struct
 type DNAModel struct {
-	BF      mat.Vector // base frequencies
+	BF      []float64 // base frequencies
 	R       *mat.Dense
 	Q       *mat.Dense
 	QS      *mat.SymDense
@@ -27,8 +27,9 @@ func NewDNAModel() *DNAModel {
 	return &DNAModel{}
 }
 
-// SetupQ setup Q matrix
-func (d *DNAModel) SetupQ() {
+// SetupQJC setup Q matrix
+func (d *DNAModel) SetupQJC() {
+	d.BF = []float64{0.25, 0.25, 0.25, 0.25}
 	//just JC for now
 	d.Ps = make(map[float64]*mat.Dense)
 	d.Q = mat.NewDense(4, 4, nil)
@@ -51,6 +52,90 @@ func (d *DNAModel) SetupQ() {
 	//d.EigenVecsT = d.EigenVecs.T()
 	//d.EigenVals = ES.Values(nil)
 	//d.X = mat.NewSymDense(4, nil)
+}
+
+func sumMatrix(m *mat.Dense) (s float64) {
+	s = 0
+	for i := 0; i < 4; i++ {
+		for j := 0; j < 4; j++ {
+			s += m.At(i, j)
+		}
+	}
+	return
+}
+func sumRow(m *mat.Dense, i int) (s float64) {
+	s = 0
+	for j := 0; j < 4; j++ {
+		s += m.At(i, j)
+	}
+	return
+}
+
+//SetRateMatrix needs to be done before doing SetupQGTR
+// just send along the 5 rates and this will make them the whole matrix
+func (d *DNAModel) SetRateMatrix(params []float64) {
+	d.R = mat.NewDense(4, 4, nil)
+	d.R.Set(0, 0, 0)
+	d.R.Set(1, 1, 0)
+	d.R.Set(2, 2, 0)
+	d.R.Set(3, 3, 0)
+	d.R.Set(0, 1, params[0])
+	d.R.Set(1, 0, params[0])
+	d.R.Set(0, 2, params[1])
+	d.R.Set(2, 0, params[1])
+	d.R.Set(0, 3, params[2])
+	d.R.Set(3, 0, params[2])
+	d.R.Set(1, 2, params[3])
+	d.R.Set(2, 1, params[3])
+	d.R.Set(1, 3, params[4])
+	d.R.Set(3, 1, params[4])
+	d.R.Set(2, 3, 1.)
+	d.R.Set(3, 2, 1.)
+}
+
+// SetBaseFreqs needs to be done before doing SetupQGTR
+func (d *DNAModel) SetBaseFreqs(basefreq []float64) {
+	d.BF = basefreq
+}
+
+// SetupQGTR setup Q matrix
+func (d *DNAModel) SetupQGTR() {
+	bigpi := mat.NewDense(4, 4, []float64{1, 1, 1, 1,
+		1, 1, 1, 1,
+		1, 1, 1, 1,
+		1, 1, 1, 1})
+	for i := 0; i < 4; i++ {
+		for j := 0; j < 4; j++ {
+			if i != j {
+				bigpi.Set(i, j, d.BF[i]*d.BF[j])
+			} else {
+				bigpi.Set(i, j, d.BF[i])
+			}
+		}
+	}
+	dQ := mat.NewDense(4, 4, nil)
+	dQ.MulElem(d.R, bigpi)
+	dQ.Set(0, 0, 0.0)
+	dQ.Set(1, 1, 0.0)
+	dQ.Set(2, 2, 0.0)
+	dQ.Set(3, 3, 0.0)
+	s := sumMatrix(dQ)
+	dQ.Scale(1/s, dQ)
+	for i := 0; i < 4; i++ {
+		dQ.Set(i, i, 0-sumRow(dQ, i))
+	}
+	for i := 0; i < 4; i++ {
+		for j := 0; j < 4; j++ {
+			dQ.Set(i, j, dQ.At(i, j)/d.BF[j])
+		}
+	}
+	m := dQ.T()
+	d.Q = mat.NewDense(4, 4, nil)
+	for i := 0; i < 4; i++ {
+		for j := 0; j < 4; j++ {
+			d.Q.Set(i, j, m.At(i, j))
+		}
+	}
 }
 
 // ExpValue used for the matrix exponential

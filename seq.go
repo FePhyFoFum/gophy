@@ -20,6 +20,28 @@ func (s Seq) GetFasta() (ret string) {
 	return
 }
 
+// GetEmpiricalBaseFreqs get the empirical base freqs from the seqs
+func GetEmpiricalBaseFreqs(seqs map[string]string) (bf []float64) {
+	bf = make([]float64, 4)
+	AC := 0
+	CC := 0
+	GC := 0
+	TC := 0
+	total := 0
+	for _, j := range seqs {
+		AC += strings.Count(j, "A")
+		CC += strings.Count(j, "C")
+		GC += strings.Count(j, "G")
+		TC += strings.Count(j, "T")
+	}
+	total = AC + CC + GC + TC
+	bf[0] = float64(AC) / float64(total)
+	bf[1] = float64(CC) / float64(total)
+	bf[2] = float64(GC) / float64(total)
+	bf[3] = float64(TC) / float64(total)
+	return
+}
+
 func maxv(nums ...float32) (ret float32) {
 	ret = -99999.9
 	for _, n := range nums {
