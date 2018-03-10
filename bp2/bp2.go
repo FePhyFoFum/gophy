@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"gophy"
+	"io"
 	"log"
 	"os"
 	"runtime/pprof"
@@ -86,7 +87,7 @@ func main() {
 		os.Exit(1)
 	}
 	defer f.Close()
-	scanner := bufio.NewScanner(f)
+	scanner := bufio.NewReader(f)
 	bps := make([]gophy.Bipart, 0) // list of all biparts
 	bpts := make(map[int][]int)    // key tree index, value bipart index list
 	ntrees := 0
@@ -98,32 +99,38 @@ func main() {
 	start := time.Now()
 	// reading the trees
 	fmt.Fprint(os.Stderr, "reading trees\n")
-	for scanner.Scan() {
-		ln := scanner.Text()
-		if len(ln) < 2 {
-			continue
-		}
-		rt := gophy.ReadNewickString(ln)
-		var t gophy.Tree
-		t.Index = ntrees
-		t.Instantiate(rt)
-		trees = append(trees, t)
-		for _, n := range t.Tips {
-			if gophy.StringSliceContains(ignore, n.Nam) {
-				continue
+	for {
+		ln, err := scanner.ReadString('\n')
+		if len(ln) > 0 {
+			rt := gophy.ReadNewickString(ln)
+			var t gophy.Tree
+			t.Index = ntrees
+			t.Instantiate(rt)
+			trees = append(trees, t)
+			for _, n := range t.Tips {
+				if gophy.StringSliceContains(ignore, n.Nam) {
+					continue
+				}
+				if _, ok := maptips[n.Nam]; !ok {
+					maptips[n.Nam] = numtips
+					mapints[numtips] = n.Nam
+					numtips++
+				}
 			}
-			if _, ok := maptips[n.Nam]; !ok {
-				maptips[n.Nam] = numtips
-				mapints[numtips] = n.Nam
-				numtips++
+			ntrees++
+			if ntrees%10 == 0 {
+				fmt.Fprint(os.Stderr, ".")
+			}
+			if ntrees%100 == 0 {
+				fmt.Fprint(os.Stderr, "\n")
 			}
 		}
-		ntrees++
-		if ntrees%10 == 0 {
-			fmt.Fprint(os.Stderr, ".")
+		if err == io.EOF {
+			break
 		}
-		if ntrees%100 == 0 {
-			fmt.Fprint(os.Stderr, "\n")
+		if err != nil {
+			log.Printf("read %d bytes: %v", ln, err)
+			break
 		}
 	}
 	fmt.Fprint(os.Stderr, "\n")

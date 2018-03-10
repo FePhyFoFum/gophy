@@ -6,6 +6,11 @@ import (
 	"gonum.org/v1/gonum/floats"
 )
 
+type LikeResult struct {
+	value float64
+	site  int
+}
+
 /*
  This is for calculating likelihoods for nucleotides
 */
@@ -14,7 +19,8 @@ import (
 func PCalcLogLike(t *Tree, x *DNAModel, nsites int, wks int) (fl float64) {
 	fl = 0.0
 	jobs := make(chan int, nsites)
-	results := make(chan float64, nsites)
+	//results := make(chan float64, nsites)
+	results := make(chan LikeResult, nsites)
 	// populate the P matrix dictionary without problems of race conditions
 	// just the first site
 	x.EmptyPDict()
@@ -26,8 +32,36 @@ func PCalcLogLike(t *Tree, x *DNAModel, nsites int, wks int) (fl float64) {
 		jobs <- i
 	}
 	close(jobs)
+	rr := LikeResult{}
 	for i := 1; i < nsites; i++ {
-		fl += <-results
+		rr = <-results
+		fl += rr.value
+		//fl += <-results
+	}
+	return
+}
+
+func PCalcLogLikePatterns(t *Tree, x *DNAModel, patternval []float64, wks int) (fl float64) {
+	fl = 0.0
+	nsites := len(patternval)
+	jobs := make(chan int, nsites)
+	//results := make(chan float64, nsites)
+	results := make(chan LikeResult, nsites)
+	// populate the P matrix dictionary without problems of race conditions
+	// just the first site
+	x.EmptyPDict()
+	fl += CalcLogLikeOneSite(t, x, 0) * patternval[0]
+	for i := 0; i < wks; i++ {
+		go CalcLogLikeWork(t, x, jobs, results)
+	}
+	for i := 1; i < nsites; i++ {
+		jobs <- i
+	}
+	close(jobs)
+	rr := LikeResult{}
+	for i := 1; i < nsites; i++ {
+		rr = <-results
+		fl += (rr.value * patternval[rr.site])
 	}
 	return
 }
@@ -140,7 +174,7 @@ func CalcLogLikeOneSiteMarked(t *Tree, x *DNAModel, site int) float64 {
 }
 
 // CalcLogLikeWork this is intended for a worker that will be executing this per site
-func CalcLogLikeWork(t *Tree, x *DNAModel, jobs <-chan int, results chan<- float64) {
+func CalcLogLikeWork(t *Tree, x *DNAModel, jobs <-chan int, results chan<- LikeResult) { //results chan<- float64) {
 	for j := range jobs {
 		sl := 0.0
 		for _, n := range t.Post {
@@ -154,7 +188,7 @@ func CalcLogLikeWork(t *Tree, x *DNAModel, jobs <-chan int, results chan<- float
 				sl = floats.LogSumExp(t.Rt.Data[j])
 			}
 		}
-		results <- sl
+		results <- LikeResult{value: sl, site: j}
 	}
 }
 

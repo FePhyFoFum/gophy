@@ -12,7 +12,7 @@ type DNAModel struct {
 	R       *mat.Dense
 	Q       *mat.Dense
 	QS      *mat.SymDense
-	CharMap map[string]int
+	CharMap map[string][]int
 	//sync.RWMutex
 	Ps         map[float64]*mat.Dense
 	EigenVals  []float64 //to be exponentiated
@@ -221,7 +221,36 @@ func (d *DNAModel) GetPCalc(blen float64) *mat.Dense {
 	return &P
 }
 
+/* TODO: get this in there
+	R,r ==> {AG}
+   Y,y ==> {CT}
+   M,m ==> {AC}
+   K,k ==> {GT}
+   S,s ==> {CG}
+   W,w ==> {AT}
+   H,h ==> {ACT}
+   B,b ==> {CGT}
+   V,v ==> {ACG}
+   D,d ==> {AGT}
+   N,n ==> {ACGT}
+*/
 // SetNucMap for getting the position in the array
 func (d *DNAModel) SetNucMap() {
-	d.CharMap = map[string]int{"A": 0, "C": 1, "G": 2, "T": 3}
+	d.CharMap = make(map[string][]int)
+	d.CharMap["A"] = []int{0}
+	d.CharMap["C"] = []int{1}
+	d.CharMap["G"] = []int{2}
+	d.CharMap["T"] = []int{3}
+	d.CharMap["-"] = []int{0, 1, 2, 3}
+	d.CharMap["N"] = []int{0, 1, 2, 3}
+	d.CharMap["R"] = []int{0, 2}
+	d.CharMap["Y"] = []int{1, 3}
+	d.CharMap["M"] = []int{0, 1}
+	d.CharMap["K"] = []int{2, 3}
+	d.CharMap["S"] = []int{1, 2}
+	d.CharMap["W"] = []int{0, 3}
+	d.CharMap["H"] = []int{0, 1, 3}
+	d.CharMap["B"] = []int{1, 2, 3}
+	d.CharMap["V"] = []int{0, 1, 2}
+	d.CharMap["D"] = []int{0, 2, 3}
 }

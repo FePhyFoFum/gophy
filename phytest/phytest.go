@@ -93,6 +93,66 @@ func printModel(modelparams []float64, basefreqs []float64) {
 	fmt.Fprintln(os.Stderr, modelparams[2], modelparams[4], 1.0, "-")
 }
 
+func getPatterns(seqs map[string]string, nsites int, seqnames []string) (patterns map[string][]int,
+	patternsint map[int]float64, gapsites []int, constant []int, uninformative []int) {
+	patterns = make(map[string][]int)
+	for k := 0; k < nsites; k++ {
+		tp := ""
+		As, Cs, Gs, Ts, gapcount := 0, 0, 0, 0, 0
+		for _, j := range seqnames {
+			tp += string(seqs[j][k])
+			switch c := string(seqs[j][k]); c {
+			case "A":
+				As++
+			case "C":
+				Cs++
+			case "G":
+				Gs++
+			case "T":
+				Ts++
+			case "-":
+				gapcount++
+			case "N":
+				gapcount++
+			default:
+				fmt.Println(c)
+			}
+		}
+		efc := len(seqs) - gapcount
+		if gapcount == len(seqs) {
+			gapsites = append(gapsites, k)
+			continue
+		} else if As >= efc || Cs >= efc || Gs >= efc || Ts >= efc {
+			constant = append(constant, k)
+		}
+		twocount := 0
+		if As >= 2 {
+			twocount++
+		}
+		if Cs >= 2 {
+			twocount++
+		}
+		if Gs >= 2 {
+			twocount++
+		}
+		if Ts >= 2 {
+			twocount++
+		}
+		if twocount < 2 {
+			uninformative = append(uninformative, k)
+		}
+		if _, ok := patterns[tp]; !ok {
+			patterns[tp] = make([]int, 0)
+		}
+		patterns[tp] = append(patterns[tp], k)
+	}
+	patternsint = make(map[int]float64) // key is first site, value is the number of that one
+	for _, j := range patterns {
+		patternsint[j[0]] = float64(len(j))
+	}
+	return
+}
+
 func main() {
 	rand.Seed(uint64(time.Now().UTC().UnixNano()))
 	tfn := flag.String("t", "", "tree filename")
@@ -124,12 +184,22 @@ func main() {
 	//read a seq file
 	nsites := 0
 	seqs := map[string]string{}
+	seqnames := make([]string, 0)
 	for _, i := range gophy.ReadSeqsFromFile(*afn) {
 		seqs[i.NM] = i.SQ
+		seqnames = append(seqnames, i.NM)
 		nsites = len(i.SQ)
 	}
 	bf := gophy.GetEmpiricalBaseFreqs(seqs)
 	x.SetBaseFreqs(bf)
+	// get the site patternas
+	patterns, patternsint, gapsites, constant, uninformative := getPatterns(seqs, nsites, seqnames)
+	//list of sites
+	fmt.Fprintln(os.Stderr, "nsites:", nsites)
+	fmt.Fprintln(os.Stderr, "patterns:", len(patterns), len(patternsint))
+	fmt.Fprintln(os.Stderr, "onlygaps:", len(gapsites))
+	fmt.Fprintln(os.Stderr, "constant:", len(constant))
+	fmt.Fprintln(os.Stderr, "uninformative:", len(uninformative))
 	// model things
 	mds := strings.Split(*md, ",")
 	modelparams := make([]float64, 5)
@@ -149,6 +219,7 @@ func main() {
 	printModel(modelparams, bf)
 	x.SetRateMatrix(modelparams)
 	x.SetupQGTR()
+
 	//read a tree file
 	f, err := os.Open(*tfn)
 	if err != nil {
@@ -167,14 +238,60 @@ func main() {
 		t.Instantiate(rt)
 	}
 	//each site has a vector of 4 for DNA conditionals
-	for _, n := range t.Post {
+	/*for _, n := range t.Post {
 		n.Data = make([][]float64, nsites)
 		for i := 0; i < nsites; i++ {
 			n.Data[i] = []float64{0.0, 0.0, 0.0, 0.0}
 		}
 		if len(n.Chs) == 0 {
 			for i := 0; i < nsites; i++ {
-				n.Data[i][x.CharMap[string(seqs[n.Nam][i])]] = 1.0
+				if string(seqs[n.Nam][i]) == "-" || string(seqs[n.Nam][i]) == "N" {
+					n.Data[i][0] = 1.0
+					n.Data[i][1] = 1.0
+					n.Data[i][2] = 1.0
+					n.Data[i][3] = 1.0
+				} else {
+					n.Data[i][x.CharMap[string(seqs[n.Nam][i])]] = 1.0
+				}
+			}
+		}
+	}*/
+	//TRYING PATTERNS
+
+	patternvec := make([]int, len(patternsint))     //which site
+	patternval := make([]float64, len(patternsint)) //log of number of sites
+	count := 0
+	for i := range patternsint {
+		patternvec[count] = i
+		patternval[count] = patternsint[i]
+		count++
+	}
+	for _, n := range t.Post {
+		n.Data = make([][]float64, len(patternsint))
+		for i := 0; i < len(patternsint); i++ {
+			n.Data[i] = []float64{0.0, 0.0, 0.0, 0.0}
+		}
+		if len(n.Chs) == 0 {
+			count := 0
+			for _, i := range patternvec {
+				if _, ok := x.CharMap[string(seqs[n.Nam][i])]; !ok {
+					if string(seqs[n.Nam][i]) != "-" && string(seqs[n.Nam][i]) != "N" {
+						fmt.Println(string(seqs[n.Nam][i]))
+						os.Exit(0)
+					}
+				}
+				for j := range x.CharMap[string(seqs[n.Nam][i])] {
+					n.Data[count][j] = 1.0
+				} /*
+					if string(seqs[n.Nam][i]) == "-" || string(seqs[n.Nam][i]) == "N" {
+						n.Data[count][0] = 1.0
+						n.Data[count][1] = 1.0
+						n.Data[count][2] = 1.0
+						n.Data[count][3] = 1.0
+					} else {
+						n.Data[count][x.CharMap[string(seqs[n.Nam][i])]] = 1.0
+					}*/
+				count++
 			}
 		}
 	}
@@ -185,10 +302,11 @@ func main() {
 	if nsites < w {
 		w = nsites
 	}
-	l := gophy.PCalcLogLike(t, x, nsites, *wks)
+	//l := gophy.PCalcLogLike(t, x, nsites, *wks)
+	l := gophy.PCalcLogLikePatterns(t, x, patternval, *wks)
 	end := time.Now()
 	fmt.Println("lnL:", l)
-	fmt.Println(end.Sub(start))
+	fmt.Fprintln(os.Stderr, end.Sub(start))
 	//fmt.Println(t.Rt.Newick(true))
 	start = time.Now()
 	/*
@@ -209,5 +327,5 @@ func main() {
 		}*/
 	//MCMC(t, x, nsites, 10, "temp.mcmc.tre")
 	end = time.Now()
-	fmt.Println(end.Sub(start))
+	fmt.Fprintln(os.Stderr, end.Sub(start))
 }
