@@ -46,6 +46,7 @@ func main() {
 	fn := flag.String("t", "", "tree filename")
 	ig := flag.String("ig", "", "ignore these taxa (comma not space separated)")
 	v := flag.Bool("v", false, "verbose results?")
+	rng := flag.String("rng", "", "range of trees to check in a large tree file like -rng 0-100 for the first hundred")
 	cpuprofile := flag.String("cpuprofile", "", "write cpu profile to file")
 	flag.Parse()
 	//filename things
@@ -75,6 +76,26 @@ func main() {
 		pprof.StartCPUProfile(f)
 		defer pprof.StopCPUProfile()
 	}
+	rngstart := 0
+	rngstop := 0
+	rngcheck := false
+	if len(*rng) > 0 {
+		rngs := strings.Split(*rng, "-")
+		rv, err := strconv.Atoi(rngs[0])
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "error processing ", rngs, " as range")
+			os.Exit(0)
+		}
+		rngstart = rv
+		rv, err = strconv.Atoi(rngs[1])
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "error processing ", rngs, " as range")
+			os.Exit(0)
+		}
+		rngstop = rv
+		fmt.Fprintln(os.Stderr, "only looking at trees from", rngs[0], "-", rngs[1])
+		rngcheck = true
+	}
 	ignore := []string{}
 	if len(*ig) > 0 {
 		ignore = strings.Split(*ig, ",")
@@ -102,6 +123,15 @@ func main() {
 	for {
 		ln, err := scanner.ReadString('\n')
 		if len(ln) > 0 {
+			if rngcheck {
+				if ntrees < rngstart {
+					ntrees++
+					continue
+				}
+				if ntrees >= rngstop {
+					continue
+				}
+			}
 			rt := gophy.ReadNewickString(ln)
 			var t gophy.Tree
 			t.Index = ntrees
