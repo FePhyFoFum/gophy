@@ -115,7 +115,7 @@ func getPatterns(seqs map[string]string, nsites int, seqnames []string) (pattern
 			case "N":
 				gapcount++
 			default:
-				fmt.Println(c)
+				//fmt.Println(c)
 			}
 		}
 		efc := len(seqs) - gapcount
