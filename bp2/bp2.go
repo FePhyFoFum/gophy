@@ -400,13 +400,14 @@ func runCompare(rp RunParams, ignore []string, compfile string, workers int, map
 	/*
 	   read tree and get biparts
 	*/
+	var t gophy.Tree
 	for csc.Scan() {
 		ln := csc.Text()
 		if len(ln) < 2 {
 			continue
 		}
 		rt := gophy.ReadNewickString(ln)
-		var t gophy.Tree
+		//var t gophy.Tree
 		t.Instantiate(rt)
 		for _, n := range t.Tips {
 			if _, ok := maptips[n.Nam]; !ok {
@@ -439,7 +440,7 @@ func runCompare(rp RunParams, ignore []string, compfile string, workers int, map
 				if len(rt) < 2 {
 					continue
 				}
-				tbp := gophy.Bipart{Lt: lt, Rt: rt}
+				tbp := gophy.Bipart{Lt: lt, Rt: rt, Nds: []*gophy.Node{n}}
 				comptreebps = append(comptreebps, tbp)
 			}
 		}
@@ -449,6 +450,21 @@ func runCompare(rp RunParams, ignore []string, compfile string, workers int, map
 	start := time.Now()
 	gophy.CompareTreeToBiparts(bps, comptreebps, workers, mapints, verbose)
 	end := time.Now()
+	if verbose {
+		fmt.Println("TREES WITH CONFLICT (FIRST) AND CONCORDANCE (SECOND)")
+		for _, n := range t.Post {
+			if len(n.Chs) > 1 && n != t.Rt {
+				n.Nam = n.SData["conf"]
+			}
+		}
+		fmt.Println(t.Rt.Newick(true) + ";")
+		for _, n := range t.Post {
+			if len(n.Chs) > 1 && n != t.Rt {
+				n.Nam = n.SData["conc"]
+			}
+		}
+		fmt.Println(t.Rt.Newick(true) + ";")
+	}
 	fmt.Fprintln(os.Stderr, "comp done:", end.Sub(start))
 }
 

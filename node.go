@@ -10,6 +10,7 @@ type Node struct {
 	Par    *Node   //parent
 	Chs    []*Node //childs
 	Nam    string  //name
+	SData  map[string]string
 	Len    float64 //branch length
 	Data   [][]float64
 	Marked bool //just for like calculations

@@ -3,15 +3,17 @@ package gophy
 import (
 	"fmt"
 	"sort"
+	"strconv"
 )
 
 // Bipart are represented as map[int]bools, one for the left and one for the right
 type Bipart struct {
 	Lt          map[int]bool
 	Rt          map[int]bool
-	Ct          int   // counts
-	TreeIndices []int // index of which trees this is in
-	Index       int   // just a unique id
+	Ct          int     // counts
+	TreeIndices []int   // index of which trees this is in
+	Nds         []*Node // nodes associated with the bipart
+	Index       int     // just a unique id
 }
 
 // StringWithNames converts the ints to the the strings from nmmap
@@ -377,6 +379,10 @@ func CompareTreeToBiparts(bps []Bipart, comptreebps []Bipart, workers int, mapin
 		if verbose {
 			fmt.Print("  trees [", len(compbpsConcTrees[x]), "]: ", IntMapSetString(compbpsConcTrees[x])+"\n")
 		}
+		// put the number of conc at the internal nodes
+		for _, n := range comptreebps[x].Nds {
+			n.SData["conc"] = strconv.Itoa(len(compbpsConcTrees[x]))
+		}
 		n := map[int][]int{}
 		var a []int
 		for _, v := range y {
@@ -395,6 +401,7 @@ func CompareTreeToBiparts(bps []Bipart, comptreebps []Bipart, workers int, mapin
 			a = append(a, k)
 		}
 		sort.Sort(sort.Reverse(sort.IntSlice(a)))
+		allconftrees := map[int]bool{}
 		count := 0
 		for _, k := range a {
 			for _, s := range n[k] {
@@ -403,6 +410,10 @@ func CompareTreeToBiparts(bps []Bipart, comptreebps []Bipart, workers int, mapin
 				fmt.Print("  ", "(", bps[s].Index, ") ", bps[s].Ct, " ", bpsConcCounts[s], " "+bps[s].NewickWithNames(mapints)+"\n")
 				if verbose {
 					fmt.Print("    trees [", len(bpsConcTrees[s]), "]:", IntMapSetString(bpsConcTrees[s]), "\n")
+				}
+				//all the trees so we can print them
+				for m := range bpsConcTrees[s] {
+					allconftrees[m] = true
 				}
 				// fmt.Println(s, k)
 				if count >= 10 {
@@ -413,6 +424,9 @@ func CompareTreeToBiparts(bps []Bipart, comptreebps []Bipart, workers int, mapin
 			if count >= minout {
 				break
 			}
+		}
+		for _, n := range comptreebps[x].Nds {
+			n.SData["conf"] = strconv.Itoa(len(allconftrees))
 		}
 	}
 }
