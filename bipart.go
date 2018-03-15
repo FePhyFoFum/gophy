@@ -273,13 +273,25 @@ func CompareTreeToBiparts(bps []Bipart, comptreebps []Bipart, workers int, mapin
 		}
 	}
 	close(jobs)
-	confs := make(map[int][]int)   // key is bipart and value are the conflicts
-	allconfs := make(map[int]bool) // list of all the conflicting biparts
+	compconfs := make(map[int][]int)             // key is compbipart and value are the conflicts
+	allconfs := make(map[int]bool)               // list of all the conflicting biparts from bps
+	compconfstrees := make(map[int]map[int]bool) //key is compbipart and value are the conflicting trees
 	for i := 0; i < njobs; i++ {
 		x := <-results
 		if x[2] == 1 {
-			confs[x[1]] = append(confs[x[1]], x[0])
+			compconfs[x[1]] = append(compconfs[x[1]], x[0])
 			allconfs[x[0]] = true
+			if _, ok := compconfstrees[x[1]]; !ok {
+				compconfstrees[x[1]] = make(map[int]bool)
+			}
+			for _, m := range bps[x[0]].TreeIndices {
+				compconfstrees[x[1]][m] = true
+			}
+		}
+	}
+	for x := range compconfs {
+		for _, n := range comptreebps[x].Nds {
+			n.SData["conf"] = strconv.Itoa(len(compconfstrees[x]))
 		}
 	}
 
@@ -368,16 +380,17 @@ func CompareTreeToBiparts(bps []Bipart, comptreebps []Bipart, workers int, mapin
 	// add things that don't conflict so that we can get concordance
 	if verbose {
 		for x := range comptreebps {
-			if _, ok := confs[x]; !ok {
+			if _, ok := compconfs[x]; !ok {
 				fmt.Print("(", comptreebps[x].Index, ") ", comptreebps[x].NewickWithNames(mapints)+"\n")
-				fmt.Print("  trees [", len(compbpsConcTrees), "]: ", IntMapSetString(compbpsConcTrees[x])+"\n")
+				fmt.Print("  conctrees [", len(compbpsConcTrees), "]: ", IntMapSetString(compbpsConcTrees[x])+"\n")
 			}
 		}
 	}
-	for x, y := range confs {
+	for x, y := range compconfs {
 		fmt.Print("(", comptreebps[x].Index, ") ", comptreebps[x].NewickWithNames(mapints)+"\n")
 		if verbose {
-			fmt.Print("  trees [", len(compbpsConcTrees[x]), "]: ", IntMapSetString(compbpsConcTrees[x])+"\n")
+			fmt.Print("  conctrees [", len(compbpsConcTrees[x]), "]: ", IntMapSetString(compbpsConcTrees[x])+"\n")
+			fmt.Print("  conftrees [", len(compconfstrees[x]), "]: ", IntMapSetString(compconfstrees[x])+"\n")
 		}
 		// put the number of conc at the internal nodes
 		for _, n := range comptreebps[x].Nds {
@@ -401,21 +414,15 @@ func CompareTreeToBiparts(bps []Bipart, comptreebps []Bipart, workers int, mapin
 			a = append(a, k)
 		}
 		sort.Sort(sort.Reverse(sort.IntSlice(a)))
-		allconftrees := map[int]bool{}
 		count := 0
 		for _, k := range a {
 			for _, s := range n[k] {
 				//s is the bps index, k is the count
 				//fmt.Print(" ", bpsCounts[s], " "+bps[s].NewickWithNames(mapints)+"\n")
-				fmt.Print("  ", "(", bps[s].Index, ") ", bps[s].Ct, " ", bpsConcCounts[s], " "+bps[s].NewickWithNames(mapints)+"\n")
+				fmt.Print("  ", "(", bps[s].Index, ") ", bps[s].Ct, " ", len(bpsConcTrees[s]), " ", bpsConcCounts[s], " "+bps[s].NewickWithNames(mapints)+"\n")
 				if verbose {
 					fmt.Print("    trees [", len(bpsConcTrees[s]), "]:", IntMapSetString(bpsConcTrees[s]), "\n")
 				}
-				//all the trees so we can print them
-				for m := range bpsConcTrees[s] {
-					allconftrees[m] = true
-				}
-				// fmt.Println(s, k)
 				if count >= 10 {
 					break
 				}
@@ -424,9 +431,6 @@ func CompareTreeToBiparts(bps []Bipart, comptreebps []Bipart, workers int, mapin
 			if count >= minout {
 				break
 			}
-		}
-		for _, n := range comptreebps[x].Nds {
-			n.SData["conf"] = strconv.Itoa(len(allconftrees))
 		}
 	}
 }

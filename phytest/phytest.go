@@ -245,13 +245,8 @@ func main() {
 		}
 		if len(n.Chs) == 0 {
 			for i := 0; i < nsites; i++ {
-				if string(seqs[n.Nam][i]) == "-" || string(seqs[n.Nam][i]) == "N" {
-					n.Data[i][0] = 1.0
-					n.Data[i][1] = 1.0
-					n.Data[i][2] = 1.0
-					n.Data[i][3] = 1.0
-				} else {
-					n.Data[i][x.CharMap[string(seqs[n.Nam][i])]] = 1.0
+				for j := range x.CharMap[string(seqs[n.Nam][i])] {
+					n.Data[i][j] = 1.0
 				}
 			}
 		}
@@ -282,15 +277,7 @@ func main() {
 				}
 				for j := range x.CharMap[string(seqs[n.Nam][i])] {
 					n.Data[count][j] = 1.0
-				} /*
-					if string(seqs[n.Nam][i]) == "-" || string(seqs[n.Nam][i]) == "N" {
-						n.Data[count][0] = 1.0
-						n.Data[count][1] = 1.0
-						n.Data[count][2] = 1.0
-						n.Data[count][3] = 1.0
-					} else {
-						n.Data[count][x.CharMap[string(seqs[n.Nam][i])]] = 1.0
-					}*/
+				}
 				count++
 			}
 		}
@@ -302,13 +289,9 @@ func main() {
 	if nsites < w {
 		w = nsites
 	}
-	//l := gophy.PCalcLogLike(t, x, nsites, *wks)
-	l := gophy.PCalcLogLikePatterns(t, x, patternval, *wks)
-	end := time.Now()
+	l := gophy.PCalcLikePatterns(t, x, patternval, *wks)
 	fmt.Println("lnL:", l)
-	fmt.Fprintln(os.Stderr, end.Sub(start))
 	//fmt.Println(t.Rt.Newick(true))
-	start = time.Now()
 	/*
 		for _, n := range t.Post {
 			OptimizeBL(n, t, x, nsites, 10)
@@ -326,6 +309,6 @@ func main() {
 			OptimizeBL(n, t, x, nsites, 10)
 		}*/
 	//MCMC(t, x, nsites, 10, "temp.mcmc.tre")
-	end = time.Now()
+	end := time.Now()
 	fmt.Fprintln(os.Stderr, end.Sub(start))
 }

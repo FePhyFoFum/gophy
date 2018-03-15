@@ -112,6 +112,7 @@ func main() {
 	bps := make([]gophy.Bipart, 0) // list of all biparts
 	bpts := make(map[int][]int)    // key tree index, value bipart index list
 	ntrees := 0
+	readtrees := 0
 	trees := make([]gophy.Tree, 0)
 	numtips := 0
 	skipped := 0
@@ -148,6 +149,7 @@ func main() {
 				}
 			}
 			ntrees++
+			readtrees++
 			if ntrees%10 == 0 {
 				fmt.Fprint(os.Stderr, ".")
 			}
@@ -175,7 +177,7 @@ func main() {
 	//end read edges
 
 	end := time.Now()
-	fmt.Fprintln(os.Stderr, "trees read:", ntrees)
+	fmt.Fprintln(os.Stderr, "trees read:", readtrees)
 	fmt.Fprintln(os.Stderr, "edges skipped:", skipped)
 	fmt.Fprintln(os.Stderr, "edges read:", len(bps), end.Sub(start))
 
@@ -487,13 +489,13 @@ func runCompare(rp RunParams, ignore []string, compfile string, workers int, map
 				n.Nam = n.SData["conf"]
 			}
 		}
-		fmt.Println(t.Rt.Newick(true) + ";")
+		fmt.Println(t.Rt.Newick(false) + ";")
 		for _, n := range t.Post {
 			if len(n.Chs) > 1 && n != t.Rt {
 				n.Nam = n.SData["conc"]
 			}
 		}
-		fmt.Println(t.Rt.Newick(true) + ";")
+		fmt.Println(t.Rt.Newick(false) + ";")
 	}
 	fmt.Fprintln(os.Stderr, "comp done:", end.Sub(start))
 }
