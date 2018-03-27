@@ -213,6 +213,8 @@ func main() {
 	//pairwise comparisons
 	if *pca {
 		fmt.Println("--biparts compared to those in the pool of biparts")
+		gophy.CompareTreeToBiparts(bps, bps, *wks, mapints, *v)
+		/* This is the old comparison to a pool. I don't think we wnat this
 		for j, k := range bpts { // j is tree index, k is list of biparts in bps
 			comptreebps := make([]gophy.Bipart, 0)
 			for _, m := range k {
@@ -223,7 +225,7 @@ func main() {
 			gophy.CompareTreeToBiparts(bps, comptreebps, *wks, mapints, *v)
 			end := time.Now()
 			fmt.Fprintln(os.Stderr, "comp done:", end.Sub(start))
-		}
+		}*/
 	}
 
 	// pairwise comparison each

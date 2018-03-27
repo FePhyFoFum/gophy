@@ -75,7 +75,7 @@ func PCalcLikePatterns(t *Tree, x *DNAModel, patternval []float64, wks int) (fl 
 	// populate the P matrix dictionary without problems of race conditions
 	// just the first site
 	x.EmptyPDict()
-	fl += math.Log(CalcLikeOneSite(t, x, 0))
+	fl += math.Log(CalcLikeOneSite(t, x, 0)) * patternval[0]
 	for i := 0; i < wks; i++ {
 		go CalcLikeWork(t, x, jobs, results)
 	}

@@ -238,19 +238,20 @@ func main() {
 		t.Instantiate(rt)
 	}
 	//each site has a vector of 4 for DNA conditionals
-	/*for _, n := range t.Post {
-		n.Data = make([][]float64, nsites)
-		for i := 0; i < nsites; i++ {
-			n.Data[i] = []float64{0.0, 0.0, 0.0, 0.0}
-		}
-		if len(n.Chs) == 0 {
+	/*
+		for _, n := range t.Post {
+			n.Data = make([][]float64, nsites)
 			for i := 0; i < nsites; i++ {
-				for j := range x.CharMap[string(seqs[n.Nam][i])] {
-					n.Data[i][j] = 1.0
+				n.Data[i] = []float64{0.0, 0.0, 0.0, 0.0}
+			}
+			if len(n.Chs) == 0 {
+				for i := 0; i < nsites; i++ {
+					for j := range x.CharMap[string(seqs[n.Nam][i])] {
+						n.Data[i][j] = 1.0
+					}
 				}
 			}
-		}
-	}*/
+		}*/
 	//TRYING PATTERNS
 
 	patternvec := make([]int, len(patternsint))     //which site
@@ -275,7 +276,7 @@ func main() {
 						os.Exit(0)
 					}
 				}
-				for j := range x.CharMap[string(seqs[n.Nam][i])] {
+				for _, j := range x.CharMap[string(seqs[n.Nam][i])] {
 					n.Data[count][j] = 1.0
 				}
 				count++
