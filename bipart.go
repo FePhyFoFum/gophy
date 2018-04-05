@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
+	"strings"
 )
 
 // Bipart are represented as map[int]bools, one for the left and one for the right
@@ -232,7 +233,7 @@ func PConcordanceTwoSets(comp []Bipart, bps []Bipart, jobs <-chan []int, results
 // mapints are int to string names for the taxa
 // bps list of biparts
 // ntrees number of trees
-func OutputEdges(mapints map[int]string, bps []Bipart, ntrees int) {
+func OutputEdges(mapints map[int]string, bps []Bipart, ntrees int, verb bool) {
 	//sorted
 	nn := map[int][]int{}
 	var sortedCounts []int
@@ -249,11 +250,24 @@ func OutputEdges(mapints map[int]string, bps []Bipart, ntrees int) {
 			sortedBps = append(sortedBps, k)
 		}
 	}
-	fmt.Println("numintrees percintrees bipart")
+	if verb == true {
+		fmt.Println("numintrees percintrees bipart lens")
+	} else {
+		fmt.Println("numintrees percintrees bipart")
+	}
 	for _, x := range sortedBps {
 		i := x
 		b := bps[x]
-		fmt.Println(len(bps[i].TreeIndices), float64(len(bps[i].TreeIndices))/float64(ntrees), b.NewickWithNames(mapints))
+		if verb == true {
+			//add the lengths of the edges
+			lns := make([]string, len(b.Nds))
+			for y, n := range b.Nds {
+				lns[y] = strconv.FormatFloat(n.Len, 'f', -1, 32)
+			}
+			fmt.Println(len(bps[i].TreeIndices), float64(len(bps[i].TreeIndices))/float64(ntrees), b.NewickWithNames(mapints), strings.Join(lns, ","))
+		} else {
+			fmt.Println(len(bps[i].TreeIndices), float64(len(bps[i].TreeIndices))/float64(ntrees), b.NewickWithNames(mapints))
+		}
 	}
 }
 

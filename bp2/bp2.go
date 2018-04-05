@@ -197,7 +197,7 @@ func main() {
 	// output edges
 	if *oed {
 		fmt.Println("--edges--")
-		gophy.OutputEdges(mapints, bps, ntrees)
+		gophy.OutputEdges(mapints, bps, ntrees, *v)
 	}
 	// compare to some other tree or bipart
 	if len(*comp) > 0 {
@@ -515,6 +515,7 @@ func PmergeBps(jobs <-chan [][]gophy.Bipart, results chan<- []gophy.Bipart) {
 						match = true
 						bpst1[k].Ct = bpst1[k].Ct + bpst2[i].Ct
 						bpst1[k].TreeIndices = append(bpst1[k].TreeIndices, bpst2[i].TreeIndices...)
+						bpst1[k].Nds = append(bpst1[k].Nds, bpst2[i].Nds...)
 						break
 					}
 				}
@@ -564,6 +565,7 @@ func PDeconstructTrees(rp RunParams, maptips map[string]int, mapints map[int]str
 				}
 				tbp := gophy.Bipart{Lt: lt, Rt: rt, Ct: 1}
 				tbp.TreeIndices = append(tbp.TreeIndices, t.Index)
+				tbp.Nds = append(tbp.Nds, n)
 				//checks just the root case where there can be dups given how we get things
 				if n.Par == t.Rt {
 					index := gophy.BipartSliceContains(bps, tbp)
