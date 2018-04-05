@@ -92,6 +92,33 @@ func PCalcLikePatterns(t *Tree, x *DNAModel, patternval []float64, wks int) (fl 
 	return
 }
 
+//TODO: this whole bit needs to be checcked
+func PCalcLikePatternsMarked(t *Tree, x *DNAModel, patternval []float64, wks int) (fl float64) {
+	fl = 0.0
+	nsites := len(patternval)
+	jobs := make(chan int, nsites)
+	//results := make(chan float64, nsites)
+	results := make(chan LikeResult, nsites)
+	// populate the P matrix dictionary without problems of race conditions
+	// just the first site
+	//x.EmptyPDict()
+	fl += math.Log(CalcLikeOneSiteMarked(t, x, 0)) * patternval[0]
+	for i := 0; i < wks; i++ {
+		go CalcLikeWorkMarked(t, x, jobs, results)
+	}
+	for i := 1; i < nsites; i++ {
+		jobs <- i
+	}
+	close(jobs)
+	rr := LikeResult{}
+	for i := 1; i < nsites; i++ {
+		rr = <-results
+		fl += math.Log(rr.value) * patternval[rr.site]
+		//fl += <-results
+	}
+	return
+}
+
 func PCalcLogLikePatterns(t *Tree, x *DNAModel, patternval []float64, wks int) (fl float64) {
 	fl = 0.0
 	nsites := len(patternval)
@@ -240,6 +267,30 @@ func CalcLogLikeOneSiteMarked(t *Tree, x *DNAModel, site int) float64 {
 	return sl
 }
 
+// CalcLogLikeOneSiteMarked this uses the marked machinery to recalculate
+func CalcLikeOneSiteMarked(t *Tree, x *DNAModel, site int) float64 {
+	sl := 0.0
+	for _, n := range t.Post {
+		if len(n.Chs) > 0 {
+			if n.Marked == true {
+				CalcLikeNode(n, x, site)
+				if n != t.Rt {
+					n.Par.Marked = true
+				}
+			}
+		}
+		if t.Rt == n && n.Marked == true {
+			for i := 0; i < 4; i++ {
+				t.Rt.Data[site][i] *= x.BF[i]
+			}
+			sl = floats.Sum(t.Rt.Data[site])
+		} else {
+			sl = floats.Sum(t.Rt.Data[site])
+		}
+	}
+	return sl
+}
+
 // CalcLogLikeWork this is intended for a worker that will be executing this per site
 func CalcLogLikeWork(t *Tree, x *DNAModel, jobs <-chan int, results chan<- LikeResult) { //results chan<- float64) {
 	for j := range jobs {
@@ -298,6 +349,29 @@ func CalcLogLikeWorkBack(t *Tree, nb *Node, x *DNAModel, jobs <-chan int, result
 			cur = cur.Par
 		}
 		results <- sl
+	}
+}
+
+// CalcLogLikeWorkMarked this is intended to calculate only on the marked nodes back to teh root
+func CalcLikeWorkMarked(t *Tree, x *DNAModel, jobs <-chan int, results chan<- LikeResult) {
+	for j := range jobs {
+		sl := 0.0
+		for _, n := range t.Post {
+			if len(n.Chs) > 0 {
+				if n.Marked == true {
+					CalcLikeNode(n, x, j)
+				}
+			}
+			if t.Rt == n && n.Marked == true {
+				for i := 0; i < 4; i++ {
+					t.Rt.Data[j][i] *= x.BF[i]
+				}
+				sl = floats.Sum(t.Rt.Data[j])
+			} else {
+				sl = floats.Sum(t.Rt.Data[j])
+			}
+		}
+		results <- LikeResult{value: sl, site: j}
 	}
 }
 

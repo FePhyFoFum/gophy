@@ -382,7 +382,7 @@ func CompareTreeToBiparts(bps []Bipart, comptreebps []Bipart, workers int, mapin
 		for x := range comptreebps {
 			if _, ok := compconfs[x]; !ok {
 				fmt.Print("(", comptreebps[x].Index, ") ", comptreebps[x].NewickWithNames(mapints)+"\n")
-				fmt.Print("  conctrees [", len(compbpsConcTrees), "]: ", IntMapSetString(compbpsConcTrees[x])+"\n")
+				fmt.Print("  conctrees [", len(compbpsConcTrees[x]), "]: ", IntMapSetString(compbpsConcTrees[x])+"\n")
 			}
 		}
 	}
