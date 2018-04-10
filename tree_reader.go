@@ -9,7 +9,7 @@ import (
 
 // ReadNewickString given a string it will return a pointer to the root node
 func ReadNewickString(ts string) (root *Node) {
-	rt := Node{nil, nil, "root", map[string]string{}, 0., nil, false}
+	rt := Node{nil, nil, "root", map[string]string{}, 0., nil, false, 0.}
 	x := 0
 	nc := string(ts[x : x+1])
 	start := true
@@ -20,7 +20,7 @@ func ReadNewickString(ts string) (root *Node) {
 				cn = &rt
 				start = false
 			} else {
-				nn := Node{cn, nil, "", map[string]string{}, 0., nil, false}
+				nn := Node{cn, nil, "", map[string]string{}, 0., nil, false, 0.}
 				cn.addChild(&nn)
 				cn = &nn
 			}
@@ -65,7 +65,7 @@ func ReadNewickString(ts string) (root *Node) {
 			cn.Len = b
 			x--
 		} else {
-			nn := Node{cn, nil, "", map[string]string{}, 0., nil, false}
+			nn := Node{cn, nil, "", map[string]string{}, 0., nil, false, 0.}
 			cn.addChild(&nn)
 			cn = &nn
 			var nm bytes.Buffer

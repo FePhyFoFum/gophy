@@ -14,6 +14,7 @@ type Node struct {
 	Len    float64 //branch length
 	Data   [][]float64
 	Marked bool //just for like calculations
+	Height float64
 }
 
 // Walk just a simple walker with chans

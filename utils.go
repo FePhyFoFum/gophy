@@ -174,3 +174,30 @@ func log1exp(x float64) float64 {
 	}
 	return math.Log1p(math.Exp(x))
 }
+
+// NodeSlicePosition take a *[]Node slice and teh get the index of the element node
+func NodeSlicePosition(sl []*Node, nd *Node) (x int) {
+	x = -1
+	for p, v := range sl {
+		if v == nd {
+			x = p
+			return
+		}
+	}
+	return
+}
+
+// Round to the nearest place probably val=num, roundOn = 0.5 places = 5
+func Round(val float64, roundOn float64, places int) (newVal float64) {
+	var round float64
+	pow := math.Pow(10, float64(places))
+	digit := pow * val
+	_, div := math.Modf(digit)
+	if div >= roundOn {
+		round = math.Ceil(digit)
+	} else {
+		round = math.Floor(digit)
+	}
+	newVal = round / pow
+	return
+}
