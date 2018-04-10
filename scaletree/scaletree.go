@@ -85,7 +85,16 @@ func main() {
 			if ferr != nil {
 				fmt.Fprintln(os.Stderr, "problem parsing", spls1[1], "as float64")
 			}
-			mrcas[gophy.GetMrca(nds, rt)] = ff
+			nd := gophy.GetMrca(nds, rt)
+			if nd.Par != nil {
+				for len(nd.Par.Chs) == 1 {
+					nd = nd.Par
+					if nd.Par == nil {
+						break
+					}
+				}
+			}
+			mrcas[nd] = ff
 		}
 		if err == io.EOF {
 			break
@@ -98,11 +107,24 @@ func main() {
 	// scale the tree
 	for _, i := range t.Pre {
 		if _, ok := mrcas[i]; ok {
+			var newchild *gophy.Node // this is if there is a knuckle
 			if i != rt {
 				ih := i.Height
 				i.Len = i.Len + ih - mrcas[i]
+				if len(i.Chs) == 1 {
+					newchild = i.Chs[0]
+					newchild.Len = 0.0
+					for len(newchild.Chs) == 1 {
+						newchild = newchild.Chs[0]
+						newchild.Len = 0.0
+					}
+				}
 			}
-			scaleSubTree(i, mrcas[i])
+			if newchild != nil {
+				scaleSubTree(newchild, mrcas[i])
+			} else {
+				scaleSubTree(i, mrcas[i])
+			}
 			gophy.SetHeights(&t)
 		}
 	}
