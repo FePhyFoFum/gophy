@@ -3,11 +3,12 @@ package main
 import (
 	"flag"
 	"fmt"
-	"gophy"
 	"math/rand"
 	"os"
 	"strconv"
 	"time"
+
+	"github.com/FePhyFoFum/gophy"
 )
 
 /*

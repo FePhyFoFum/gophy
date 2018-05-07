@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
-	"gophy"
 	"io"
 	"log"
 	"os"
@@ -13,6 +12,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/FePhyFoFum/gophy"
 )
 
 // RunParams options for the run

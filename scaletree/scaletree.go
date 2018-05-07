@@ -4,12 +4,13 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
-	"gophy"
 	"io"
 	"math"
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/FePhyFoFum/gophy"
 )
 
 //this is for scaling a tree to be ultrametric

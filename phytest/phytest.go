@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
-	"gophy"
 	"log"
 	"math"
 	"os"
@@ -12,6 +11,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/FePhyFoFum/gophy"
 
 	"golang.org/x/exp/rand"
 )

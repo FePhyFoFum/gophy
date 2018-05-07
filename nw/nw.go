@@ -5,7 +5,8 @@ import (
 	"fmt"
 	"os"
 	"time"
-    "gophy"
+
+	"github.com/FePhyFoFum/gophy"
 )
 
 func main() {
