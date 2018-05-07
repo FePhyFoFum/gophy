@@ -29,10 +29,6 @@ type RunParams struct {
 */
 
 func main() {
-	if len(os.Args) < 2 {
-		fmt.Println("bp -t treefile")
-		os.Exit(1)
-	}
 	rp := RunParams{BlCut: 0, SupCut: 0, TIgnore: nil}
 	wks := flag.Int("w", 2, "how many workers?")
 	cut := flag.Float64("scut", 0.0, " support cutoff (if support is present in the trees)")
@@ -50,6 +46,10 @@ func main() {
 	rng := flag.String("rng", "", "range of trees to check in a large tree file like -rng 0-100 for the first hundred")
 	cpuprofile := flag.String("cpuprofile", "", "write cpu profile to file")
 	flag.Parse()
+	if len(os.Args) < 2 {
+		flag.PrintDefaults()
+		os.Exit(1)
+	}
 	//filename things
 	if *wks > 1 {
 		fmt.Fprintln(os.Stderr, "workers:", *wks)
@@ -64,6 +64,7 @@ func main() {
 	}
 	if len(*fn) == 0 {
 		fmt.Fprintln(os.Stderr, "need a filename")
+		flag.PrintDefaults()
 		os.Exit(1)
 	}
 	if *v == true {
