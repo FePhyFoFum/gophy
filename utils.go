@@ -152,6 +152,16 @@ func StringSliceContains(s []string, e string) bool {
 	return false
 }
 
+// NodeSliceContains tells you whether the e string is in the slice
+func NodeSliceContains(s []*Node, e *Node) bool {
+	for _, a := range s {
+		if a == e {
+			return true
+		}
+	}
+	return false
+}
+
 // SumFloatVec sum the float vectors
 func SumFloatVec(x []float64) (s float64) {
 	for _, a := range x {

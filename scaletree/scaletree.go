@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"gophy"
 	"io"
+	"math"
 	"os"
 	"strconv"
 	"strings"
@@ -124,6 +125,33 @@ func main() {
 				scaleSubTree(newchild, mrcas[i])
 			} else {
 				scaleSubTree(i, mrcas[i])
+			}
+			if i.Len < 0 {
+				x := i.Len
+				i.Len = 0.0
+				cur := i.Par
+				for x < 0 {
+					if cur.Len+x > 0 {
+						cur.Len += x
+						for _, j := range cur.Chs {
+							if gophy.NodeSliceContains(j.GetTips(), i.GetTips()[0]) == false {
+								j.Len += math.Abs(x)
+							}
+						}
+						x = 0
+						break
+					} else {
+						x = x + cur.Len
+						c := cur.Len
+						cur.Len = 0
+						for _, j := range cur.Chs {
+							if gophy.NodeSliceContains(j.GetTips(), i.GetTips()[0]) == false {
+								j.Len += c
+							}
+						}
+						cur = cur.Par
+					}
+				}
 			}
 			gophy.SetHeights(&t)
 		}
