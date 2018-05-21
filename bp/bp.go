@@ -503,12 +503,12 @@ func runCompare(rp RunParams, ignore []string, compfile string, workers int, map
 	fmt.Fprintln(os.Stderr, "read", len(comptreebps), "biparts from compare tree")
 	start := time.Now()
 	//make it a for for better memory things
+	// this is just going to run it on each edge independently
 	for i := range comptreebps {
 		tc := []gophy.Bipart{comptreebps[i]}
 		gophy.CompareTreeToBiparts(bps, tc, workers, mapints, verbose)
 	}
 	//
-	//gophy.CompareTreeToBiparts(bps, comptreebps, workers, mapints, verbose)
 	end := time.Now()
 	if verbose {
 		fmt.Println("TREES WITH CONFLICT (FIRST) AND CONCORDANCE (SECOND)")
