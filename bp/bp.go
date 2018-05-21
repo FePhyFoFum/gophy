@@ -45,6 +45,7 @@ func main() {
 	v := flag.Bool("v", false, "verbose results?")
 	rng := flag.String("rng", "", "range of trees to check in a large tree file like -rng 0-100 for the first hundred")
 	cpuprofile := flag.String("cpuprofile", "", "write cpu profile to file")
+	memprofile := flag.String("memprofile", "", "write mem profile to file")
 	flag.Parse()
 	if len(os.Args) < 2 {
 		flag.PrintDefaults()
@@ -70,6 +71,8 @@ func main() {
 	if *v == true {
 		fmt.Fprintln(os.Stderr, "verbose")
 	}
+
+	//cpu profile code
 	if *cpuprofile != "" {
 		f, err := os.Create(*cpuprofile)
 		if err != nil {
@@ -78,6 +81,8 @@ func main() {
 		pprof.StartCPUProfile(f)
 		defer pprof.StopCPUProfile()
 	}
+	//end profile code
+
 	rngstart := 0
 	rngstop := 0
 	rngcheck := false
@@ -120,7 +125,10 @@ func main() {
 	skipped := 0
 	maptips := make(map[string]int)
 	mapints := make(map[int]string)
+
+	//start a timer
 	start := time.Now()
+
 	// reading the trees
 	fmt.Fprint(os.Stderr, "reading trees\n")
 	for {
@@ -265,6 +273,16 @@ func main() {
 	// calculate rf (partial overlap)
 	if *rfp {
 		runRfp(ntrees, *wks, bpts, bps)
+	}
+
+	//memprofile
+	if *memprofile != "" {
+		f, err := os.Create(*memprofile)
+		if err != nil {
+			log.Fatal(err)
+		}
+		pprof.WriteHeapProfile(f)
+		f.Close()
 	}
 }
 
@@ -484,7 +502,13 @@ func runCompare(rp RunParams, ignore []string, compfile string, workers int, map
 	}
 	fmt.Fprintln(os.Stderr, "read", len(comptreebps), "biparts from compare tree")
 	start := time.Now()
-	gophy.CompareTreeToBiparts(bps, comptreebps, workers, mapints, verbose)
+	//make it a for for better memory things
+	for i := range comptreebps {
+		tc := []gophy.Bipart{comptreebps[i]}
+		gophy.CompareTreeToBiparts(bps, tc, workers, mapints, verbose)
+	}
+	//
+	//gophy.CompareTreeToBiparts(bps, comptreebps, workers, mapints, verbose)
 	end := time.Now()
 	if verbose {
 		fmt.Println("TREES WITH CONFLICT (FIRST) AND CONCORDANCE (SECOND)")
