@@ -11,10 +11,11 @@ import (
 type Bipart struct {
 	Lt          map[int]bool
 	Rt          map[int]bool
-	Ct          int     // counts
-	TreeIndices []int   // index of which trees this is in
-	Nds         []*Node // nodes associated with the bipart
-	Index       int     // just a unique id
+	Ct          int           // counts
+	TreeIndices []int         // index of which trees this is in
+	Nds         []*Node       // nodes associated with the bipart
+	NdsM        map[int]*Node // nodes associated with the bipart by treeindex
+	Index       int           // just a unique id
 }
 
 // StringWithNames converts the ints to the the strings from nmmap

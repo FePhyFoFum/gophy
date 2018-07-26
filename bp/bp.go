@@ -18,9 +18,11 @@ import (
 
 // RunParams options for the run
 type RunParams struct {
-	BlCut   float64
-	SupCut  float64
-	TIgnore []string
+	BlCut          float64
+	SupCut         float64
+	TIgnore        []string
+	IncludeTips    bool
+	IncludeNodeMap bool
 }
 
 /*
@@ -37,6 +39,7 @@ func main() {
 	oconf := flag.String("oconf", "", "run conflict by giving an output filename")
 	rf := flag.Bool("rf", false, "run rf?")
 	rfp := flag.Bool("rfp", false, "run rf (partial overlap)?")
+	rfw := flag.Bool("rfw", false, "run rfw (weighted partial)?")
 	comp := flag.String("c", "", "compare biparts to those in this file")
 	pca := flag.Bool("pca", false, "pairwise compare all trees (with a pool of biparts)")
 	pc := flag.Bool("pc", false, "pairwise compare each tree (with each tree)")
@@ -62,6 +65,10 @@ func main() {
 	if *blcut > 0.0 {
 		fmt.Fprintln(os.Stderr, "blcutoff set to:", *blcut)
 		rp.BlCut = *blcut
+	}
+	if *rfw {
+		rp.IncludeNodeMap = true
+		rp.IncludeTips = true
 	}
 	if len(*fn) == 0 {
 		fmt.Fprintln(os.Stderr, "need a filename")
@@ -196,7 +203,7 @@ func main() {
 	//---------
 	// get the tree indices for the biparts
 	// used for rf, rfp, and pc
-	if *rf || *rfp || *pc {
+	if *rf || *rfp || *rfw || *pc {
 		bpts = make(map[int][]int, ntrees)
 		for i, b := range bps {
 			for _, j := range b.TreeIndices {
@@ -274,6 +281,10 @@ func main() {
 	if *rfp {
 		runRfp(ntrees, *wks, bpts, bps)
 	}
+	// calculate rfw (weighted partial overlap)
+	if *rfw {
+		runRfw(ntrees, *wks, bpts, bps)
+	}
 
 	//memprofile
 	if *memprofile != "" {
@@ -339,6 +350,32 @@ func runRfp(ntrees int, workers int, bpts map[int][]int, bps []gophy.Bipart) {
 	for i := 0; i < njobs; i++ {
 		val := <-results
 		fmt.Println(strconv.Itoa(val[0]) + " " + strconv.Itoa(val[1]) + ": " + strconv.Itoa(val[2]))
+	}
+	end := time.Now()
+	fmt.Fprintln(os.Stderr, end.Sub(start))
+}
+
+func runRfw(ntrees int, workers int, bpts map[int][]int, bps []gophy.Bipart) {
+	jobs := make(chan []int, ntrees*ntrees)
+	results := make(chan gophy.Rfwresult, ntrees*ntrees)
+	start := time.Now()
+	for w := 1; w <= workers; w++ {
+		go gophy.PCalcRFDistancesPartialWeighted(bpts, bps, jobs, results)
+	}
+
+	njobs := 0
+	for i := 0; i < ntrees; i++ {
+		for j := 0; j < ntrees; j++ {
+			if i < j {
+				jobs <- []int{i, j}
+				njobs++
+			}
+		}
+	}
+	close(jobs)
+	for i := 0; i < njobs; i++ {
+		val := <-results
+		fmt.Println(strconv.Itoa(val.Tree1) + " " + strconv.Itoa(val.Tree2) + ": " + strconv.FormatFloat(val.Weight, 'f', -1, 64))
 	}
 	end := time.Now()
 	fmt.Fprintln(os.Stderr, end.Sub(start))
@@ -542,6 +579,9 @@ func PmergeBps(jobs <-chan [][]gophy.Bipart, results chan<- []gophy.Bipart) {
 						bpst1[k].Ct = bpst1[k].Ct + bpst2[i].Ct
 						bpst1[k].TreeIndices = append(bpst1[k].TreeIndices, bpst2[i].TreeIndices...)
 						bpst1[k].Nds = append(bpst1[k].Nds, bpst2[i].Nds...)
+						for ke, va := range bpst2[i].NdsM {
+							bpst1[k].NdsM[ke] = va
+						}
 						break
 					}
 				}
@@ -565,6 +605,26 @@ func PDeconstructTrees(rp RunParams, maptips map[string]int, mapints map[int]str
 			if rp.BlCut > 0 && n.Len < rp.BlCut {
 				continue
 			}
+			//tips, only used for rfw
+			if rp.IncludeTips && len(n.Chs) == 0 {
+				lt := make(map[int]bool)
+				rt := make(map[int]bool)
+				for _, t := range n.GetTips() {
+					if gophy.StringSliceContains(rp.TIgnore, t.Nam) == false {
+						lt[maptips[t.Nam]] = true
+					}
+				}
+				if len(lt) < 1 {
+					continue
+				}
+				nm := make(map[int]*gophy.Node)
+				nm[t.Index] = n
+				tbp := gophy.Bipart{Lt: lt, Rt: rt, Ct: 1, NdsM: nm}
+				tbp.TreeIndices = append(tbp.TreeIndices, t.Index)
+				tbp.Nds = append(tbp.Nds, n)
+				bps = append(bps, tbp)
+			}
+			//internal nodes
 			if len(n.Chs) > 1 && n != t.Rt {
 				if rp.SupCut > 0.0 && len(n.Nam) > 0 {
 					if s, err := strconv.ParseFloat(n.Nam, 32); err == nil {
@@ -589,7 +649,11 @@ func PDeconstructTrees(rp RunParams, maptips map[string]int, mapints map[int]str
 				if len(rt) < 2 {
 					continue
 				}
-				tbp := gophy.Bipart{Lt: lt, Rt: rt, Ct: 1}
+				nm := make(map[int]*gophy.Node)
+				if rp.IncludeNodeMap {
+					nm[t.Index] = n
+				}
+				tbp := gophy.Bipart{Lt: lt, Rt: rt, Ct: 1, NdsM: nm}
 				tbp.TreeIndices = append(tbp.TreeIndices, t.Index)
 				tbp.Nds = append(tbp.Nds, n)
 				//checks just the root case where there can be dups given how we get things

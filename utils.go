@@ -78,6 +78,35 @@ func PCalcRFDistancesPartial(bpts map[int][]int, bps []Bipart, jobs <-chan []int
 	}
 }
 
+type Rfwresult struct {
+	Tree1  int
+	Tree2  int
+	Weight float64
+}
+
+//PCalcRFDistancesPartialWeighted includes the branch lengths
+func PCalcRFDistancesPartialWeighted(bpts map[int][]int, bps []Bipart, jobs <-chan []int, results chan<- Rfwresult) {
+	for j := range jobs {
+		in1, in2 := j[0], j[1]
+		ab := 0.0
+		mb := map[string]float64{}
+		for _, x := range bpts[in1] {
+			for _, y := range bpts[in2] {
+				if bps[x].ConflictsWith(bps[y]) {
+					mb["t1"+string(x)] = bps[x].NdsM[in1].Len
+					mb["t2"+string(y)] = bps[y].NdsM[in2].Len
+				} else if bps[x].Equals(bps[y]) {
+					ab += math.Abs(bps[x].NdsM[in1].Len - bps[y].NdsM[in2].Len)
+				}
+			}
+		}
+		for _, x := range mb {
+			ab += x
+		}
+		results <- Rfwresult{Tree1: in1, Tree2: in2, Weight: ab}
+	}
+}
+
 // IntSliceIntersects checks to see whether two int slices intersect
 func IntSliceIntersects(a, b []int) (rb bool) {
 	rb = false
