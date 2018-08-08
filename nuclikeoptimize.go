@@ -41,7 +41,7 @@ func OptimizeBL(nd *Node, t *Tree, x *DNAModel, nsites int, wks int) {
 	/*grad := func(grad, x []float64) {
 		fd.Gradient(grad, fcn, x, nil)
 	}*/
-	settings := optimize.DefaultSettings()
+	settings := optimize.DefaultSettingsLocal()
 	//settings.UseInitialData = false
 	settings.FunctionThreshold = 0.01
 	//settings.GradientThreshold = 0.01
@@ -55,7 +55,7 @@ func OptimizeBL(nd *Node, t *Tree, x *DNAModel, nsites int, wks int) {
 	p := optimize.Problem{Func: fcn, Grad: nil, Hess: nil}
 	var p0 []float64
 	p0 = append(p0, nd.Len)
-	res, err := optimize.Local(p, p0, settings, nil)
+	res, err := optimize.Minimize(p, p0, settings, nil)
 	if err != nil {
 		//fmt.Println(err)
 	}
