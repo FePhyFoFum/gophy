@@ -85,18 +85,48 @@ type Rfwresult struct {
 }
 
 //PCalcRFDistancesPartialWeighted includes the branch lengths
-func PCalcRFDistancesPartialWeighted(bpts map[int][]int, bps []Bipart, jobs <-chan []int, results chan<- Rfwresult) {
+func PCalcRFDistancesPartialWeighted(bpts map[int][]int, tippenalty bool, bps []Bipart, jobs <-chan []int, results chan<- Rfwresult) {
 	for j := range jobs {
 		in1, in2 := j[0], j[1]
 		ab := 0.0
 		mb := map[string]float64{}
+		used := make([]int, 0)
 		for _, x := range bpts[in1] {
 			for _, y := range bpts[in2] {
 				if bps[x].ConflictsWith(bps[y]) {
 					mb["t1"+string(x)] = bps[x].NdsM[in1].Len
 					mb["t2"+string(y)] = bps[y].NdsM[in2].Len
+					if tippenalty {
+						used = append(used, x)
+						used = append(used, y)
+					}
+				} else if bps[x].ConcordantWith(bps[y]) {
+					ab += math.Abs(bps[x].NdsM[in1].Len - bps[y].NdsM[in2].Len)
+					if tippenalty {
+						used = append(used, x)
+						used = append(used, y)
+					}
 				} else if bps[x].Equals(bps[y]) {
 					ab += math.Abs(bps[x].NdsM[in1].Len - bps[y].NdsM[in2].Len)
+					if tippenalty {
+						used = append(used, x)
+						used = append(used, y)
+					}
+				}
+			}
+		}
+		// just adding a penalty for all the taxa that are missing.
+		if tippenalty {
+			x := CalcSliceIntDifference(bpts[in1], used)
+			y := CalcSliceIntDifference(bpts[in2], used)
+			for _, m := range x {
+				if len(bps[m].Lt) == 1 {
+					ab += bps[m].NdsM[in1].Len
+				}
+			}
+			for _, m := range y {
+				if len(bps[m].Lt) == 1 {
+					ab += bps[m].NdsM[in2].Len
 				}
 			}
 		}

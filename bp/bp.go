@@ -39,7 +39,8 @@ func main() {
 	oconf := flag.String("oconf", "", "run conflict by giving an output filename")
 	rf := flag.Bool("rf", false, "run rf?")
 	rfp := flag.Bool("rfp", false, "run rf (partial overlap)?")
-	rfw := flag.Bool("rfw", false, "run rfw (weighted partial)?")
+	rfw := flag.Bool("rfw", false, "run rfw (weighted)?")
+	rfwp := flag.Bool("rfwp", false, "run rfwp (weighted w/ missing taxa penalty)?")
 	comp := flag.String("c", "", "compare biparts to those in this file")
 	pca := flag.Bool("pca", false, "pairwise compare all trees (with a pool of biparts)")
 	pc := flag.Bool("pc", false, "pairwise compare each tree (with each tree)")
@@ -66,7 +67,7 @@ func main() {
 		fmt.Fprintln(os.Stderr, "blcutoff set to:", *blcut)
 		rp.BlCut = *blcut
 	}
-	if *rfw {
+	if *rfw || *rfwp {
 		rp.IncludeNodeMap = true
 		rp.IncludeTips = true
 	}
@@ -203,7 +204,7 @@ func main() {
 	//---------
 	// get the tree indices for the biparts
 	// used for rf, rfp, and pc
-	if *rf || *rfp || *rfw || *pc {
+	if *rf || *rfp || *rfw || *rfwp || *pc {
 		bpts = make(map[int][]int, ntrees)
 		for i, b := range bps {
 			for _, j := range b.TreeIndices {
@@ -282,8 +283,12 @@ func main() {
 		runRfp(ntrees, *wks, bpts, bps)
 	}
 	// calculate rfw (weighted partial overlap)
-	if *rfw {
-		runRfw(ntrees, *wks, bpts, bps)
+	if *rfw || *rfwp {
+		if *rfwp {
+			runRfw(ntrees, true, *wks, bpts, bps)
+		} else {
+			runRfw(ntrees, false, *wks, bpts, bps)
+		}
 	}
 
 	//memprofile
@@ -355,12 +360,12 @@ func runRfp(ntrees int, workers int, bpts map[int][]int, bps []gophy.Bipart) {
 	fmt.Fprintln(os.Stderr, end.Sub(start))
 }
 
-func runRfw(ntrees int, workers int, bpts map[int][]int, bps []gophy.Bipart) {
+func runRfw(ntrees int, tippenalty bool, workers int, bpts map[int][]int, bps []gophy.Bipart) {
 	jobs := make(chan []int, ntrees*ntrees)
 	results := make(chan gophy.Rfwresult, ntrees*ntrees)
 	start := time.Now()
 	for w := 1; w <= workers; w++ {
-		go gophy.PCalcRFDistancesPartialWeighted(bpts, bps, jobs, results)
+		go gophy.PCalcRFDistancesPartialWeighted(bpts, tippenalty, bps, jobs, results)
 	}
 
 	njobs := 0
