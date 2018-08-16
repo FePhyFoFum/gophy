@@ -285,9 +285,9 @@ func main() {
 	// calculate rfw (weighted partial overlap)
 	if *rfw || *rfwp {
 		if *rfwp {
-			runRfw(ntrees, true, *wks, bpts, bps)
+			runRfw(ntrees, true, *wks, bpts, bps, *v)
 		} else {
-			runRfw(ntrees, false, *wks, bpts, bps)
+			runRfw(ntrees, false, *wks, bpts, bps, *v)
 		}
 	}
 
@@ -360,7 +360,7 @@ func runRfp(ntrees int, workers int, bpts map[int][]int, bps []gophy.Bipart) {
 	fmt.Fprintln(os.Stderr, end.Sub(start))
 }
 
-func runRfw(ntrees int, tippenalty bool, workers int, bpts map[int][]int, bps []gophy.Bipart) {
+func runRfw(ntrees int, tippenalty bool, workers int, bpts map[int][]int, bps []gophy.Bipart, verbose bool) {
 	jobs := make(chan []int, ntrees*ntrees)
 	results := make(chan gophy.Rfwresult, ntrees*ntrees)
 	start := time.Now()
@@ -380,7 +380,12 @@ func runRfw(ntrees int, tippenalty bool, workers int, bpts map[int][]int, bps []
 	close(jobs)
 	for i := 0; i < njobs; i++ {
 		val := <-results
-		fmt.Println(strconv.Itoa(val.Tree1) + " " + strconv.Itoa(val.Tree2) + ": " + strconv.FormatFloat(val.Weight, 'f', -1, 64))
+		if verbose {
+			fmt.Println(strconv.Itoa(val.Tree1) + " " + strconv.Itoa(val.Tree2) + ": " + strconv.FormatFloat(val.Weight, 'f', -1, 64) +
+				" " + strconv.FormatFloat(val.MaxDev, 'f', -1, 64))
+		} else {
+			fmt.Println(strconv.Itoa(val.Tree1) + " " + strconv.Itoa(val.Tree2) + ": " + strconv.FormatFloat(val.Weight, 'f', -1, 64))
+		}
 	}
 	end := time.Now()
 	fmt.Fprintln(os.Stderr, end.Sub(start))

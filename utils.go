@@ -78,10 +78,12 @@ func PCalcRFDistancesPartial(bpts map[int][]int, bps []Bipart, jobs <-chan []int
 	}
 }
 
+//Rfwresult struct for holding info from rfwp analysis
 type Rfwresult struct {
 	Tree1  int
 	Tree2  int
 	Weight float64
+	MaxDev float64
 }
 
 //PCalcRFDistancesPartialWeighted includes the branch lengths
@@ -91,23 +93,39 @@ func PCalcRFDistancesPartialWeighted(bpts map[int][]int, tippenalty bool, bps []
 		ab := 0.0
 		mb := map[string]float64{}
 		used := make([]int, 0)
+		maxdev := 0.0
 		for _, x := range bpts[in1] {
 			for _, y := range bpts[in2] {
 				if bps[x].ConflictsWith(bps[y]) {
 					mb["t1"+string(x)] = bps[x].NdsM[in1].Len
 					mb["t2"+string(y)] = bps[y].NdsM[in2].Len
+					// record the max dev
+					if bps[x].NdsM[in1].Len > maxdev {
+						maxdev = bps[x].NdsM[in1].Len
+					}
+					if bps[y].NdsM[in2].Len > maxdev {
+						maxdev = bps[y].NdsM[in2].Len
+					}
 					if tippenalty {
 						used = append(used, x)
 						used = append(used, y)
 					}
 				} else if bps[x].ConcordantWith(bps[y]) {
-					ab += math.Abs(bps[x].NdsM[in1].Len - bps[y].NdsM[in2].Len)
+					v := math.Abs(bps[x].NdsM[in1].Len - bps[y].NdsM[in2].Len)
+					ab += v
+					if v > maxdev {
+						maxdev = v
+					}
 					if tippenalty {
 						used = append(used, x)
 						used = append(used, y)
 					}
 				} else if bps[x].Equals(bps[y]) {
-					ab += math.Abs(bps[x].NdsM[in1].Len - bps[y].NdsM[in2].Len)
+					v := math.Abs(bps[x].NdsM[in1].Len - bps[y].NdsM[in2].Len)
+					ab += v
+					if v > maxdev {
+						maxdev = v
+					}
 					if tippenalty {
 						used = append(used, x)
 						used = append(used, y)
@@ -122,18 +140,34 @@ func PCalcRFDistancesPartialWeighted(bpts map[int][]int, tippenalty bool, bps []
 			for _, m := range x {
 				if len(bps[m].Lt) == 1 {
 					ab += bps[m].NdsM[in1].Len
+					if bps[m].NdsM[in1].Len > maxdev {
+						maxdev = bps[m].NdsM[in1].Len
+					}
+				} else {
+					ab += bps[m].NdsM[in1].Len
+					if bps[m].NdsM[in1].Len > maxdev {
+						maxdev = bps[m].NdsM[in1].Len
+					}
 				}
 			}
 			for _, m := range y {
 				if len(bps[m].Lt) == 1 {
 					ab += bps[m].NdsM[in2].Len
+					if bps[m].NdsM[in2].Len > maxdev {
+						maxdev = bps[m].NdsM[in2].Len
+					}
+				} else {
+					ab += bps[m].NdsM[in2].Len
+					if bps[m].NdsM[in2].Len > maxdev {
+						maxdev = bps[m].NdsM[in2].Len
+					}
 				}
 			}
 		}
 		for _, x := range mb {
 			ab += x
 		}
-		results <- Rfwresult{Tree1: in1, Tree2: in2, Weight: ab}
+		results <- Rfwresult{Tree1: in1, Tree2: in2, Weight: ab, MaxDev: maxdev}
 	}
 }
 
