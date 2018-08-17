@@ -6,6 +6,7 @@ import (
 	"gonum.org/v1/gonum/floats"
 )
 
+//LikeResult likelihood value and site
 type LikeResult struct {
 	value float64
 	site  int
@@ -41,6 +42,7 @@ func PCalcLogLike(t *Tree, x *DNAModel, nsites int, wks int) (fl float64) {
 	return
 }
 
+//PCalcLike parallel calculate likelihood
 func PCalcLike(t *Tree, x *DNAModel, nsites int, wks int) (fl float64) {
 	fl = 0.0
 	jobs := make(chan int, nsites)
@@ -66,6 +68,7 @@ func PCalcLike(t *Tree, x *DNAModel, nsites int, wks int) (fl float64) {
 	return
 }
 
+//PCalcLikePatterns parallel caclulation of likelihood with patterns
 func PCalcLikePatterns(t *Tree, x *DNAModel, patternval []float64, wks int) (fl float64) {
 	fl = 0.0
 	nsites := len(patternval)
@@ -93,6 +96,8 @@ func PCalcLikePatterns(t *Tree, x *DNAModel, patternval []float64, wks int) (fl 
 }
 
 //TODO: this whole bit needs to be checcked
+
+//PCalcLikePatternsMarked parallel likelihood caclulation with patterns and just update the values
 func PCalcLikePatternsMarked(t *Tree, x *DNAModel, patternval []float64, wks int) (fl float64) {
 	fl = 0.0
 	nsites := len(patternval)
@@ -119,6 +124,7 @@ func PCalcLikePatternsMarked(t *Tree, x *DNAModel, patternval []float64, wks int
 	return
 }
 
+//PCalcLogLikePatterns parallel log likeliohood calculation including patterns
 func PCalcLogLikePatterns(t *Tree, x *DNAModel, patternval []float64, wks int) (fl float64) {
 	fl = 0.0
 	nsites := len(patternval)
@@ -166,6 +172,7 @@ func PCalcLogLikeBack(t *Tree, n *Node, x *DNAModel, nsites int, wks int) (fl fl
 	return
 }
 
+//PCalcLogLikeMarked parallel calculation of loglike with just updating
 func PCalcLogLikeMarked(t *Tree, x *DNAModel, nsites int, wks int) (fl float64) {
 	fl = 0.0
 	jobs := make(chan int, nsites)
@@ -205,6 +212,7 @@ func CalcLogLikeOneSite(t *Tree, x *DNAModel, site int) float64 {
 	return sl
 }
 
+//CalcLikeOneSite just one site
 func CalcLikeOneSite(t *Tree, x *DNAModel, site int) float64 {
 	sl := 0.0
 	for _, n := range t.Post {
@@ -267,7 +275,7 @@ func CalcLogLikeOneSiteMarked(t *Tree, x *DNAModel, site int) float64 {
 	return sl
 }
 
-// CalcLogLikeOneSiteMarked this uses the marked machinery to recalculate
+// CalcLikeOneSiteMarked this uses the marked machinery to recalculate
 func CalcLikeOneSiteMarked(t *Tree, x *DNAModel, site int) float64 {
 	sl := 0.0
 	for _, n := range t.Post {
@@ -310,6 +318,7 @@ func CalcLogLikeWork(t *Tree, x *DNAModel, jobs <-chan int, results chan<- LikeR
 	}
 }
 
+//CalcLikeWork this is the worker
 func CalcLikeWork(t *Tree, x *DNAModel, jobs <-chan int, results chan<- LikeResult) { //results chan<- float64) {
 	for j := range jobs {
 		sl := 0.0
@@ -352,7 +361,7 @@ func CalcLogLikeWorkBack(t *Tree, nb *Node, x *DNAModel, jobs <-chan int, result
 	}
 }
 
-// CalcLogLikeWorkMarked this is intended to calculate only on the marked nodes back to teh root
+// CalcLikeWorkMarked this is intended to calculate only on the marked nodes back to teh root
 func CalcLikeWorkMarked(t *Tree, x *DNAModel, jobs <-chan int, results chan<- LikeResult) {
 	for j := range jobs {
 		sl := 0.0
@@ -426,6 +435,7 @@ func CalcLogLikeNode(nd *Node, model *DNAModel, site int) {
 	}
 }
 
+//CalcLikeNode calculate the likelihood of a node
 func CalcLikeNode(nd *Node, model *DNAModel, site int) {
 	for i := 0; i < 4; i++ {
 		nd.Data[site][i] = 1.

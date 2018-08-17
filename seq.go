@@ -134,6 +134,7 @@ func PNW(seqs []Seq, jobs <-chan []int, results chan<- float32) {
 	}
 }
 
+//ReadSeqsFromFile obvious
 func ReadSeqsFromFile(filen string) (seqs []Seq) {
 	file, err := os.Open(filen)
 	if err != nil {

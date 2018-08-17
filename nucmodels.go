@@ -234,7 +234,8 @@ func (d *DNAModel) GetPCalc(blen float64) *mat.Dense {
    D,d ==> {AGT}
    N,n ==> {ACGT}
 */
-// SetNucMap for getting the position in the array
+
+//SetNucMap for getting the position in the array
 func (d *DNAModel) SetNucMap() {
 	d.CharMap = make(map[string][]int)
 	d.CharMap["A"] = []int{0}
