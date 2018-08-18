@@ -2,6 +2,7 @@ package gophy
 
 import (
 	"math"
+	"sort"
 	"strconv"
 )
 
@@ -303,4 +304,30 @@ func Round(val float64, roundOn float64, places int) (newVal float64) {
 	}
 	newVal = round / pow
 	return
+}
+
+//SortedIntIdxSlice for sorting indices of ints
+type SortedIntIdxSlice struct {
+	sort.IntSlice
+	Idx []int
+}
+
+//Swap for sorting indices
+func (s SortedIntIdxSlice) Swap(i, j int) {
+	s.IntSlice.Swap(i, j)
+	s.Idx[i], s.Idx[j] = s.Idx[j], s.Idx[i]
+}
+
+// NewSortedIdxSlice usage:
+/* s := NewSlice(1, 25, 3, 5, 4)
+sort.Sort(s)
+will give s.IntSlice = [1 3 4 5 25]
+s.idx = [0 2 4 3 1]
+*/
+func NewSortedIdxSlice(n ...int) *SortedIntIdxSlice {
+	s := &SortedIntIdxSlice{IntSlice: sort.IntSlice(n), Idx: make([]int, len(n))}
+	for i := range s.Idx {
+		s.Idx[i] = i
+	}
+	return s
 }

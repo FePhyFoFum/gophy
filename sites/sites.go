@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"runtime/pprof"
+	"sort"
 	"time"
 
 	"github.com/FePhyFoFum/gophy"
@@ -82,6 +83,7 @@ func main() {
 	tfn := flag.String("t", "", "tree filename")
 	afn := flag.String("s", "", "fasta aln filename")
 	wks := flag.Int("w", 4, "number of threads")
+	v := flag.Bool("v", false, "verbose")
 	cpuprofile := flag.String("cpuprofile", "", "write cpu profile to file")
 	flag.Parse()
 	if len(os.Args) < 2 {
@@ -157,7 +159,9 @@ func main() {
 			//fmt.Println(" ", sp.getSitePartNameString(seqnames))
 		} else {
 			if sp.getSitePartCount() > 1 {
-				fmt.Println(sp.PatternStr, sp.getSitePartNameString(seqnames), "x", len(sp.Columns), " #bps:", len(sp.Biparts))
+				if *v {
+					fmt.Println(sp.PatternStr, sp.getSitePartNameString(seqnames), "x", len(sp.Columns), " #bps:", len(sp.Biparts))
+				}
 				for _, j := range sp.Biparts {
 					eq := false
 					for ci, i := range bps {
@@ -176,8 +180,17 @@ func main() {
 		}
 	}
 
-	for i, j := range bps {
-		fmt.Println(j.NewickWithNames(namesmap), bpsc[i])
+	fmt.Fprintln(os.Stderr, "\n--biparts--\n")
+	tmp := make([]int, len(bpsc))
+	copy(tmp, bpsc)
+	ss := gophy.NewSortedIdxSlice(tmp...)
+	sort.Sort(ss)
+	for i := len(ss.Idx) - 1; i >= 0; i-- {
+		if bpsc[ss.Idx[i]] == 1 && *v {
+			fmt.Println(bps[ss.Idx[i]].NewickWithNames(namesmap), bpsc[ss.Idx[i]])
+		} else if bpsc[ss.Idx[i]] > 1 {
+			fmt.Println(bps[ss.Idx[i]].NewickWithNames(namesmap), bpsc[ss.Idx[i]])
+		}
 	}
 	//end summary
 	end := time.Now()
