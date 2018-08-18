@@ -135,7 +135,6 @@ func main() {
 		for i := range seqnames {
 			sji := string(j[i])
 			sp.CharMap[sji] = append(sp.CharMap[sji], i)
-			//fmt.Print(" ", k, " ", string(j[i]), "\n")
 		}
 		sp.Biparts = constructBiparts(sp)
 		siteparts[c] = sp
@@ -159,12 +158,12 @@ func main() {
 		} else {
 			if sp.getSitePartCount() > 1 {
 				fmt.Println(sp.PatternStr, sp.getSitePartNameString(seqnames), "x", len(sp.Columns), " #bps:", len(sp.Biparts))
-				for cj, j := range sp.Biparts {
+				for _, j := range sp.Biparts {
 					eq := false
-					for _, i := range bps {
+					for ci, i := range bps {
 						if j.Equals(i) {
 							eq = true
-							bpsc[cj] += len(sp.Columns)
+							bpsc[ci] += len(sp.Columns)
 							break
 						}
 					}
@@ -176,6 +175,7 @@ func main() {
 			}
 		}
 	}
+
 	for i, j := range bps {
 		fmt.Println(j.NewickWithNames(namesmap), bpsc[i])
 	}
