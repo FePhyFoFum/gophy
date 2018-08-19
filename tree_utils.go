@@ -60,3 +60,17 @@ func SetHeights(tree *Tree) {
 		}
 	}
 }
+
+// NodeNamesSliceIntersects checks to see whether two node slices intersect by name
+func NodeNamesSliceIntersects(a, b []*Node) (rb bool) {
+	rb = false
+	for _, k := range a {
+		for _, l := range b {
+			if k.Nam == l.Nam {
+				rb = true
+				return
+			}
+		}
+	}
+	return
+}

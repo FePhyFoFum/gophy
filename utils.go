@@ -227,6 +227,16 @@ func IntMapIntersects2(s1 map[int]bool, s2 map[int]bool) (in bool) {
 	return
 }
 
+// IntMapIntersectsRet checks to see if the two map[int]bool intersect and returns the intersection (in the set sense)
+func IntMapIntersectsRet(s1, s2 map[int]bool) (r []int) {
+	for k := range s1 {
+		if s2[k] {
+			r = append(r, k)
+		}
+	}
+	return
+}
+
 // IntMapSetString get a string for printing off a set
 func IntMapSetString(intmap map[int]bool) (s string) {
 	s = ""
@@ -305,6 +315,10 @@ func Round(val float64, roundOn float64, places int) (newVal float64) {
 	newVal = round / pow
 	return
 }
+
+/*
+  Bits below are for getting sorted indices from a list
+*/
 
 //SortedIntIdxSlice for sorting indices of ints
 type SortedIntIdxSlice struct {

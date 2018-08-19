@@ -7,6 +7,7 @@ import (
 	"os"
 	"runtime/pprof"
 	"sort"
+	"strconv"
 	"time"
 
 	"github.com/FePhyFoFum/gophy"
@@ -79,10 +80,63 @@ func constructBiparts(s SitePart) (bps []gophy.Bipart) {
 	return
 }
 
+func combineBiparts(bps []gophy.Bipart, namesmap map[int]string) {
+	rt := gophy.Node{nil, nil, "root", map[string]string{}, 0., nil, false, 0., map[float64]bool{}}
+	nodesmap := make(map[int]*gophy.Node)
+	for i := range namesmap {
+		nd := gophy.Node{&rt, nil, strconv.Itoa(i), map[string]string{}, 0., nil, false, 0., map[float64]bool{}}
+		nodesmap[i] = &nd
+		rt.Chs = append(rt.Chs, &nd)
+	}
+	finalsets := make([]gophy.Bipart, 0)
+	c := 0
+	for _, i := range bps {
+		nds := make([]*gophy.Node, 0)
+		for j := range i.Lt {
+			nds = append(nds, nodesmap[j])
+		}
+		m := gophy.GetMrca(nds, &rt)
+		if m == &rt && len(m.Chs) <= 3 {
+			continue
+		} else if m != &rt && len(m.Chs) <= 2 {
+			continue
+		} else {
+			chs := make([]*gophy.Node, 0)
+			ochs := make([]*gophy.Node, 0)
+			for _, j := range m.Chs {
+				t := j.GetTips()
+				if gophy.NodeNamesSliceIntersects(nds, t) {
+					chs = append(chs, j)
+				} else {
+					ochs = append(ochs, j)
+				}
+			}
+			nd := gophy.Node{m, chs, "c" + strconv.Itoa(c), map[string]string{}, 0., nil, false, 0., map[float64]bool{}}
+			nd.Chs = chs
+			for _, j := range chs {
+				j.Par = &nd
+			}
+			m.Chs = ochs
+			m.Chs = append(m.Chs, &nd)
+			finalsets = append(finalsets, i)
+		}
+		c++
+	}
+
+	//fmt.Println("finalsets:", finalsets)
+	t := gophy.NewTree()
+	t.Instantiate(&rt)
+	for _, i := range rt.GetTips() {
+		n, _ := strconv.Atoi(i.Nam)
+		i.Nam = namesmap[n]
+	}
+	fmt.Fprintln(os.Stderr, rt.Newick(false)+";")
+}
+
 func main() {
 	tfn := flag.String("t", "", "tree filename")
 	afn := flag.String("s", "", "fasta aln filename")
-	wks := flag.Int("w", 4, "number of threads")
+	//wks := flag.Int("w", 4, "number of threads")
 	v := flag.Bool("v", false, "verbose")
 	cpuprofile := flag.String("cpuprofile", "", "write cpu profile to file")
 	flag.Parse()
@@ -99,7 +153,7 @@ func main() {
 		defer pprof.StopCPUProfile()
 	}
 
-	fmt.Fprintln(os.Stderr, "threads:", *wks)
+	//fmt.Fprintln(os.Stderr, "threads:", *wks)
 
 	//read a seq file
 	nsites := 0
@@ -180,19 +234,22 @@ func main() {
 		}
 	}
 
-	fmt.Fprintln(os.Stderr, "\n--biparts--\n")
+	fmt.Println("\n--biparts--\n")
 	tmp := make([]int, len(bpsc))
 	copy(tmp, bpsc)
 	ss := gophy.NewSortedIdxSlice(tmp...)
 	sort.Sort(ss)
+	sbps := make([]gophy.Bipart, 0)
 	for i := len(ss.Idx) - 1; i >= 0; i-- {
 		if bpsc[ss.Idx[i]] == 1 && *v {
 			fmt.Println(bps[ss.Idx[i]].NewickWithNames(namesmap), bpsc[ss.Idx[i]])
 		} else if bpsc[ss.Idx[i]] > 1 {
 			fmt.Println(bps[ss.Idx[i]].NewickWithNames(namesmap), bpsc[ss.Idx[i]])
+			sbps = append(sbps, bps[ss.Idx[i]])
 		}
 	}
+	combineBiparts(sbps, namesmap)
 	//end summary
 	end := time.Now()
-	fmt.Fprintln(os.Stderr, end.Sub(start))
+	fmt.Println(end.Sub(start))
 }
