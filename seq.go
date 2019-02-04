@@ -153,7 +153,7 @@ func ReadSeqsFromFile(filen string) (seqs []Seq) {
 					first = false
 					cnm = strings.TrimRight(st[1:], "\n")
 				} else {
-					cs := Seq{cnm, csq}
+					cs := Seq{cnm, strings.ToUpper(csq)}
 					seqs = append(seqs, cs)
 					csq = ""
 					cnm = strings.TrimRight(st[1:], "\n")
@@ -171,7 +171,7 @@ func ReadSeqsFromFile(filen string) (seqs []Seq) {
 		}
 	}
 	// get the last one
-	cs := Seq{cnm, csq}
+	cs := Seq{cnm, strings.ToUpper(csq)}
 	seqs = append(seqs, cs)
 	return
 }

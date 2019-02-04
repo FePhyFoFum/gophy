@@ -81,10 +81,10 @@ func constructBiparts(s SitePart) (bps []gophy.Bipart) {
 }
 
 func combineBiparts(bps []gophy.Bipart, namesmap map[int]string) {
-	rt := gophy.Node{nil, nil, "root", map[string]string{}, 0., nil, false, 0., map[float64]bool{}}
+	rt := gophy.Node{nil, nil, "root", map[string]string{}, map[string]float64{}, map[string]int{}, 0, 0., nil, false, 0., map[float64]bool{}}
 	nodesmap := make(map[int]*gophy.Node)
 	for i := range namesmap {
-		nd := gophy.Node{&rt, nil, strconv.Itoa(i), map[string]string{}, 0., nil, false, 0., map[float64]bool{}}
+		nd := gophy.Node{&rt, nil, strconv.Itoa(i), map[string]string{}, map[string]float64{}, map[string]int{}, 0, 0., nil, false, 0., map[float64]bool{}}
 		nodesmap[i] = &nd
 		rt.Chs = append(rt.Chs, &nd)
 	}
@@ -111,7 +111,7 @@ func combineBiparts(bps []gophy.Bipart, namesmap map[int]string) {
 					ochs = append(ochs, j)
 				}
 			}
-			nd := gophy.Node{m, chs, "c" + strconv.Itoa(c), map[string]string{}, 0., nil, false, 0., map[float64]bool{}}
+			nd := gophy.Node{m, chs, "c" + strconv.Itoa(c), map[string]string{}, map[string]float64{}, map[string]int{}, 0, 0., nil, false, 0., map[float64]bool{}}
 			nd.Chs = chs
 			for _, j := range chs {
 				j.Par = &nd

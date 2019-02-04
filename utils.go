@@ -345,3 +345,8 @@ func NewSortedIdxSlice(n ...int) *SortedIntIdxSlice {
 	}
 	return s
 }
+
+// LogFact calculate the log factorial
+func LogFact(k float64) float64 {
+	return k*(math.Log(k)-1) + math.Log(math.Sqrt(6.28318*k))
+}

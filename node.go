@@ -11,6 +11,9 @@ type Node struct {
 	Chs       []*Node //childs
 	Nam       string  //name
 	SData     map[string]string
+	FData     map[string]float64
+	IData     map[string]int
+	Num       int
 	Len       float64 //branch length
 	Data      [][]float64
 	Marked    bool //just for like calculations
