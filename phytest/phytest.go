@@ -18,21 +18,21 @@ import (
 )
 
 func slidingWindow(x, w float64) float64 {
-	return (rand.Float64() * ((x + w/2) - (x - w/2))) + (x - w/2.)
+	return math.Abs((rand.Float64() * ((x + w/2) - (x - w/2))) + (x - w/2.))
 }
 
 // MCMC simple MCMC for branch lengths
-func MCMC(t *gophy.Tree, x *gophy.DNAModel, nsites int, wks int, outfilename string) {
+func MCMC(t *gophy.Tree, x *gophy.DNAModel, patternval []float64, wks int, outfilename string) {
 	f, err := os.Create(outfilename)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer f.Close()
 	wr := bufio.NewWriter(f)
-	w := 0.5
-	printf := 100
-	iter := 10000
-	curlike := gophy.PCalcLogLike(t, x, nsites, wks)
+	w := 0.1
+	printf := 1000
+	iter := 100000
+	curlike := gophy.PCalcLogLikePatterns(t, x, patternval, wks)
 	newlike := 0.0
 	start := time.Now()
 	//fullcalc := false
@@ -53,7 +53,9 @@ func MCMC(t *gophy.Tree, x *gophy.DNAModel, nsites int, wks int, outfilename str
 		//} else {
 		//	newlike = PCalcLogLikeBack(t, t.Post[nd], x, nsites, wks)
 		//}
-		newlike = gophy.PCalcLogLikeMarked(t, x, nsites, wks)
+		//newlike = gophy.PCalcLogLikeMarked(t, x, nsites, wks)
+		//make pattern marked
+		newlike = gophy.PCalcLikePatternsMarked(t, x, patternval, wks)
 		for _, n := range t.Post {
 			n.Marked = false
 		}
@@ -233,24 +235,13 @@ func main() {
 	}
 	l := gophy.PCalcLikePatterns(t, x, patternval, *wks)
 	fmt.Println("lnL:", l)
-	//fmt.Println(t.Rt.Newick(true))
-	/*
-		for _, n := range t.Post {
-			OptimizeBL(n, t, x, nsites, 10)
-		}
-		for _, n := range t.Post {
-			OptimizeBL(n, t, x, nsites, 10)
-		}
-		for _, n := range t.Post {
-			OptimizeBL(n, t, x, nsites, 10)
-		}
-		for _, n := range t.Post {
-			OptimizeBL(n, t, x, nsites, 10)
-		}
-		for _, n := range t.Post {
-			OptimizeBL(n, t, x, nsites, 10)
-		}*/
-	//MCMC(t, x, nsites, 10, "temp.mcmc.tre")
+	fmt.Println(t.Rt.Newick(true))
+
+	//for _, n := range t.Post {
+	//	gophy.OptimizeBL(n, t, x, patternval, 10)
+	//}
+	gophy.OptimizeBLS(t, x, patternval, 10)
+	//MCMC(t, x, patternval, 3, "temp.mcmc.tre")
 	end := time.Now()
 	fmt.Fprintln(os.Stderr, end.Sub(start))
 }
