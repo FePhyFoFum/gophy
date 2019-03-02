@@ -104,3 +104,79 @@ func CalcLikeNodeMul(nd *Node, model *DNAModel, site int) {
 		}
 	}
 }
+
+//PCalcLikePatternsMarkedMul parallel likelihood caclulation with patterns and just update the values
+func PCalcLikePatternsMarkedMul(t *Tree, models []*DNAModel, nodemodels map[*Node]int, patternval []float64, wks int) (fl float64) {
+	fl = 0.0
+	nsites := len(patternval)
+	jobs := make(chan int, nsites)
+	//results := make(chan float64, nsites)
+	results := make(chan LikeResult, nsites)
+	// populate the P matrix dictionary without problems of race conditions
+	// just the first site
+	//x.EmptyPDict()
+	fl += math.Log(CalcLikeOneSiteMarkedMul(t, models, nodemodels, 0)) * patternval[0]
+	for i := 0; i < wks; i++ {
+		go CalcLikeWorkMarkedMul(t, models, nodemodels, jobs, results)
+	}
+	for i := 1; i < nsites; i++ {
+		jobs <- i
+	}
+	close(jobs)
+	rr := LikeResult{}
+	for i := 1; i < nsites; i++ {
+		rr = <-results
+		fl += math.Log(rr.value) * patternval[rr.site]
+		//fl += <-results
+	}
+	return
+}
+
+// CalcLikeOneSiteMarked this uses the marked machinery to recalculate
+func CalcLikeOneSiteMarkedMul(t *Tree, models []*DNAModel, nodemodels map[*Node]int, site int) float64 {
+	sl := 0.0
+	for _, n := range t.Post {
+		x := models[nodemodels[n]]
+		if len(n.Chs) > 0 {
+			if n.Marked == true {
+				CalcLikeNode(n, x, site)
+				if n != t.Rt {
+					n.Par.Marked = true
+				}
+			}
+		}
+		if t.Rt == n && n.Marked == true {
+			for i := 0; i < 4; i++ {
+				t.Rt.Data[site][i] *= x.BF[i]
+			}
+			sl = floats.Sum(t.Rt.Data[site])
+		} else {
+			sl = floats.Sum(t.Rt.Data[site])
+		}
+	}
+	return sl
+}
+
+// CalcLikeWorkMarked this is intended to calculate only on the marked nodes back to teh root
+func CalcLikeWorkMarkedMul(t *Tree, models []*DNAModel, nodemodels map[*Node]int, jobs <-chan int, results chan<- LikeResult) {
+	for j := range jobs {
+		sl := 0.0
+		for _, n := range t.Post {
+			x := models[nodemodels[n]]
+			if len(n.Chs) > 0 {
+				if n.Marked == true {
+					CalcLikeNode(n, x, j)
+				}
+			}
+			if t.Rt == n && n.Marked == true {
+				for i := 0; i < 4; i++ {
+					t.Rt.Data[j][i] *= x.BF[i]
+				}
+				sl = floats.Sum(t.Rt.Data[j])
+			} else {
+				sl = floats.Sum(t.Rt.Data[j])
+			}
+		}
+		results <- LikeResult{value: sl, site: j}
+	}
+}

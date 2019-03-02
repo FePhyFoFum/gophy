@@ -241,4 +241,6 @@ func main() {
 	fmt.Println(t.Rt.Newick(true))
 
 	//fmt.Println(gophy.GetGammaCats(10, 5, false))
+	l = gophy.PCalcLikePatterns(t, x, patternval, *wks)
+	fmt.Println("lnL:", l)
 }

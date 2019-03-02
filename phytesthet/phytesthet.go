@@ -120,7 +120,6 @@ func main() {
 	}
 	//end
 
-	
 	// get the site patternas
 	patterns, patternsint, gapsites, constant, uninformative := gophy.GetSitePatterns(seqs, nsites, seqnames)
 	//list of sites
@@ -162,6 +161,7 @@ func main() {
 		}
 	}
 	
+	start := time.Now()
 	// calc likelihood
 	w := 10
 	if nsites < w {
@@ -169,26 +169,28 @@ func main() {
 	}
 	l := gophy.PCalcLikePatternsMul(t, models, nodemodels, patternval, *wks)
 	fmt.Println("lnL:", l)
-	/*
+	
 	//optimize branch lengths
-	gophy.OptimizeBLS(t, x, patternval, 10)
+	gophy.OptimizeBLSMul(t, models,nodemodels, patternval, 10)
 	//optimize model
-	gophy.OptimizeGTR(t,x,patternval,10)
+	gophy.OptimizeGTRMul(t,models,nodemodels,patternval,10)
+	
 	//optimize branch lengths
-	gophy.OptimizeBLS(t, x, patternval, 10)
+	gophy.OptimizeBLSMul(t, models,nodemodels, patternval, 10)
 	end := time.Now()
 	fmt.Fprintln(os.Stderr, end.Sub(start))
 	//print the matrix
-	for i:=0;i<4;i++{
-		for j:=0;j<4;j++{
-			fmt.Print(x.R.At(i,j)," ")
+	for _,x := range models{
+		for i:=0;i<4;i++{
+			for j:=0;j<4;j++{
+				fmt.Print(x.R.At(i,j)," ")
+			}
+			fmt.Print("\n")
 		}
-		fmt.Print("\n")
+		//print the basefreqs
+		fmt.Println(x.BF)
 	}
-	//print the basefreqs
-	fmt.Println(x.BF)
 	fmt.Println(t.Rt.Newick(true))
-
-	//fmt.Println(gophy.GetGammaCats(10, 5, false))
-	*/
+	l = gophy.PCalcLikePatternsMul(t, models, nodemodels, patternval, *wks)
+	fmt.Println("lnL:", l)
 }
