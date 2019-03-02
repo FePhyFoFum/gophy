@@ -229,7 +229,15 @@ func main() {
 	//MCMC(t, x, patternval, 3, "temp.mcmc.tre")
 	end := time.Now()
 	fmt.Fprintln(os.Stderr, end.Sub(start))
-	fmt.Println(x)
+	//print the matrix
+	for i:=0;i<4;i++{
+		for j:=0;j<4;j++{
+			fmt.Print(x.R.At(i,j)," ")
+		}
+		fmt.Print("\n")
+	}
+	//print the basefreqs
+	fmt.Println(x.BF)
 	fmt.Println(t.Rt.Newick(true))
 
 	//fmt.Println(gophy.GetGammaCats(10, 5, false))
