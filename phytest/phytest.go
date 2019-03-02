@@ -235,13 +235,18 @@ func main() {
 	}
 	l := gophy.PCalcLikePatterns(t, x, patternval, *wks)
 	fmt.Println("lnL:", l)
-	fmt.Println(t.Rt.Newick(true))
-
-	//for _, n := range t.Post {
-	//	gophy.OptimizeBL(n, t, x, patternval, 10)
-	//}
+	
+	//optimize branch lengths
+	gophy.OptimizeBLS(t, x, patternval, 10)
+	//optimize model
+	gophy.OptimizeGTR(t,x,patternval,10)
+	//optimize branch lengths
 	gophy.OptimizeBLS(t, x, patternval, 10)
 	//MCMC(t, x, patternval, 3, "temp.mcmc.tre")
 	end := time.Now()
 	fmt.Fprintln(os.Stderr, end.Sub(start))
+	fmt.Println(x)
+	fmt.Println(t.Rt.Newick(true))
+
+	//fmt.Println(gophy.GetGammaCats(10, 5, false))
 }

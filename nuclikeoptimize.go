@@ -64,6 +64,7 @@ func OptimizeBL(nd *Node, t *Tree, x *DNAModel, patternvals []float64, wks int) 
 	nd.Len = res.X[0]
 }
 
+// OptimizeBLS optimize all branch lengths
 func OptimizeBLS(t *Tree, x *DNAModel, patternvals []float64, wks int) {
 	count := 0
 	start := time.Now()
@@ -125,4 +126,42 @@ func OptimizeBLS(t *Tree, x *DNAModel, patternvals []float64, wks int) {
 	for x, n := range t.Post {
 		n.Len = res.X[x]
 	}
+}
+
+// OptimizeGTR optimize GTR
+func OptimizeGTR(t *Tree, x *DNAModel, patternvals []float64, wks int) {
+	count := 0
+	start := time.Now()
+	fcn := func(mds []float64) float64 {
+		for _, i := range mds {
+			if i < 0 {
+				return 1000000000000
+			}
+		}
+		x.SetRateMatrix(mds)
+		x.SetupQGTR()
+		lnl := PCalcLikePatterns(t, x, patternvals, wks)
+		if count%100 == 0 {
+			curt := time.Now()
+			fmt.Println(count, lnl, curt.Sub(start))
+			start = time.Now()
+		}
+		count++
+		return -lnl
+	}
+	settings := optimize.Settings{}
+	settings.MajorIterations = 10
+	settings.Concurrent = 0
+	settings.FuncEvaluations = 10
+	settings.FunctionThreshold = 0.1
+	settings.GradientThreshold = 0.1
+	settings.Recorder = nil
+	p := optimize.Problem{Func: fcn, Grad: nil, Hess: nil}
+	p0 :=[]float64{1.0,1.0,1.0,1.0,1.0}
+	res, err := optimize.Minimize(p, p0, nil, nil)
+	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Println(res.F)
+	x.SetRateMatrix(res.X)
 }
