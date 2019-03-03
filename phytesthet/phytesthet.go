@@ -8,6 +8,7 @@ import (
 	"os"
 	"runtime/pprof"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/FePhyFoFum/gophy"
@@ -70,24 +71,32 @@ func main() {
 	maxint := 0
 	nodemodels := map[*gophy.Node]int{}
 	//get number of models from tree labels
-	for _,i := range t.Pre {
-		if len(i.Nam) == 0{
+	for _, i := range t.Pre {
+		if len(i.Nam) == 0 {
 			nodemodels[i] = 0
-		}else if len(i.Chs) == 0 {			//if parent has the num and it is tip, then it gets the num
+		} else if len(i.Chs) == 0 { //if parent has the num and it is tip, then it gets the num
+			if strings.Contains(i.Nam, "#") {
+				spls := strings.Split(i.Nam, "#")
+				i.Nam = spls[0]
+				num64, _ := strconv.ParseInt(spls[1], 0, 0)
+				nodemodels[i] = int(num64)
+				fmt.Println(i, num64)
+			}
 			nodemodels[i] = nodemodels[i.Par]
-		}else if i.Nam[0] == '#' {
-			num64,_ := strconv.ParseInt(i.Nam[1:],0,0)
+
+		} else if i.Nam[0] == '#' {
+			num64, _ := strconv.ParseInt(i.Nam[1:], 0, 0)
 			num := int(num64)
 			if num > maxint {
 				maxint = num
 			}
-			fmt.Println(i,num)
+			fmt.Println(i, num)
 			nodemodels[i] = int(num)
-		}else{
+		} else {
 			nodemodels[i] = 0
-		}	
+		}
 	}
-	fmt.Println("number of models:",maxint+1)
+	fmt.Println("number of models:", maxint+1)
 	//read a seq file
 	nsites := 0
 	seqs := map[string]string{}
@@ -97,22 +106,22 @@ func main() {
 		seqnames = append(seqnames, i.NM)
 		nsites = len(i.SQ)
 	}
-	models := make([]*gophy.DNAModel,maxint+1)
-	for i := 0 ; i <= maxint; i++ {
+	models := make([]*gophy.DNAModel, maxint+1)
+	for i := 0; i <= maxint; i++ {
 		// start model
 		x := gophy.NewDNAModel()
 		x.SetNucMap()
 		//empirical freqs for just the relevant seqs
 		tseqs := map[string]string{}
-		for tn := range nodemodels{
-			if len(tn.Chs) == 0 && nodemodels[tn] == i{
+		for tn := range nodemodels {
+			if len(tn.Chs) == 0 && nodemodels[tn] == i {
 				tseqs[tn.Nam] = seqs[tn.Nam]
 			}
 		}
 		bf := gophy.GetEmpiricalBaseFreqs(tseqs)
 		x.SetBaseFreqs(bf)
 		// model things
-		modelparams := []float64{1.0,1.0,1.0,1.0,1.0}
+		modelparams := []float64{1.0, 1.0, 1.0, 1.0, 1.0}
 		printModel(modelparams, bf)
 		x.SetRateMatrix(modelparams)
 		x.SetupQGTR()
@@ -128,8 +137,7 @@ func main() {
 	fmt.Fprintln(os.Stderr, "onlygaps:", len(gapsites))
 	fmt.Fprintln(os.Stderr, "constant:", len(constant))
 	fmt.Fprintln(os.Stderr, "uninformative:", len(uninformative))
-	
-	
+
 	//TRYING PATTERNS
 	patternvec := make([]int, len(patternsint))     //which site
 	patternval := make([]float64, len(patternsint)) //log of number of sites
@@ -160,30 +168,38 @@ func main() {
 			}
 		}
 	}
-	
+
 	start := time.Now()
 	// calc likelihood
 	w := 10
 	if nsites < w {
 		w = nsites
 	}
+	fmt.Println(t.Rt.Newick(true))
+
 	l := gophy.PCalcLikePatternsMul(t, models, nodemodels, patternval, *wks)
 	fmt.Println("lnL:", l)
-	
+
 	//optimize branch lengths
-	gophy.OptimizeBLSMul(t, models,nodemodels, patternval, 10)
+	fmt.Println("optimize bl1")
+	gophy.OptimizeBLSMul(t, models, nodemodels, patternval, 10)
 	//optimize model
-	gophy.OptimizeGTRMul(t,models,nodemodels,patternval,10)
-	
+	fmt.Println("optimize model")
+	gophy.OptimizeGTRMul(t, models, nodemodels, patternval, 10)
 	//optimize branch lengths
-	gophy.OptimizeBLSMul(t, models,nodemodels, patternval, 10)
+	fmt.Println("optimize bl2")
+	gophy.OptimizeBLSMul(t, models, nodemodels, patternval, 10)
 	end := time.Now()
 	fmt.Fprintln(os.Stderr, end.Sub(start))
 	//print the matrix
-	for _,x := range models{
-		for i:=0;i<4;i++{
-			for j:=0;j<4;j++{
-				fmt.Print(x.R.At(i,j)," ")
+	for _, x := range models {
+		for i := 0; i < 4; i++ {
+			for j := 0; j < 4; j++ {
+				if j < i {
+					fmt.Print("- ")
+				} else {
+					fmt.Print(x.R.At(i, j), " ")
+				}
 			}
 			fmt.Print("\n")
 		}
