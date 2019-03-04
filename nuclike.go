@@ -497,7 +497,7 @@ func GetGammaCats(alpha float64, cats int, median bool) []float64 {
 			freqK[i] = pointGamma((float64(i)+1.0)/K, a, b)
 		}
 		for i := 0; i < cats-1; i++ {
-			freqK[i] = mathext.GammaInc(a+1, freqK[i]*b)
+			freqK[i] = mathext.GammaIncReg(a+1, freqK[i]*b)
 		}
 		rK[0] = freqK[0] * factor
 		rK[cats-1] = (1 - freqK[cats-2]) * factor

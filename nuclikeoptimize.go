@@ -46,14 +46,14 @@ func OptimizeBL(nd *Node, t *Tree, x *DNAModel, patternvals []float64, wks int) 
 	settings.MajorIterations = 10
 	settings.Concurrent = 0
 	settings.FuncEvaluations = 100
-	settings.FunctionThreshold = 0.1
+	//settings.FunctionThreshold = 0.1
 	settings.GradientThreshold = 0.1
 	settings.Recorder = nil
 	FC := optimize.FunctionConverge{}
 	FC.Absolute = 10
 	FC.Relative = 10
 	FC.Iterations = 10
-	settings.FunctionConverge = &FC
+	//settings.FunctionConverge = &FC
 	p := optimize.Problem{Func: fcn, Grad: nil, Hess: nil}
 	var p0 []float64
 	p0 = append(p0, nd.Len)
@@ -105,7 +105,7 @@ func OptimizeBLS(t *Tree, x *DNAModel, patternvals []float64, wks int) {
 	settings.MajorIterations = 10
 	settings.Concurrent = 0
 	settings.FuncEvaluations = 10
-	settings.FunctionThreshold = 0.1
+	//settings.FunctionThreshold = 0.1
 	settings.GradientThreshold = 0.1
 	settings.Recorder = nil
 	//FC := optimize.FunctionConverge{}
@@ -153,11 +153,11 @@ func OptimizeGTR(t *Tree, x *DNAModel, patternvals []float64, wks int) {
 	settings.MajorIterations = 10
 	settings.Concurrent = 0
 	settings.FuncEvaluations = 10
-	settings.FunctionThreshold = 0.1
+	//settings.FunctionThreshold = 0.1
 	settings.GradientThreshold = 0.1
 	settings.Recorder = nil
 	p := optimize.Problem{Func: fcn, Grad: nil, Hess: nil}
-	p0 :=[]float64{1.0,1.0,1.0,1.0,1.0}
+	p0 := []float64{1.0, 1.0, 1.0, 1.0, 1.0}
 	res, err := optimize.Minimize(p, p0, nil, nil)
 	if err != nil {
 		fmt.Println(err)

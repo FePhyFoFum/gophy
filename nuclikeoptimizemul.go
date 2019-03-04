@@ -45,7 +45,7 @@ func OptimizeBLSMul(t *Tree, models []*DNAModel, nodemodels map[*Node]int, patte
 	settings.MajorIterations = 10
 	settings.Concurrent = 0
 	settings.FuncEvaluations = 10
-	settings.FunctionThreshold = 0.1
+	//settings.FunctionThreshold = 0.1
 	settings.GradientThreshold = 0.1
 	settings.Recorder = nil
 	//FC := optimize.FunctionConverge{}
@@ -97,7 +97,7 @@ func OptimizeGTRMul(t *Tree, models []*DNAModel, nodemodels map[*Node]int, patte
 	settings.MajorIterations = 10
 	settings.Concurrent = 0
 	settings.FuncEvaluations = 10
-	settings.FunctionThreshold = 0.1
+	//settings.FunctionThreshold = 0.1
 	settings.GradientThreshold = 0.1
 	settings.Recorder = nil
 	p := optimize.Problem{Func: fcn, Grad: nil, Hess: nil}
