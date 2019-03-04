@@ -122,6 +122,19 @@ func (n *Node) addChild(c *Node) {
 	n.Chs = append(n.Chs, c)
 }
 
+func (n *Node) removeChild(c *Node) {
+	s := -1
+	for i, j := range n.Chs {
+		if j == c {
+			s = i
+		}
+	}
+	if s == -1 {
+		return
+	}
+	n.Chs = append(n.Chs[:s], n.Chs[s+1:]...)
+}
+
 func (n Node) String() string {
 	return n.Newick(false)
 }

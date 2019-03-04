@@ -74,3 +74,97 @@ func NodeNamesSliceIntersects(a, b []*Node) (rb bool) {
 	}
 	return
 }
+
+// StochasticNNI
+func StochasticNNI() {
+
+}
+
+// to get the branches that would be NNIs, use the function and
+// then send the relevant nodes here
+// SwapBranch
+func SwapBranch(nd1 *Node, nd2 *Node) bool {
+	if nd1.Par == nil || nd2.Par == nil {
+		return false
+	}
+	par1 := nd1.Par
+	par2 := nd2.Par
+	nd1.Par = par2
+	nd2.Par = par1
+	par1.removeChild(nd1)
+	par2.removeChild(nd2)
+	par1.addChild(nd2)
+	par2.addChild(nd1)
+	return true
+}
+
+func TritomyRoot(tr *Tree) {
+	curroot := tr.Rt
+	if len(curroot.Chs) > 2 {
+		return
+	}
+	if len(curroot.Chs[0].Chs) > 0 { //internal
+		currootCH := curroot.Chs[0]
+		nbl := currootCH.Len
+		curroot.Chs[1].Len = curroot.Chs[1].Len + nbl
+		curroot.removeChild(currootCH)
+		for _, i := range currootCH.Chs {
+			curroot.addChild(i)
+			i.Par = curroot
+		}
+	} else {
+		currootCH := curroot.Chs[1]
+		nbl := currootCH.Len
+		curroot.Chs[0].Len = curroot.Chs[0].Len + nbl
+		curroot.removeChild(currootCH)
+		for _, i := range currootCH.Chs {
+			curroot.addChild(i)
+			i.Par = curroot
+		}
+	}
+}
+
+func Reroot(inroot *Node, tr *Tree) {
+	tempParent := inroot.Par
+	newRoot := new(Node)
+	newRoot.addChild(inroot)
+	inroot.Par = newRoot
+	tempParent.removeChild(inroot)
+	tempParent.addChild(newRoot)
+	newRoot.Par = tempParent
+	newRoot.Len = inroot.Len / 2.
+	inroot.Len = inroot.Len / 2.
+	processReRoot(newRoot)
+	tr.Rt = newRoot
+}
+
+func processReRoot(node *Node) {
+	if node.Par == nil || len(node.Chs) == 0 {
+		return
+	}
+	if node.Par != nil {
+		processReRoot(node.Par)
+	}
+	// Exchange branch label, length et cetera
+	exchangeInfo(node.Par, node)
+	// Rearrange topology
+	parent := node.Par
+	node.addChild(parent)
+	parent.removeChild(node)
+	parent.Par = node
+}
+
+func exchangeInfo(node1 *Node, node2 *Node) {
+	swaps := ""
+	swapd := 0.0
+	swaps = node1.Nam
+	node1.Nam = node2.Nam
+	node2.Nam = swaps
+	swapd = node1.Len
+	node1.Len = node2.Len
+	node2.Len = swapd
+}
+
+func NNIMoves() {
+
+}

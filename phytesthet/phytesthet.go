@@ -79,10 +79,15 @@ func main() {
 				spls := strings.Split(i.Nam, "#")
 				i.Nam = spls[0]
 				num64, _ := strconv.ParseInt(spls[1], 0, 0)
-				nodemodels[i] = int(num64)
-				fmt.Println(i, num64)
+				num := int(num64)
+				nodemodels[i] = num
+				if num > maxint {
+					maxint = num
+				}
+				fmt.Println(i, num)
+			} else {
+				nodemodels[i] = nodemodels[i.Par]
 			}
-			nodemodels[i] = nodemodels[i.Par]
 
 		} else if i.Nam[0] == '#' {
 			num64, _ := strconv.ParseInt(i.Nam[1:], 0, 0)
@@ -175,9 +180,11 @@ func main() {
 	if nsites < w {
 		w = nsites
 	}
-	fmt.Println(t.Rt.Newick(true))
 
 	l := gophy.PCalcLikePatternsMul(t, models, nodemodels, patternval, *wks)
+	fmt.Println("lnL:", l)
+	gophy.TritomyRoot(t)
+	l = gophy.PCalcLikePatternsMul(t, models, nodemodels, patternval, *wks)
 	fmt.Println("lnL:", l)
 
 	//optimize branch lengths
@@ -188,6 +195,12 @@ func main() {
 	gophy.OptimizeGTRMul(t, models, nodemodels, patternval, 10)
 	//optimize branch lengths
 	fmt.Println("optimize bl2")
+	gophy.OptimizeBLSMul(t, models, nodemodels, patternval, 10)
+	//optimize model
+	fmt.Println("optimize model")
+	gophy.OptimizeGTRMul(t, models, nodemodels, patternval, 10)
+	//optimize branch lengths
+	fmt.Println("optimize bl3")
 	gophy.OptimizeBLSMul(t, models, nodemodels, patternval, 10)
 	end := time.Now()
 	fmt.Fprintln(os.Stderr, end.Sub(start))
