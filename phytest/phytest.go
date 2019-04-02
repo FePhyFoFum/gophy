@@ -124,6 +124,26 @@ func main() {
 	//x.SetupQJC()
 	x.SetNucMap()
 
+	//read a tree file
+	f, err := os.Open(*tfn)
+	if err != nil {
+		fmt.Println(err)
+	}
+	defer f.Close()
+	scanner := bufio.NewScanner(f)
+	var rt *gophy.Node
+	t := gophy.NewTree()
+	for scanner.Scan() {
+		ln := scanner.Text()
+		if len(ln) < 2 {
+			continue
+		}
+		rt = gophy.ReadNewickString(ln)
+		t.Instantiate(rt)
+	}
+
+	fmt.Println(t.Rt.Newick(true))
+
 	//read a seq file
 	nsites := 0
 	seqs := map[string]string{}
@@ -137,6 +157,7 @@ func main() {
 	x.SetBaseFreqs(bf)
 	// get the site patternas
 	patterns, patternsint, gapsites, constant, uninformative := gophy.GetSitePatterns(seqs, nsites, seqnames)
+	patternval := gophy.PreparePatternVecs(t, patternsint, seqs)
 	//list of sites
 	fmt.Fprintln(os.Stderr, "nsites:", nsites)
 	fmt.Fprintln(os.Stderr, "patterns:", len(patterns), len(patternsint))
@@ -163,59 +184,9 @@ func main() {
 	x.SetRateMatrix(modelparams)
 	x.SetupQGTR()
 
-	//read a tree file
-	f, err := os.Open(*tfn)
-	if err != nil {
-		fmt.Println(err)
-	}
-	defer f.Close()
-	scanner := bufio.NewScanner(f)
-	var rt *gophy.Node
-	t := gophy.NewTree()
-	for scanner.Scan() {
-		ln := scanner.Text()
-		if len(ln) < 2 {
-			continue
-		}
-		rt = gophy.ReadNewickString(ln)
-		t.Instantiate(rt)
-	}
-	fmt.Println(t.Rt.Newick(true))
-	//TRYING PATTERNS
-	patternvec := make([]int, len(patternsint))     //which site
-	patternval := make([]float64, len(patternsint)) //log of number of sites
-	count := 0
-	for i := range patternsint {
-		patternvec[count] = i
-		patternval[count] = patternsint[i]
-		count++
-	}
-	for _, n := range t.Post {
-		n.Data = make([][]float64, len(patternsint))
-		n.TpConds = make([][]float64, len(patternval))
-		for i := 0; i < len(patternsint); i++ {
-			n.Data[i] = []float64{0.0, 0.0, 0.0, 0.0}
-			n.TpConds[i] = []float64{0.0, 0.0, 0.0, 0.0}
-		}
-		if len(n.Chs) == 0 {
-			count := 0
-			for _, i := range patternvec {
-				if _, ok := x.CharMap[string(seqs[n.Nam][i])]; !ok {
-					if string(seqs[n.Nam][i]) != "-" && string(seqs[n.Nam][i]) != "N" {
-						fmt.Println(string(seqs[n.Nam][i]))
-						os.Exit(0)
-					}
-				}
-				for _, j := range x.CharMap[string(seqs[n.Nam][i])] {
-					n.Data[count][j] = 1.0
-					n.TpConds[count][j] = 1.0
-				}
-				count++
-			}
-		}
-	}
-
 	//
+	l := gophy.PCalcLikePatterns(t, x, patternval, *wks)
+	fmt.Println("starting lnL:", l)
 	fmt.Println("getting starting branch lengths (parsimony)")
 	s := gophy.PCalcSankParsPatterns(t, patternval, *wks)
 	fmt.Println("sank:", s)
@@ -225,20 +196,12 @@ func main() {
 
 	// calc likelihood
 	start := time.Now()
-	w := 10
-	if nsites < w {
-		w = nsites
-	}
-	l := gophy.PCalcLikePatterns(t, x, patternval, *wks)
+	l = gophy.PCalcLikePatterns(t, x, patternval, *wks)
 	fmt.Println("lnL:", l)
 
 	/*
-		//optimize branch lengths
-		gophy.OptimizeBLS(t, x, patternval, 10)
 		//optimize model
 		gophy.OptimizeGTR(t, x, patternval, 10)
-		//optimize branch lengths
-		gophy.OptimizeBLS(t, x, patternval, 10)
 		//MCMC(t, x, patternval, 3, "temp.mcmc.tre")
 		//print the matrix
 		for i := 0; i < 4; i++ {

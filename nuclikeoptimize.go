@@ -66,7 +66,7 @@ func OptimizeBL(nd *Node, t *Tree, x *DNAModel, patternvals []float64, wks int) 
 }
 
 //AdjustBLNR This is a single edge NR
-func AdjustBLNR(node *Node, x *DNAModel, patternvals []float64, t *Tree, wks int) {
+func AdjustBLNR(node *Node, x *DNAModel, patternvals []float64, t *Tree, wks int, threshold float64) {
 	xmin := 10e-8
 	xmax := 2.0
 	guess := node.Len
@@ -107,12 +107,12 @@ func AdjustBLNR(node *Node, x *DNAModel, patternvals []float64, t *Tree, wks int
 			//fmt.Println(like, t, t-(d1/d2), d1)
 		}
 		if (t - (d1 / d2)) < 0 {
-			node.Len = 10e-8
+			node.Len = 10e-12
 			break
 		} else {
 			node.Len = (t - (d1 / d2))
 		}
-		if math.Abs(d1) < 10e-8 {
+		if math.Abs(d1) < threshold {
 			break
 		}
 	}
@@ -133,28 +133,29 @@ func OptimizeBLNR(t *Tree, x *DNAModel, patternvals []float64, wks int) {
 			continue
 		}
 		CalcLikeFrontBack(x, t, patternvals)
-		AdjustBLNR(c, x, patternvals, t, wks)
+		AdjustBLNR(c, x, patternvals, t, wks, 10e-12)
 	}
 	for _, c := range t.Post {
 		if c == t.Rt {
 			continue
 		}
 		CalcLikeFrontBack(x, t, patternvals)
-		AdjustBLNR(c, x, patternvals, t, wks)
+		AdjustBLNR(c, x, patternvals, t, wks, 10e-12)
 	}
+
 	for _, c := range t.Pre {
 		if c == t.Rt {
 			continue
 		}
 		CalcLikeFrontBack(x, t, patternvals)
-		AdjustBLNR(c, x, patternvals, t, wks)
+		AdjustBLNR(c, x, patternvals, t, wks, 10e-12)
 	}
 	for _, c := range t.Post {
 		if c == t.Rt {
 			continue
 		}
 		CalcLikeFrontBack(x, t, patternvals)
-		AdjustBLNR(c, x, patternvals, t, wks)
+		AdjustBLNR(c, x, patternvals, t, wks, 10e-12)
 	}
 }
 

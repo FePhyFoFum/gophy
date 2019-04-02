@@ -164,6 +164,7 @@ func main() {
 
 	// get the site patternas
 	patterns, patternsint, gapsites, constant, uninformative := gophy.GetSitePatterns(seqs, nsites, seqnames)
+	patternval := gophy.PreparePatternVecs(t, patternsint, seqs)
 	//list of sites
 	fmt.Fprintln(os.Stderr, "nsites:", nsites)
 	fmt.Fprintln(os.Stderr, "patterns:", len(patterns), len(patternsint))
@@ -171,36 +172,6 @@ func main() {
 	fmt.Fprintln(os.Stderr, "constant:", len(constant))
 	fmt.Fprintln(os.Stderr, "uninformative:", len(uninformative))
 
-	//TRYING PATTERNS
-	patternvec := make([]int, len(patternsint))     //which site
-	patternval := make([]float64, len(patternsint)) //log of number of sites
-	count := 0
-	for i := range patternsint {
-		patternvec[count] = i
-		patternval[count] = patternsint[i]
-		count++
-	}
-	for _, n := range t.Post {
-		n.Data = make([][]float64, len(patternsint))
-		for i := 0; i < len(patternsint); i++ {
-			n.Data[i] = []float64{0.0, 0.0, 0.0, 0.0}
-		}
-		if len(n.Chs) == 0 {
-			count := 0
-			for _, i := range patternvec {
-				if _, ok := models[0].CharMap[string(seqs[n.Nam][i])]; !ok {
-					if string(seqs[n.Nam][i]) != "-" && string(seqs[n.Nam][i]) != "N" {
-						fmt.Println(string(seqs[n.Nam][i]))
-						os.Exit(0)
-					}
-				}
-				for _, j := range models[0].CharMap[string(seqs[n.Nam][i])] {
-					n.Data[count][j] = 1.0
-				}
-				count++
-			}
-		}
-	}
 	start := time.Now()
 	// calc likelihood
 	w := 10
@@ -209,10 +180,20 @@ func main() {
 	}
 
 	l := gophy.PCalcLikePatternsMul(t, models, nodemodels, patternval, *wks)
+	fmt.Println("starting lnL:", l)
+
 	//optimize branch lengths
-	fmt.Println("optimize bl1")
-	gophy.OptimizeBLSMul(t, models, nodemodels, patternval, 10)
+	fmt.Println("optimize bl")
+	//optimize branch lengths
+	fmt.Println("getting starting branch lengths (parsimony)")
+	s := gophy.PCalcSankParsPatterns(t, patternval, *wks)
+	fmt.Println("sank:", s)
+	gophy.EstParsBL(t, patternval, nsites)
+
+	fmt.Println("start:\n" + t.Rt.Newick(true) + ";")
+	gophy.OptimizeBLNRMult(t, models, nodemodels, patternval, 10)
 	//optimize model
+
 	if compfree && ratefree == false {
 		fmt.Println("optimize model: comp free , rate shared")
 		gophy.OptimizeGTRCompSharedRM(t, models, nodemodels, patternval, 10)
@@ -236,6 +217,7 @@ func main() {
 		fmt.Println("optimize model2")
 		gophy.OptimizeGTRMul(t, models, nodemodels, patternval, 10)
 	*/
+
 	end := time.Now()
 	fmt.Fprintln(os.Stderr, end.Sub(start))
 	//print the matrix

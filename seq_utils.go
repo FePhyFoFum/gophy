@@ -1,5 +1,10 @@
 package gophy
 
+import (
+	"fmt"
+	"os"
+)
+
 //GetSitePatterns return site pattens when the datatype for the alignment is a map[string]string
 func GetSitePatterns(seqs map[string]string, nsites int, seqnames []string) (patterns map[string][]int,
 	patternsint map[int]float64, gapsites []int, constant []int, uninformative []int) {
@@ -58,5 +63,64 @@ func GetSitePatterns(seqs map[string]string, nsites int, seqnames []string) (pat
 	for _, j := range patterns {
 		patternsint[j[0]] = float64(len(j))
 	}
+	return
+}
+
+// PreparePatternVecs for tree calculations
+func PreparePatternVecs(t *Tree, patternsint map[int]float64, seqs map[string]string) (patternval []float64) {
+	patternvec := make([]int, len(patternsint))    //which site
+	patternval = make([]float64, len(patternsint)) //log of number of sites
+	count := 0
+	for i := range patternsint {
+		patternvec[count] = i
+		patternval[count] = patternsint[i]
+		count++
+	}
+	charMap := GetNucMap()
+	for _, n := range t.Post {
+		n.Data = make([][]float64, len(patternsint))
+		n.TpConds = make([][]float64, len(patternval))
+		for i := 0; i < len(patternsint); i++ {
+			n.Data[i] = []float64{0.0, 0.0, 0.0, 0.0}
+			n.TpConds[i] = []float64{0.0, 0.0, 0.0, 0.0}
+		}
+		if len(n.Chs) == 0 {
+			count := 0
+			for _, i := range patternvec {
+				if _, ok := charMap[string(seqs[n.Nam][i])]; !ok {
+					if string(seqs[n.Nam][i]) != "-" && string(seqs[n.Nam][i]) != "N" {
+						fmt.Println(string(seqs[n.Nam][i]))
+						os.Exit(0)
+					}
+				}
+				for _, j := range charMap[string(seqs[n.Nam][i])] {
+					n.Data[count][j] = 1.0
+					n.TpConds[count][j] = 1.0
+				}
+				count++
+			}
+		}
+	}
+	return
+}
+
+func GetNucMap() (charMap map[string][]int) {
+	charMap = make(map[string][]int)
+	charMap["A"] = []int{0}
+	charMap["C"] = []int{1}
+	charMap["G"] = []int{2}
+	charMap["T"] = []int{3}
+	charMap["-"] = []int{0, 1, 2, 3}
+	charMap["N"] = []int{0, 1, 2, 3}
+	charMap["R"] = []int{0, 2}
+	charMap["Y"] = []int{1, 3}
+	charMap["M"] = []int{0, 1}
+	charMap["K"] = []int{2, 3}
+	charMap["S"] = []int{1, 2}
+	charMap["W"] = []int{0, 3}
+	charMap["H"] = []int{0, 1, 3}
+	charMap["B"] = []int{1, 2, 3}
+	charMap["V"] = []int{0, 1, 2}
+	charMap["D"] = []int{0, 2, 3}
 	return
 }

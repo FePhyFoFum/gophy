@@ -181,3 +181,79 @@ func CalcLikeWorkMarkedMul(t *Tree, models []*DNAModel, nodemodels map[*Node]int
 		results <- LikeResult{value: sl, site: j}
 	}
 }
+
+/*
+ * calculate the conditionals for ancestral calc or branch lengths
+ */
+
+//RTMultconditionals ...
+func RTMultconditionals(models []*DNAModel, nodemodels map[*Node]int, node *Node, patternval []float64) {
+	p := models[nodemodels[node]].GetPCalc(node.Len)
+	for s := range patternval {
+		for j := 0; j < 4; j++ {
+			templike := 0.0
+			for k := 0; k < 4; k++ {
+				templike += p.At(j, k) * node.TpConds[s][k]
+			}
+			node.RtConds[s][j] = templike
+		}
+	}
+}
+
+//RVMultconditionals ...
+func RVMultconditionals(models []*DNAModel, nodemodels map[*Node]int, node *Node, patternval []float64) {
+	p := models[nodemodels[node]].GetPCalc(node.Par.Len)
+	for s := range patternval {
+		for j := 0; j < 4; j++ {
+			node.Par.RvTpConds[s][j] = 0.0
+			for k := 0; k < 4; k++ {
+				node.Par.RvTpConds[s][j] += p.At(j, k) * node.Par.RvConds[s][k]
+			}
+		}
+	}
+}
+
+//CalcLikeFrontBackMult ...
+func CalcLikeFrontBackMult(models []*DNAModel, nodemodels map[*Node]int, tree *Tree, patternval []float64) {
+	for _, n := range tree.Post {
+		if len(n.Chs) != 0 {
+			n.TpConds = make([][]float64, len(patternval))
+		}
+		n.RvTpConds = make([][]float64, len(patternval))
+		n.RvConds = make([][]float64, len(patternval))
+		n.RtConds = make([][]float64, len(patternval))
+		for i := 0; i < len(patternval); i++ {
+			if len(n.Chs) != 0 {
+				n.TpConds[i] = []float64{1.0, 1.0, 1.0, 1.0}
+			}
+			n.RvTpConds[i] = []float64{1.0, 1.0, 1.0, 1.0}
+			n.RvConds[i] = []float64{1.0, 1.0, 1.0, 1.0}
+			n.RtConds[i] = []float64{1.0, 1.0, 1.0, 1.0}
+		}
+	}
+	//loglike := 0.
+	for _, c := range tree.Post {
+		//calculate the tip conditionals
+		TPconditionals(c, patternval)
+		//take the tip cond to the rt
+		RTMultconditionals(models, nodemodels, c, patternval) // calculate from tpcond to rtcond
+		/*if c == tree.Rt { // turn on if you want likelihoods
+			for s := range patternval {
+				tempretlike := 0.
+				for i := 0; i < 4; i++ {
+					tempretlike += (c.TpConds[s][i] * x.BF[i])
+				}
+				//fmt.Println("site", s, "log(L):", math.Log(tempretlike), "like:", tempretlike, "pattern:", patternval[s])
+				//loglike -= math.Log(math.Pow(tempretlike, patternval[s]))
+			}
+		}*/
+	}
+	//fmt.Println(loglike)
+	// prepare the rvcond
+	for _, c := range tree.Pre {
+		if c != tree.Rt { //need to set the root at 1.0s
+			RVMultconditionals(models, nodemodels, c, patternval)
+			RVTPconditionals(c, patternval)
+		}
+	}
+}

@@ -2,6 +2,7 @@ package gophy
 
 import (
 	"fmt"
+	"math"
 
 	"gonum.org/v1/gonum/diff/fd"
 
@@ -63,6 +64,100 @@ func OptimizeBLSMul(t *Tree, models []*DNAModel, nodemodels map[*Node]int, patte
 		n.Len = res.X[x]
 	}
 	return res.F
+}
+
+//AdjustBLNRMult This is a single edge NR
+func AdjustBLNRMult(node *Node, models []*DNAModel, nodemodels map[*Node]int, patternvals []float64, t *Tree, wks int, threshold float64) {
+	xmin := 10e-8
+	xmax := 2.0
+	guess := node.Len
+	if guess < xmin || guess > xmax {
+		guess = 0.1
+	}
+	startL := PCalcLikePatternsMul(t, models, nodemodels, patternvals, wks)
+	x := models[nodemodels[node]]
+	startLen := node.Len
+	//need subtree 1
+	s1probs := node.TpConds
+	//need subtree 2
+	s2probs := node.RvConds
+	for z := 0; z < 10; z++ {
+		t := node.Len
+		p := x.GetPCalc(t)
+		x.DecomposeQ()
+		d1p := x.ExpValueFirstD(t)
+		d2p := x.ExpValueSecondD(t)
+		d1 := 0.
+		d2 := 0.
+		like := 1.
+		for s := range patternvals {
+			templike := 0.
+			tempd1 := 0.
+			tempd2 := 0.
+			for j := 0; j < 4; j++ {
+				for k := 0; k < 4; k++ {
+					templike += (s1probs[s][j] * p.At(j, k) * s2probs[s][k] * x.BF[j])
+					tempd1 += (s1probs[s][j] * d1p.At(j, k) * s2probs[s][k] * x.BF[j])
+					tempd2 += (s1probs[s][j] * d2p.At(j, k) * s2probs[s][k] * x.BF[j])
+				}
+			}
+			d1 += ((tempd1 / templike) * patternvals[s])
+			d2 += (((tempd2 / templike) - (math.Pow(tempd1, 2) / math.Pow(templike, 2))) * patternvals[s])
+			like += math.Log(templike)
+		}
+		if len(node.Chs) == 2 && (node.Chs[0].Nam == "taxon_1" || node.Chs[1].Nam == "taxon_1") {
+			//fmt.Println(like, t, t-(d1/d2), d1)
+		}
+		if (t - (d1 / d2)) < 0 {
+			node.Len = 10e-12
+			break
+		} else {
+			node.Len = (t - (d1 / d2))
+		}
+		if math.Abs(d1) < threshold {
+			break
+		}
+	}
+	endL := PCalcLikePatterns(t, x, patternvals, wks)
+	//make sure that we actually made the likelihood better
+	if startL > endL {
+		node.Len = startLen
+	}
+	if len(node.Chs) == 2 && (node.Chs[0].Nam == "taxon_1" || node.Chs[1].Nam == "taxon_1") {
+		fmt.Println("-")
+	}
+}
+
+// OptimizeBLNRMult Newton-Raphson for each branch. Does 4 passes
+func OptimizeBLNRMult(t *Tree, models []*DNAModel, nodemodels map[*Node]int, patternvals []float64, wks int) {
+	for _, c := range t.Pre {
+		if c == t.Rt {
+			continue
+		}
+		CalcLikeFrontBackMult(models, nodemodels, t, patternvals)
+		AdjustBLNRMult(c, models, nodemodels, patternvals, t, wks, 10e-12)
+	}
+	for _, c := range t.Post {
+		if c == t.Rt {
+			continue
+		}
+		CalcLikeFrontBackMult(models, nodemodels, t, patternvals)
+		AdjustBLNRMult(c, models, nodemodels, patternvals, t, wks, 10e-12)
+	}
+	for _, c := range t.Pre {
+		if c == t.Rt {
+			continue
+		}
+		CalcLikeFrontBackMult(models, nodemodels, t, patternvals)
+		AdjustBLNRMult(c, models, nodemodels, patternvals, t, wks, 10e-12)
+	}
+	for _, c := range t.Post {
+		if c == t.Rt {
+			continue
+		}
+		CalcLikeFrontBackMult(models, nodemodels, t, patternvals)
+		AdjustBLNRMult(c, models, nodemodels, patternvals, t, wks, 10e-12)
+	}
 }
 
 // OptimizeGTR optimize GTR
