@@ -180,6 +180,7 @@ func main() {
 		rt = gophy.ReadNewickString(ln)
 		t.Instantiate(rt)
 	}
+	fmt.Println(t.Rt.Newick(true))
 	//TRYING PATTERNS
 	patternvec := make([]int, len(patternsint))     //which site
 	patternval := make([]float64, len(patternsint)) //log of number of sites
@@ -191,8 +192,10 @@ func main() {
 	}
 	for _, n := range t.Post {
 		n.Data = make([][]float64, len(patternsint))
+		n.TpConds = make([][]float64, len(patternval))
 		for i := 0; i < len(patternsint); i++ {
 			n.Data[i] = []float64{0.0, 0.0, 0.0, 0.0}
+			n.TpConds[i] = []float64{0.0, 0.0, 0.0, 0.0}
 		}
 		if len(n.Chs) == 0 {
 			count := 0
@@ -205,11 +208,20 @@ func main() {
 				}
 				for _, j := range x.CharMap[string(seqs[n.Nam][i])] {
 					n.Data[count][j] = 1.0
+					n.TpConds[count][j] = 1.0
 				}
 				count++
 			}
 		}
 	}
+
+	//
+	fmt.Println("getting starting branch lengths (parsimony)")
+	s := gophy.PCalcSankParsPatterns(t, patternval, *wks)
+	fmt.Println("sank:", s)
+	gophy.EstParsBL(t, patternval, nsites)
+	fmt.Println("start:\n" + t.Rt.Newick(true) + ";")
+	//os.Exit(0)
 
 	// calc likelihood
 	start := time.Now()
@@ -219,28 +231,35 @@ func main() {
 	}
 	l := gophy.PCalcLikePatterns(t, x, patternval, *wks)
 	fmt.Println("lnL:", l)
-	
-	//optimize branch lengths
-	gophy.OptimizeBLS(t, x, patternval, 10)
-	//optimize model
-	gophy.OptimizeGTR(t,x,patternval,10)
-	//optimize branch lengths
-	gophy.OptimizeBLS(t, x, patternval, 10)
-	//MCMC(t, x, patternval, 3, "temp.mcmc.tre")
+
+	/*
+		//optimize branch lengths
+		gophy.OptimizeBLS(t, x, patternval, 10)
+		//optimize model
+		gophy.OptimizeGTR(t, x, patternval, 10)
+		//optimize branch lengths
+		gophy.OptimizeBLS(t, x, patternval, 10)
+		//MCMC(t, x, patternval, 3, "temp.mcmc.tre")
+		//print the matrix
+		for i := 0; i < 4; i++ {
+			for j := 0; j < 4; j++ {
+				fmt.Print(x.R.At(i, j), " ")
+			}
+			fmt.Print("\n")
+		}
+		//print the basefreqs
+		fmt.Println(x.BF)
+		fmt.Println(t.Rt.Newick(true))
+
+		//fmt.Println(gophy.GetGammaCats(10, 5, false))
+		l = gophy.PCalcLikePatterns(t, x, patternval, *wks)
+		fmt.Println("lnL:", l)
+	*/
+
+	gophy.OptimizeBLNR(t, x, patternval, 10)
+	l = gophy.PCalcLikePatterns(t, x, patternval, *wks)
+	fmt.Println("final:\n" + t.Rt.Newick(true) + ";")
+	fmt.Println("lnL:", l)
 	end := time.Now()
 	fmt.Fprintln(os.Stderr, end.Sub(start))
-	//print the matrix
-	for i:=0;i<4;i++{
-		for j:=0;j<4;j++{
-			fmt.Print(x.R.At(i,j)," ")
-		}
-		fmt.Print("\n")
-	}
-	//print the basefreqs
-	fmt.Println(x.BF)
-	fmt.Println(t.Rt.Newick(true))
-
-	//fmt.Println(gophy.GetGammaCats(10, 5, false))
-	l = gophy.PCalcLikePatterns(t, x, patternval, *wks)
-	fmt.Println("lnL:", l)
 }

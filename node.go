@@ -14,11 +14,22 @@ type Node struct {
 	FData     map[string]float64
 	IData     map[string]int
 	Num       int
-	Len       float64 //branch length
-	Data      [][]float64
-	Marked    bool //just for like calculations
+	Len       float64     //branch length
+	Data      [][]float64 // [site][states]
+	Marked    bool        //just for like calculations
 	Height    float64
 	MarkedMap map[float64]bool //the float is for an id for the query
+	//anc+bl
+	// X------>--X
+	// TP        RT
+	//
+	// X--<------X
+	// RvTp      RV
+	TpConds   [][]float64 //[site][states]
+	RtConds   [][]float64
+	RvConds   [][]float64
+	RvTpConds [][]float64
+	//
 }
 
 // Walk just a simple walker with chans

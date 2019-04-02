@@ -1,6 +1,9 @@
 package gophy
 
-import "math"
+import (
+	"fmt"
+	"math"
+)
 
 // GetMrca get the mrca
 func GetMrca(nds []*Node, root *Node) (mrca *Node) {
@@ -165,6 +168,55 @@ func exchangeInfo(node1 *Node, node2 *Node) {
 	node2.Len = swapd
 }
 
-func NNIMoves() {
-
+//NNIMoves looks at the root and returns the NNIs
+func NNIMoves(tr *Tree) [][]*Node {
+	if len(tr.Rt.Chs) > 3 {
+		fmt.Errorf("needs to be a tritomy root.")
+		return nil
+	}
+	x0 := len(tr.Rt.Chs[0].Chs)
+	x1 := len(tr.Rt.Chs[1].Chs)
+	x2 := len(tr.Rt.Chs[2].Chs)
+	//  1  2 34
+	//   \ | x
+	//    \|/
+	//need to label these
+	//x2 := len(tr.Rt.Chs[2].Chs)
+	var nd1 *Node
+	var nd2 *Node
+	var nd3 *Node
+	var nd4 *Node
+	moves := [][]*Node{}
+	if x2 > 1 {
+		nd1 = tr.Rt.Chs[0]
+		nd2 = tr.Rt.Chs[1]
+		nd3 = tr.Rt.Chs[2].Chs[0]
+		nd4 = tr.Rt.Chs[2].Chs[1]
+		tm := []*Node{nd1, nd3}
+		moves = append(moves, tm)
+		tm2 := []*Node{nd2, nd4}
+		moves = append(moves, tm2)
+	}
+	if x1 > 1 {
+		nd1 = tr.Rt.Chs[0]
+		nd2 = tr.Rt.Chs[2]
+		nd3 = tr.Rt.Chs[1].Chs[0]
+		nd4 = tr.Rt.Chs[1].Chs[1]
+		tm := []*Node{nd1, nd3}
+		moves = append(moves, tm)
+		tm2 := []*Node{nd2, nd4}
+		moves = append(moves, tm2)
+	}
+	if x0 > 1 {
+		nd1 = tr.Rt.Chs[1]
+		nd2 = tr.Rt.Chs[2]
+		nd3 = tr.Rt.Chs[0].Chs[0]
+		nd4 = tr.Rt.Chs[0].Chs[1]
+		tm := []*Node{nd1, nd3}
+		moves = append(moves, tm)
+		tm2 := []*Node{nd2, nd4}
+		moves = append(moves, tm2)
+	}
+	fmt.Println(moves)
+	return moves
 }

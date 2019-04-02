@@ -2,6 +2,7 @@ package gophy
 
 import (
 	"math"
+
 	"gonum.org/v1/gonum/floats"
 )
 
@@ -18,7 +19,7 @@ func PCalcLikePatternsMul(t *Tree, models []*DNAModel, nodemodels map[*Node]int,
 	results := make(chan LikeResult, nsites)
 	// populate the P matrix dictionary without problems of race conditions
 	// just the first site
-	for _,x := range models{
+	for _, x := range models {
 		x.EmptyPDict()
 	}
 	fl += math.Log(CalcLikeOneSiteMul(t, models, nodemodels, 0)) * patternval[0]
@@ -39,7 +40,7 @@ func PCalcLikePatternsMul(t *Tree, models []*DNAModel, nodemodels map[*Node]int,
 }
 
 //CalcLikeOneSiteMul just one site
-func CalcLikeOneSiteMul(t *Tree, models []*DNAModel, nodemodels map[*Node]int,site int) float64 {
+func CalcLikeOneSiteMul(t *Tree, models []*DNAModel, nodemodels map[*Node]int, site int) float64 {
 	sl := 0.0
 	for _, n := range t.Post {
 		x := models[nodemodels[n]]

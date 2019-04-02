@@ -10,16 +10,19 @@ import (
 type DNAModel struct {
 	BF      []float64 // base frequencies
 	R       *mat.Dense
-	Q       *mat.Dense
-	QS      *mat.SymDense
+	Q       *mat.Dense // common use
 	CharMap map[string][]int
 	//sync.RWMutex
-	Ps         map[float64]*mat.Dense
-	EigenVals  []float64 //to be exponentiated
-	EigenVecs  mat.Dense
-	EigenVecsT mat.Matrix
-	X          *mat.SymDense
-	P          mat.Dense
+	Ps map[float64]*mat.Dense
+	X  *mat.Dense
+	P  mat.Dense
+	//for decomposing
+	QS         *mat.Dense
+	EigenVals  []float64  // to be exponentiated
+	EigenVecs  *mat.Dense //
+	EigenVecsI *mat.Dense
+	X1         *mat.Dense
+	X2         *mat.Dense
 }
 
 // NewDNAModel get new DNAModel pointer
@@ -30,28 +33,90 @@ func NewDNAModel() *DNAModel {
 // SetupQJC setup Q matrix
 func (d *DNAModel) SetupQJC() {
 	d.BF = []float64{0.25, 0.25, 0.25, 0.25}
-	//just JC for now
 	d.Ps = make(map[float64]*mat.Dense)
 	d.Q = mat.NewDense(4, 4, nil)
-	//d.QS = mat.NewSymDense(4, nil)
+
 	for i := 0; i < 4; i++ {
 		for j := 0; j < 4; j++ {
 			if i != j {
 				d.Q.Set(i, j, 0.333333333333)
-				//d.QS.SetSym(i, j, 0.333333333333)
 			} else {
 				d.Q.Set(i, j, -1.)
-				//d.QS.SetSym(i, j, -1.)
 			}
 		}
 	}
+
+}
+
+// SetupQGTR setup Q matrix
+func (d *DNAModel) SetupQGTR() {
+	bigpi := mat.NewDense(4, 4, []float64{1, 1, 1, 1,
+		1, 1, 1, 1,
+		1, 1, 1, 1,
+		1, 1, 1, 1})
+	for i := 0; i < 4; i++ {
+		for j := 0; j < 4; j++ {
+			if i != j {
+				bigpi.Set(i, j, d.BF[i]*d.BF[j])
+			} else {
+				bigpi.Set(i, j, d.BF[i])
+			}
+		}
+	}
+	dQ := mat.NewDense(4, 4, nil)
+	dQ.MulElem(d.R, bigpi)
+	dQ.Set(0, 0, 0.0)
+	dQ.Set(1, 1, 0.0)
+	dQ.Set(2, 2, 0.0)
+	dQ.Set(3, 3, 0.0)
+	s := sumMatrix(dQ)
+	dQ.Scale(1/s, dQ)
+	for i := 0; i < 4; i++ {
+		dQ.Set(i, i, 0-sumRow(dQ, i))
+	}
+	for i := 0; i < 4; i++ {
+		for j := 0; j < 4; j++ {
+			dQ.Set(i, j, dQ.At(i, j)/d.BF[j])
+		}
+	}
+	m := dQ.T()
+	d.Q = mat.NewDense(4, 4, nil)
+	for i := 0; i < 4; i++ {
+		for j := 0; j < 4; j++ {
+			d.Q.Set(i, j, m.At(i, j))
+		}
+	}
+}
+
+// this is just for NR optimization for branch lengths
+func (d *DNAModel) DecomposeQ() {
+	d.QS = mat.NewDense(4, 4, nil)
+	d.EigenVecsI = mat.NewDense(4, 4, nil)
+	for i := 0; i < 4; i++ {
+		for j := 0; j < 4; j++ {
+			d.QS.Set(i, j, d.Q.At(i, j))
+		}
+	}
 	//decompose, each time you change the model
-	//var ES mat.EigenSym
-	//ES.Factorize(d.QS, true)
-	//d.EigenVecs.EigenvectorsSym(&ES)
-	//d.EigenVecsT = d.EigenVecs.T()
-	//d.EigenVals = ES.Values(nil)
-	//d.X = mat.NewSymDense(4, nil)
+	var ES mat.Eigen
+	d.EigenVecs = mat.NewDense(4, 4, nil)
+	ES.Factorize(d.QS, true, true)
+	TC := ES.VectorsTo(nil)
+	for i := 0; i < 4; i++ {
+		for j := 0; j < 4; j++ {
+			d.EigenVecs.Set(i, j, real(TC.At(i, j)))
+		}
+	}
+	d.EigenVecsI.Inverse(d.EigenVecs)
+	d.EigenVals = []float64{1., 1., 1., 1.}
+	TV := ES.Values(nil)
+	for i := 0; i < 4; i++ {
+		d.EigenVals[i] = real(TV[i])
+	}
+
+	d.X = mat.NewDense(4, 4, nil)  // P
+	d.X1 = mat.NewDense(4, 4, nil) // first der
+	d.X2 = mat.NewDense(4, 4, nil) // second der
 }
 
 func sumMatrix(m *mat.Dense) (s float64) {
@@ -98,69 +163,33 @@ func (d *DNAModel) SetBaseFreqs(basefreq []float64) {
 	d.BF = basefreq
 }
 
-// SetupQGTR setup Q matrix
-func (d *DNAModel) SetupQGTR() {
-	bigpi := mat.NewDense(4, 4, []float64{1, 1, 1, 1,
-		1, 1, 1, 1,
-		1, 1, 1, 1,
-		1, 1, 1, 1})
-	for i := 0; i < 4; i++ {
-		for j := 0; j < 4; j++ {
-			if i != j {
-				bigpi.Set(i, j, d.BF[i]*d.BF[j])
-			} else {
-				bigpi.Set(i, j, d.BF[i])
-			}
-		}
-	}
-	dQ := mat.NewDense(4, 4, nil)
-	dQ.MulElem(d.R, bigpi)
-	dQ.Set(0, 0, 0.0)
-	dQ.Set(1, 1, 0.0)
-	dQ.Set(2, 2, 0.0)
-	dQ.Set(3, 3, 0.0)
-	s := sumMatrix(dQ)
-	dQ.Scale(1/s, dQ)
-	for i := 0; i < 4; i++ {
-		dQ.Set(i, i, 0-sumRow(dQ, i))
-	}
-	for i := 0; i < 4; i++ {
-		for j := 0; j < 4; j++ {
-			dQ.Set(i, j, dQ.At(i, j)/d.BF[j])
-		}
-	}
-	m := dQ.T()
-	d.Q = mat.NewDense(4, 4, nil)
-	for i := 0; i < 4; i++ {
-		for j := 0; j < 4; j++ {
-			d.Q.Set(i, j, m.At(i, j))
-		}
-	}
-}
-
 // ExpValue used for the matrix exponential
 func (d *DNAModel) ExpValue(iv []float64, blen float64) {
 	for i, j := range iv {
-		d.X.SetSym(i, i, math.Exp(j*blen))
+		d.X.Set(i, i, math.Exp(j*blen))
 	}
 	return
 }
 
 // ExpValueFirstD get the first derivaite for NR
-func ExpValueFirstD(d []float64, blen float64) (x *mat.SymDense) {
-	x = mat.NewSymDense(4, nil)
-	for i, j := range d {
-		x.SetSym(i, i, j*math.Exp(j*blen))
+func (d *DNAModel) ExpValueFirstD(blen float64) (x *mat.Dense) {
+	x = mat.NewDense(4, 4, nil)
+	for i := 0; i < 4; i++ {
+		d.X1.Set(i, i, d.EigenVals[i]*math.Exp(d.EigenVals[i]*blen))
 	}
+	x.Mul(d.EigenVecs, d.X1)
+	x.Mul(x, d.EigenVecsI)
 	return
 }
 
-// ExpValueSecondD get the second derivative for NR
-func ExpValueSecondD(d []float64, blen float64) (x *mat.SymDense) {
-	x = mat.NewSymDense(4, nil)
-	for i, j := range d {
-		x.SetSym(i, i, (j*j)*math.Exp(j*blen))
+// ExpValueSecondD get the second derivaite for NR
+func (d *DNAModel) ExpValueSecondD(blen float64) (x *mat.Dense) {
+	x = mat.NewDense(4, 4, nil)
+	for i := 0; i < 4; i++ {
+		d.X1.Set(i, i, (d.EigenVals[i]*d.EigenVals[i])*math.Exp(d.EigenVals[i]*blen))
 	}
+	x.Mul(d.EigenVecs, d.X1)
+	x.Mul(x, d.EigenVecsI)
 	return
 }
 
@@ -168,8 +197,8 @@ func ExpValueSecondD(d []float64, blen float64) (x *mat.SymDense) {
 func (d *DNAModel) SetP(blen float64) {
 	P := mat.NewDense(4, 4, nil)
 	d.ExpValue(d.EigenVals, blen)
-	P.Mul(&d.EigenVecs, d.X)
-	P.Mul(P, d.EigenVecsT)
+	P.Mul(d.EigenVecs, d.X)
+	P.Mul(P, d.EigenVecsI)
 	// easier
 	//d.Lock()
 	d.Ps[blen] = P
