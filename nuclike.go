@@ -510,7 +510,17 @@ func GetGammaCats(alpha float64, cats int, median bool) []float64 {
 
 /*
  * calculate the conditionals for ancestral calc or branch lengths
- */
+
+ toward tip
+tpcond  X
+        | | rvtpcond
+        | ^
+        | |
+        v |
+        | | rvcond
+rtcond  x
+ toward root
+*/
 func TPconditionals(node *Node, patternval []float64) {
 	if len(node.Chs) > 0 {
 		for s := range patternval {
@@ -565,6 +575,7 @@ func RVTPconditionals(node *Node, patternval []float64) {
 	}
 }
 
+// CalcLikeFrontBack ...
 func CalcLikeFrontBack(x *DNAModel, tree *Tree, patternval []float64) {
 	for _, n := range tree.Post {
 		if len(n.Chs) != 0 {
@@ -607,4 +618,66 @@ func CalcLikeFrontBack(x *DNAModel, tree *Tree, patternval []float64) {
 			RVTPconditionals(c, patternval)
 		}
 	}
+}
+
+// CalcAncStates for each node based on the calculations above
+func CalcAncStates(x *DNAModel, tree *Tree, patternval []float64) (retstates map[*Node][][]float64) {
+	CalcLikeFrontBack(x, tree, patternval)
+	retstates = make(map[*Node][][]float64)
+	// initialize the data storage for return
+	for _, c := range tree.Pre {
+		if len(c.Chs) == 0 {
+			continue
+		}
+		ndata := make([][]float64, len(patternval))
+		retstates[c] = ndata
+	}
+	// start reconstruction
+	for i := 0; i < len(patternval); i++ {
+		//for _, c := range tree.Tips {
+		//	fmt.Println(c.Nam, c.TpConds[i])
+		//}
+		//fmt.Println("p", i, patternval[i])
+		for _, c := range tree.Pre {
+			if len(c.Chs) == 0 {
+				continue
+			}
+			//fmt.Println(c.Newick(true))
+			retstates[c][i] = []float64{0.0, 0.0, 0.0, 0.0}
+			if c == tree.Rt {
+				su := 0.
+				for j, s := range c.RtConds[i] {
+					su += (s * x.BF[j])
+				}
+				for j, s := range c.RtConds[i] {
+					//fmt.Print((s*x.BF[j])/su, " ")
+					retstates[c][i][j] = (s * x.BF[j]) / su
+				}
+				//fmt.Print("\n")
+			} else {
+				p := x.GetPCalc(c.Len)
+				//need subtree 1
+				s1probs := c.TpConds
+				//need subtree 2
+				s2probs := c.RvConds
+				tv := []float64{0.0, 0.0, 0.0, 0.0}
+				for j := 0; j < 4; j++ {
+					for k := 0; k < 4; k++ {
+						tv[j] += (s1probs[i][j] * p.At(j, k) * s2probs[i][k])
+					}
+					tv[j] *= x.BF[j]
+				}
+				su := 0.
+				for _, s := range tv {
+					su += s
+				}
+				for j, s := range tv {
+					//fmt.Print(s/su, " ")
+					retstates[c][i][j] = s / su
+				}
+				//fmt.Print("\n")
+			}
+		}
+	}
+	return
 }

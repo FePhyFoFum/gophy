@@ -7,8 +7,12 @@ import (
 
 //GetSitePatterns return site pattens when the datatype for the alignment is a map[string]string
 func GetSitePatterns(seqs map[string]string, nsites int, seqnames []string) (patterns map[string][]int,
-	patternsint map[int]float64, gapsites []int, constant []int, uninformative []int) {
+	patternsint map[int]float64, gapsites []int, constant []int, uninformative []int, fullpattern []int) {
 	patterns = make(map[string][]int)
+	fullpattern = make([]int, nsites)
+	np := 0
+	npmap := make(map[string]int)
+	pamap := make(map[int]string)
 	for k := 0; k < nsites; k++ {
 		tp := ""
 		As, Cs, Gs, Ts, gapcount := 0, 0, 0, 0, 0
@@ -56,19 +60,29 @@ func GetSitePatterns(seqs map[string]string, nsites int, seqnames []string) (pat
 		}
 		if _, ok := patterns[tp]; !ok {
 			patterns[tp] = make([]int, 0)
+			npmap[tp] = np
+			pamap[np] = tp
+			np++
 		}
 		patterns[tp] = append(patterns[tp], k)
+		fullpattern[k] = npmap[tp]
 	}
 	patternsint = make(map[int]float64) // key is first site, value is the number of that one
-	for _, j := range patterns {
+	patternsintmap := make(map[int]int) // key is first site, value is pattern pamap int
+	for m, j := range patterns {
 		patternsint[j[0]] = float64(len(j))
+		patternsintmap[j[0]] = npmap[m]
 	}
+	//fmt.Println("fp", fullpattern)
+	//fmt.Println("npmap", npmap)
+	//fmt.Println("pamap", pamap)
+	//fmt.Println("pim", patternsintmap)
 	return
 }
 
 // PreparePatternVecs for tree calculations
-func PreparePatternVecs(t *Tree, patternsint map[int]float64, seqs map[string]string) (patternval []float64) {
-	patternvec := make([]int, len(patternsint))    //which site
+func PreparePatternVecs(t *Tree, patternsint map[int]float64, seqs map[string]string) (patternval []float64, patternvec []int) {
+	patternvec = make([]int, len(patternsint))     //which site
 	patternval = make([]float64, len(patternsint)) //log of number of sites
 	count := 0
 	for i := range patternsint {
@@ -122,5 +136,15 @@ func GetNucMap() (charMap map[string][]int) {
 	charMap["B"] = []int{1, 2, 3}
 	charMap["V"] = []int{0, 1, 2}
 	charMap["D"] = []int{0, 2, 3}
+	return
+}
+
+// GetRevNucMap ...
+func GetRevNucMap() (charMap map[int]string) {
+	charMap = make(map[int]string)
+	charMap[0] = "A"
+	charMap[1] = "C"
+	charMap[2] = "G"
+	charMap[3] = "T"
 	return
 }
