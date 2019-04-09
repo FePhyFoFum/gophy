@@ -10,8 +10,8 @@ import (
  This is for calculating likelihoods for nucleotides
 */
 
-// PCalcLogLike this will calculate log like in parallel
-func PCalcLogLike(t *Tree, x *DNAModel, nsites int, wks int) (fl float64) {
+// PCalcLogLikeMS this will calculate log like in parallel
+func PCalcLogLikeMS(t *Tree, x StateModel, nsites int, wks int) (fl float64) {
 	fl = 0.0
 	jobs := make(chan int, nsites)
 	//results := make(chan float64, nsites)
@@ -19,9 +19,9 @@ func PCalcLogLike(t *Tree, x *DNAModel, nsites int, wks int) (fl float64) {
 	// populate the P matrix dictionary without problems of race conditions
 	// just the first site
 	x.EmptyPDict()
-	fl += CalcLogLikeOneSite(t, x, 0)
+	fl += CalcLogLikeOneSiteMS(t, x, 0)
 	for i := 0; i < wks; i++ {
-		go CalcLogLikeWork(t, x, jobs, results)
+		go CalcLogLikeWorkMS(t, x, jobs, results)
 	}
 	for i := 1; i < nsites; i++ {
 		jobs <- i
@@ -36,8 +36,8 @@ func PCalcLogLike(t *Tree, x *DNAModel, nsites int, wks int) (fl float64) {
 	return
 }
 
-//PCalcLike parallel calculate likelihood
-func PCalcLike(t *Tree, x *DNAModel, nsites int, wks int) (fl float64) {
+//PCalcLikeMS parallel calculate likelihood
+func PCalcLikeMS(t *Tree, x StateModel, nsites int, wks int) (fl float64) {
 	fl = 0.0
 	jobs := make(chan int, nsites)
 	//results := make(chan float64, nsites)
@@ -45,9 +45,9 @@ func PCalcLike(t *Tree, x *DNAModel, nsites int, wks int) (fl float64) {
 	// populate the P matrix dictionary without problems of race conditions
 	// just the first site
 	x.EmptyPDict()
-	fl += math.Log(CalcLikeOneSite(t, x, 0))
+	fl += math.Log(CalcLikeOneSiteMS(t, x, 0))
 	for i := 0; i < wks; i++ {
-		go CalcLikeWork(t, x, jobs, results)
+		go CalcLikeWorkMS(t, x, jobs, results)
 	}
 	for i := 1; i < nsites; i++ {
 		jobs <- i
@@ -63,7 +63,7 @@ func PCalcLike(t *Tree, x *DNAModel, nsites int, wks int) (fl float64) {
 }
 
 //PCalcLikePatterns parallel caclulation of likelihood with patterns
-func PCalcLikePatterns(t *Tree, x *DNAModel, patternval []float64, wks int) (fl float64) {
+func PCalcLikePatternsMS(t *Tree, x StateModel, patternval []float64, wks int) (fl float64) {
 	fl = 0.0
 	nsites := len(patternval)
 	jobs := make(chan int, nsites)
@@ -72,9 +72,9 @@ func PCalcLikePatterns(t *Tree, x *DNAModel, patternval []float64, wks int) (fl 
 	// populate the P matrix dictionary without problems of race conditions
 	// just the first site
 	x.EmptyPDict()
-	fl += math.Log(CalcLikeOneSite(t, x, 0)) * patternval[0]
+	fl += math.Log(CalcLikeOneSiteMS(t, x, 0)) * patternval[0]
 	for i := 0; i < wks; i++ {
-		go CalcLikeWork(t, x, jobs, results)
+		go CalcLikeWorkMS(t, x, jobs, results)
 	}
 	for i := 1; i < nsites; i++ {
 		jobs <- i
@@ -92,7 +92,7 @@ func PCalcLikePatterns(t *Tree, x *DNAModel, patternval []float64, wks int) (fl 
 //TODO: this whole bit needs to be checcked
 
 //PCalcLikePatternsMarked parallel likelihood caclulation with patterns and just update the values
-func PCalcLikePatternsMarked(t *Tree, x *DNAModel, patternval []float64, wks int) (fl float64) {
+func PCalcLikePatternsMarkedMS(t *Tree, x StateModel, patternval []float64, wks int) (fl float64) {
 	fl = 0.0
 	nsites := len(patternval)
 	jobs := make(chan int, nsites)
@@ -101,9 +101,9 @@ func PCalcLikePatternsMarked(t *Tree, x *DNAModel, patternval []float64, wks int
 	// populate the P matrix dictionary without problems of race conditions
 	// just the first site
 	//x.EmptyPDict()
-	fl += math.Log(CalcLikeOneSiteMarked(t, x, 0)) * patternval[0]
+	fl += math.Log(CalcLikeOneSiteMarkedMS(t, x, 0)) * patternval[0]
 	for i := 0; i < wks; i++ {
-		go CalcLikeWorkMarked(t, x, jobs, results)
+		go CalcLikeWorkMarkedMS(t, x, jobs, results)
 	}
 	for i := 1; i < nsites; i++ {
 		jobs <- i
@@ -119,7 +119,7 @@ func PCalcLikePatternsMarked(t *Tree, x *DNAModel, patternval []float64, wks int
 }
 
 //PCalcLogLikePatterns parallel log likeliohood calculation including patterns
-func PCalcLogLikePatterns(t *Tree, x *DNAModel, patternval []float64, wks int) (fl float64) {
+func PCalcLogLikePatternsMS(t *Tree, x StateModel, patternval []float64, wks int) (fl float64) {
 	fl = 0.0
 	nsites := len(patternval)
 	jobs := make(chan int, nsites)
@@ -128,9 +128,9 @@ func PCalcLogLikePatterns(t *Tree, x *DNAModel, patternval []float64, wks int) (
 	// populate the P matrix dictionary without problems of race conditions
 	// just the first site
 	x.EmptyPDict()
-	fl += CalcLogLikeOneSite(t, x, 0) * patternval[0]
+	fl += CalcLogLikeOneSiteMS(t, x, 0) * patternval[0]
 	for i := 0; i < wks; i++ {
-		go CalcLogLikeWork(t, x, jobs, results)
+		go CalcLogLikeWorkMS(t, x, jobs, results)
 	}
 	for i := 1; i < nsites; i++ {
 		jobs <- i
@@ -145,16 +145,16 @@ func PCalcLogLikePatterns(t *Tree, x *DNAModel, patternval []float64, wks int) (
 }
 
 // PCalcLogLikeBack a bit of a shortcut. Could do better, but walks back from the n node to the root
-func PCalcLogLikeBack(t *Tree, n *Node, x *DNAModel, nsites int, wks int) (fl float64) {
+func PCalcLogLikeBackMS(t *Tree, n *Node, x StateModel, nsites int, wks int) (fl float64) {
 	fl = 0.0
 	jobs := make(chan int, nsites)
 	results := make(chan float64, nsites)
 	// populate the P matrix dictionary without problems of race conditions
 	// just the first site
 	x.EmptyPDict()
-	fl += CalcLogLikeOneSiteBack(t, n, x, 0)
+	fl += CalcLogLikeOneSiteBackMS(t, n, x, 0)
 	for i := 0; i < wks; i++ {
-		go CalcLogLikeWorkBack(t, n, x, jobs, results)
+		go CalcLogLikeWorkBackMS(t, n, x, jobs, results)
 	}
 	for i := 1; i < nsites; i++ {
 		jobs <- i
@@ -167,16 +167,16 @@ func PCalcLogLikeBack(t *Tree, n *Node, x *DNAModel, nsites int, wks int) (fl fl
 }
 
 //PCalcLogLikeMarked parallel calculation of loglike with just updating
-func PCalcLogLikeMarked(t *Tree, x *DNAModel, nsites int, wks int) (fl float64) {
+func PCalcLogLikeMarkedMS(t *Tree, x StateModel, nsites int, wks int) (fl float64) {
 	fl = 0.0
 	jobs := make(chan int, nsites)
 	results := make(chan float64, nsites)
 	// populate the P matrix dictionary without problems of race conditions
 	// just the first site
 	//x.EmptyPDict()
-	fl += CalcLogLikeOneSiteMarked(t, x, 0)
+	fl += CalcLogLikeOneSiteMarkedMS(t, x, 0)
 	for i := 0; i < wks; i++ {
-		go CalcLogLikeWorkMarked(t, x, jobs, results)
+		go CalcLogLikeWorkMarkedMS(t, x, jobs, results)
 	}
 	for i := 1; i < nsites; i++ {
 		jobs <- i
@@ -190,15 +190,15 @@ func PCalcLogLikeMarked(t *Tree, x *DNAModel, nsites int, wks int) (fl float64) 
 
 // CalcLogLikeOneSite just calculate the likelihood of one site
 // probably used to populate the PDict in the DNA Model so that we can reuse the calculations
-func CalcLogLikeOneSite(t *Tree, x *DNAModel, site int) float64 {
+func CalcLogLikeOneSiteMS(t *Tree, x StateModel, site int) float64 {
 	sl := 0.0
 	for _, n := range t.Post {
 		if len(n.Chs) > 0 {
-			CalcLogLikeNode(n, x, site)
+			CalcLogLikeNodeMS(n, x, site)
 		}
 		if t.Rt == n {
 			for i := 0; i < 4; i++ {
-				t.Rt.Data[site][i] += math.Log(x.BF[i])
+				t.Rt.Data[site][i] += math.Log(x.GetBF()[i])
 			}
 			sl = floats.LogSumExp(t.Rt.Data[site])
 		}
@@ -206,16 +206,16 @@ func CalcLogLikeOneSite(t *Tree, x *DNAModel, site int) float64 {
 	return sl
 }
 
-//CalcLikeOneSite just one site
-func CalcLikeOneSite(t *Tree, x *DNAModel, site int) float64 {
+//CalcLikeOneSiteMS just one site
+func CalcLikeOneSiteMS(t *Tree, x StateModel, site int) float64 {
 	sl := 0.0
 	for _, n := range t.Post {
 		if len(n.Chs) > 0 {
-			CalcLikeNode(n, x, site)
+			CalcLikeNodeMS(n, x, site)
 		}
 		if t.Rt == n {
-			for i := 0; i < 4; i++ {
-				t.Rt.Data[site][i] *= x.BF[i]
+			for i := 0; i < x.GetNumStates(); i++ {
+				t.Rt.Data[site][i] *= x.GetBF()[i]
 			}
 			sl = floats.Sum(t.Rt.Data[site])
 		}
@@ -223,18 +223,18 @@ func CalcLikeOneSite(t *Tree, x *DNAModel, site int) float64 {
 	return sl
 }
 
-// CalcLogLikeOneSiteBack like the one above but from nb to the root only
-func CalcLogLikeOneSiteBack(t *Tree, nb *Node, x *DNAModel, site int) float64 {
+// CalcLogLikeOneSiteBackMS like the one above but from nb to the root only
+func CalcLogLikeOneSiteBackMS(t *Tree, nb *Node, x StateModel, site int) float64 {
 	sl := 0.0
 	going := true
 	cur := nb
 	for going {
 		if len(cur.Chs) > 0 {
-			CalcLogLikeNode(cur, x, site)
+			CalcLogLikeNodeMS(cur, x, site)
 		}
 		if cur == t.Rt {
 			for i := 0; i < 4; i++ {
-				t.Rt.Data[site][i] += math.Log(x.BF[i])
+				t.Rt.Data[site][i] += math.Log(x.GetBF()[i])
 			}
 			sl = floats.LogSumExp(t.Rt.Data[site])
 			going = false
@@ -245,13 +245,13 @@ func CalcLogLikeOneSiteBack(t *Tree, nb *Node, x *DNAModel, site int) float64 {
 	return sl
 }
 
-// CalcLogLikeOneSiteMarked this uses the marked machinery to recalculate
-func CalcLogLikeOneSiteMarked(t *Tree, x *DNAModel, site int) float64 {
+// CalcLogLikeOneSiteMarkedMS this uses the marked machinery to recalculate
+func CalcLogLikeOneSiteMarkedMS(t *Tree, x StateModel, site int) float64 {
 	sl := 0.0
 	for _, n := range t.Post {
 		if len(n.Chs) > 0 {
 			if n.Marked == true {
-				CalcLogLikeNode(n, x, site)
+				CalcLogLikeNodeMS(n, x, site)
 				if n != t.Rt {
 					n.Par.Marked = true
 				}
@@ -259,7 +259,7 @@ func CalcLogLikeOneSiteMarked(t *Tree, x *DNAModel, site int) float64 {
 		}
 		if t.Rt == n && n.Marked == true {
 			for i := 0; i < 4; i++ {
-				t.Rt.Data[site][i] += math.Log(x.BF[i])
+				t.Rt.Data[site][i] += math.Log(x.GetBF()[i])
 			}
 			sl = floats.LogSumExp(t.Rt.Data[site])
 		} else {
@@ -269,13 +269,13 @@ func CalcLogLikeOneSiteMarked(t *Tree, x *DNAModel, site int) float64 {
 	return sl
 }
 
-// CalcLikeOneSiteMarked this uses the marked machinery to recalculate
-func CalcLikeOneSiteMarked(t *Tree, x *DNAModel, site int) float64 {
+// CalcLikeOneSiteMarkedMS this uses the marked machinery to recalculate
+func CalcLikeOneSiteMarkedMS(t *Tree, x StateModel, site int) float64 {
 	sl := 0.0
 	for _, n := range t.Post {
 		if len(n.Chs) > 0 {
 			if n.Marked == true {
-				CalcLikeNode(n, x, site)
+				CalcLikeNodeMS(n, x, site)
 				if n != t.Rt {
 					n.Par.Marked = true
 				}
@@ -283,7 +283,7 @@ func CalcLikeOneSiteMarked(t *Tree, x *DNAModel, site int) float64 {
 		}
 		if t.Rt == n && n.Marked == true {
 			for i := 0; i < 4; i++ {
-				t.Rt.Data[site][i] *= x.BF[i]
+				t.Rt.Data[site][i] *= x.GetBF()[i]
 			}
 			sl = floats.Sum(t.Rt.Data[site])
 		} else {
@@ -293,17 +293,17 @@ func CalcLikeOneSiteMarked(t *Tree, x *DNAModel, site int) float64 {
 	return sl
 }
 
-// CalcLogLikeWork this is intended for a worker that will be executing this per site
-func CalcLogLikeWork(t *Tree, x *DNAModel, jobs <-chan int, results chan<- LikeResult) { //results chan<- float64) {
+// CalcLogLikeWorkMS this is intended for a worker that will be executing this per site
+func CalcLogLikeWorkMS(t *Tree, x StateModel, jobs <-chan int, results chan<- LikeResult) { //results chan<- float64) {
 	for j := range jobs {
 		sl := 0.0
 		for _, n := range t.Post {
 			if len(n.Chs) > 0 {
-				CalcLogLikeNode(n, x, j)
+				CalcLogLikeNodeMS(n, x, j)
 			}
 			if t.Rt == n {
 				for i := 0; i < 4; i++ {
-					t.Rt.Data[j][i] += math.Log(x.BF[i])
+					t.Rt.Data[j][i] += math.Log(x.GetBF()[i])
 				}
 				sl = floats.LogSumExp(t.Rt.Data[j])
 			}
@@ -312,17 +312,17 @@ func CalcLogLikeWork(t *Tree, x *DNAModel, jobs <-chan int, results chan<- LikeR
 	}
 }
 
-//CalcLikeWork this is the worker
-func CalcLikeWork(t *Tree, x *DNAModel, jobs <-chan int, results chan<- LikeResult) { //results chan<- float64) {
+//CalcLikeWorkMS this is the worker
+func CalcLikeWorkMS(t *Tree, x StateModel, jobs <-chan int, results chan<- LikeResult) { //results chan<- float64) {
 	for j := range jobs {
 		sl := 0.0
 		for _, n := range t.Post {
 			if len(n.Chs) > 0 {
-				CalcLikeNode(n, x, j)
+				CalcLikeNodeMS(n, x, j)
 			}
 			if t.Rt == n {
-				for i := 0; i < 4; i++ {
-					t.Rt.Data[j][i] *= x.BF[i]
+				for i := 0; i < x.GetNumStates(); i++ {
+					t.Rt.Data[j][i] *= x.GetBF()[i]
 				}
 				sl = floats.Sum(t.Rt.Data[j])
 			}
@@ -332,18 +332,18 @@ func CalcLikeWork(t *Tree, x *DNAModel, jobs <-chan int, results chan<- LikeResu
 }
 
 // CalcLogLikeWorkBack this is intended for a worker that will be executing this per site
-func CalcLogLikeWorkBack(t *Tree, nb *Node, x *DNAModel, jobs <-chan int, results chan<- float64) {
+func CalcLogLikeWorkBackMS(t *Tree, nb *Node, x StateModel, jobs <-chan int, results chan<- float64) {
 	for j := range jobs {
 		sl := 0.0
 		going := true
 		cur := nb
 		for going {
 			if len(cur.Chs) > 0 {
-				CalcLogLikeNode(cur, x, j)
+				CalcLogLikeNodeMS(cur, x, j)
 			}
 			if cur == t.Rt {
 				for i := 0; i < 4; i++ {
-					t.Rt.Data[j][i] += math.Log(x.BF[i])
+					t.Rt.Data[j][i] += math.Log(x.GetBF()[i])
 				}
 				sl = floats.LogSumExp(t.Rt.Data[j])
 				going = false
@@ -356,18 +356,18 @@ func CalcLogLikeWorkBack(t *Tree, nb *Node, x *DNAModel, jobs <-chan int, result
 }
 
 // CalcLikeWorkMarked this is intended to calculate only on the marked nodes back to teh root
-func CalcLikeWorkMarked(t *Tree, x *DNAModel, jobs <-chan int, results chan<- LikeResult) {
+func CalcLikeWorkMarkedMS(t *Tree, x StateModel, jobs <-chan int, results chan<- LikeResult) {
 	for j := range jobs {
 		sl := 0.0
 		for _, n := range t.Post {
 			if len(n.Chs) > 0 {
 				if n.Marked == true {
-					CalcLikeNode(n, x, j)
+					CalcLikeNodeMS(n, x, j)
 				}
 			}
 			if t.Rt == n && n.Marked == true {
 				for i := 0; i < 4; i++ {
-					t.Rt.Data[j][i] *= x.BF[i]
+					t.Rt.Data[j][i] *= x.GetBF()[i]
 				}
 				sl = floats.Sum(t.Rt.Data[j])
 			} else {
@@ -379,18 +379,18 @@ func CalcLikeWorkMarked(t *Tree, x *DNAModel, jobs <-chan int, results chan<- Li
 }
 
 // CalcLogLikeWorkMarked this is intended to calculate only on the marked nodes back to teh root
-func CalcLogLikeWorkMarked(t *Tree, x *DNAModel, jobs <-chan int, results chan<- float64) {
+func CalcLogLikeWorkMarkedMS(t *Tree, x StateModel, jobs <-chan int, results chan<- float64) {
 	for j := range jobs {
 		sl := 0.0
 		for _, n := range t.Post {
 			if len(n.Chs) > 0 {
 				if n.Marked == true {
-					CalcLogLikeNode(n, x, j)
+					CalcLogLikeNodeMS(n, x, j)
 				}
 			}
 			if t.Rt == n && n.Marked == true {
 				for i := 0; i < 4; i++ {
-					t.Rt.Data[j][i] += math.Log(x.BF[i])
+					t.Rt.Data[j][i] += math.Log(x.GetBF()[i])
 				}
 				sl = floats.LogSumExp(t.Rt.Data[j])
 			} else {
@@ -402,7 +402,7 @@ func CalcLogLikeWorkMarked(t *Tree, x *DNAModel, jobs <-chan int, results chan<-
 }
 
 // CalcLogLikeNode calculates likelihood for node
-func CalcLogLikeNode(nd *Node, model *DNAModel, site int) {
+func CalcLogLikeNodeMS(nd *Node, model StateModel, site int) {
 	for i := 0; i < 4; i++ {
 		nd.Data[site][i] = 0.
 	}
@@ -430,8 +430,8 @@ func CalcLogLikeNode(nd *Node, model *DNAModel, site int) {
 }
 
 //CalcLikeNode calculate the likelihood of a node
-func CalcLikeNode(nd *Node, model *DNAModel, site int) {
-	for i := 0; i < 4; i++ {
+func CalcLikeNodeMS(nd *Node, model StateModel, site int) {
+	for i := 0; i < model.GetNumStates(); i++ {
 		nd.Data[site][i] = 1.
 	}
 	x1 := 0.0
@@ -439,17 +439,17 @@ func CalcLikeNode(nd *Node, model *DNAModel, site int) {
 	for _, c := range nd.Chs {
 		P := model.GetPMap(c.Len)
 		if len(c.Chs) == 0 {
-			for i := 0; i < 4; i++ {
+			for i := 0; i < model.GetNumStates(); i++ {
 				x1 = 0.0
-				for j := 0; j < 4; j++ {
+				for j := 0; j < model.GetNumStates(); j++ {
 					x1 += P.At(i, j) * c.Data[site][j]
 				}
 				nd.Data[site][i] *= x1
 			}
 		} else {
-			for i := 0; i < 4; i++ {
+			for i := 0; i < model.GetNumStates(); i++ {
 				x2 = 0.0
-				for j := 0; j < 4; j++ {
+				for j := 0; j < model.GetNumStates(); j++ {
 					x2 += P.At(i, j) * c.Data[site][j]
 				}
 				nd.Data[site][i] *= x2 //floats.LogSumExp(x2)
@@ -471,10 +471,10 @@ tpcond  X
 rtcond  x
  toward root
 */
-func TPconditionals(node *Node, patternval []float64) {
+func TPconditionalsMS(x StateModel, node *Node, patternval []float64) {
 	if len(node.Chs) > 0 {
 		for s := range patternval {
-			for j := 0; j < 4; j++ {
+			for j := 0; j < x.GetNumStates(); j++ {
 				node.TpConds[s][j] = 1.
 				for _, i := range node.Chs {
 					node.TpConds[s][j] *= i.RtConds[s][j]
@@ -484,12 +484,12 @@ func TPconditionals(node *Node, patternval []float64) {
 	}
 }
 
-func RTconditionals(x *DNAModel, node *Node, patternval []float64) {
+func RTconditionalsMS(x StateModel, node *Node, patternval []float64) {
 	p := x.GetPCalc(node.Len)
 	for s := range patternval {
-		for j := 0; j < 4; j++ {
+		for j := 0; j < x.GetNumStates(); j++ {
 			templike := 0.0
-			for k := 0; k < 4; k++ {
+			for k := 0; k < x.GetNumStates(); k++ {
 				templike += p.At(j, k) * node.TpConds[s][k]
 			}
 			node.RtConds[s][j] = templike
@@ -497,28 +497,28 @@ func RTconditionals(x *DNAModel, node *Node, patternval []float64) {
 	}
 }
 
-func RVconditionals(x *DNAModel, node *Node, patternval []float64) {
+func RVconditionalsMS(x StateModel, node *Node, patternval []float64) {
 	p := x.GetPCalc(node.Par.Len)
 	for s := range patternval {
-		for j := 0; j < 4; j++ {
+		for j := 0; j < x.GetNumStates(); j++ {
 			node.Par.RvTpConds[s][j] = 0.0
-			for k := 0; k < 4; k++ {
+			for k := 0; k < x.GetNumStates(); k++ {
 				node.Par.RvTpConds[s][j] += p.At(j, k) * node.Par.RvConds[s][k]
 			}
 		}
 	}
 }
 
-func RVTPconditionals(node *Node, patternval []float64) {
+func RVTPconditionalsMS(x StateModel, node *Node, patternval []float64) {
 	for s := range patternval {
-		for j := 0; j < 4; j++ {
+		for j := 0; j < x.GetNumStates(); j++ {
 			node.RvConds[s][j] = node.Par.RvTpConds[s][j]
 		}
 		for _, oc := range node.Par.Chs {
 			if node == oc {
 				continue
 			}
-			for j := 0; j < 4; j++ {
+			for j := 0; j < x.GetNumStates(); j++ {
 				node.RvConds[s][j] *= oc.RtConds[s][j]
 			}
 		}
@@ -526,7 +526,7 @@ func RVTPconditionals(node *Node, patternval []float64) {
 }
 
 // CalcLikeFrontBack ...
-func CalcLikeFrontBack(x *DNAModel, tree *Tree, patternval []float64) {
+func CalcLikeFrontBackMS(x StateModel, tree *Tree, patternval []float64) {
 	for _, n := range tree.Post {
 		if len(n.Chs) != 0 {
 			n.TpConds = make([][]float64, len(patternval))
@@ -536,24 +536,32 @@ func CalcLikeFrontBack(x *DNAModel, tree *Tree, patternval []float64) {
 		n.RtConds = make([][]float64, len(patternval))
 		for i := 0; i < len(patternval); i++ {
 			if len(n.Chs) != 0 {
-				n.TpConds[i] = []float64{1.0, 1.0, 1.0, 1.0}
+				n.TpConds[i] = make([]float64, x.GetNumStates())
+				for j := 0; j < x.GetNumStates(); j++ {
+					n.TpConds[i][j] = 1.0
+				}
 			}
-			n.RvTpConds[i] = []float64{1.0, 1.0, 1.0, 1.0}
-			n.RvConds[i] = []float64{1.0, 1.0, 1.0, 1.0}
-			n.RtConds[i] = []float64{1.0, 1.0, 1.0, 1.0}
+			n.RvTpConds[i] = make([]float64, x.GetNumStates())
+			n.RvConds[i] = make([]float64, x.GetNumStates())
+			n.RtConds[i] = make([]float64, x.GetNumStates())
+			for j := 0; j < x.GetNumStates(); j++ {
+				n.RvTpConds[i][j] = 1.0
+				n.RvConds[i][j] = 1.0
+				n.RtConds[i][j] = 1.0
+			}
 		}
 	}
 	//loglike := 0.
 	for _, c := range tree.Post {
 		//calculate the tip conditionals
-		TPconditionals(c, patternval)
+		TPconditionalsMS(x, c, patternval)
 		//take the tip cond to the rt
-		RTconditionals(x, c, patternval) // calculate from tpcond to rtcond
+		RTconditionalsMS(x, c, patternval) // calculate from tpcond to rtcond
 		/*if c == tree.Rt { // turn on if you want likelihoods
 			for s := range patternval {
 				tempretlike := 0.
 				for i := 0; i < 4; i++ {
-					tempretlike += (c.TpConds[s][i] * x.BF[i])
+					tempretlike += (c.TpConds[s][i] * x.GetBF()[i])
 				}
 				//fmt.Println("site", s, "log(L):", math.Log(tempretlike), "like:", tempretlike, "pattern:", patternval[s])
 				//loglike -= math.Log(math.Pow(tempretlike, patternval[s]))
@@ -564,15 +572,15 @@ func CalcLikeFrontBack(x *DNAModel, tree *Tree, patternval []float64) {
 	// prepare the rvcond
 	for _, c := range tree.Pre {
 		if c != tree.Rt { //need to set the root at 1.0s
-			RVconditionals(x, c, patternval)
-			RVTPconditionals(c, patternval)
+			RVconditionalsMS(x, c, patternval)
+			RVTPconditionalsMS(x, c, patternval)
 		}
 	}
 }
 
-// CalcAncStates for each node based on the calculations above
-func CalcAncStates(x *DNAModel, tree *Tree, patternval []float64) (retstates map[*Node][][]float64) {
-	CalcLikeFrontBack(x, tree, patternval)
+// CalcAncStatesMS for each node based on the calculations above
+func CalcAncStatesMS(x StateModel, tree *Tree, patternval []float64) (retstates map[*Node][][]float64) {
+	CalcLikeFrontBackMS(x, tree, patternval)
 	retstates = make(map[*Node][][]float64)
 	// initialize the data storage for return
 	for _, c := range tree.Pre {
@@ -593,15 +601,15 @@ func CalcAncStates(x *DNAModel, tree *Tree, patternval []float64) (retstates map
 				continue
 			}
 			//fmt.Println(c.Newick(true))
-			retstates[c][i] = []float64{0.0, 0.0, 0.0, 0.0}
+			retstates[c][i] = make([]float64, x.GetNumStates())
 			if c == tree.Rt {
 				su := 0.
 				for j, s := range c.RtConds[i] {
-					su += (s * x.BF[j])
+					su += (s * x.GetBF()[j])
 				}
 				for j, s := range c.RtConds[i] {
-					//fmt.Print((s*x.BF[j])/su, " ")
-					retstates[c][i][j] = (s * x.BF[j]) / su
+					//fmt.Print((s*x.GetBF()[j])/su, " ")
+					retstates[c][i][j] = (s * x.GetBF()[j]) / su
 				}
 				//fmt.Print("\n")
 			} else {
@@ -610,12 +618,12 @@ func CalcAncStates(x *DNAModel, tree *Tree, patternval []float64) (retstates map
 				s1probs := c.TpConds
 				//need subtree 2
 				s2probs := c.RvConds
-				tv := []float64{0.0, 0.0, 0.0, 0.0}
-				for j := 0; j < 4; j++ {
-					for k := 0; k < 4; k++ {
+				tv := make([]float64, x.GetNumStates())
+				for j := 0; j < x.GetNumStates(); j++ {
+					for k := 0; k < x.GetNumStates(); k++ {
 						tv[j] += (s1probs[i][j] * p.At(j, k) * s2probs[i][k])
 					}
-					tv[j] *= x.BF[j]
+					tv[j] *= x.GetBF()[j]
 				}
 				su := 0.
 				for _, s := range tv {
@@ -625,6 +633,80 @@ func CalcAncStates(x *DNAModel, tree *Tree, patternval []float64) (retstates map
 					//fmt.Print(s/su, " ")
 					retstates[c][i][j] = s / su
 				}
+				//fmt.Print("\n")
+			}
+		}
+	}
+	return
+}
+
+// CalcStochMapMS for each node based on the calculations above
+func CalcStochMapMS(x StateModel, tree *Tree, patternval []float64, time bool, from int, to int) (retstates map[*Node][][]float64) {
+	CalcLikeFrontBackMS(x, tree, patternval)
+	retstates = make(map[*Node][][]float64)
+	// initialize the data storage for return
+	for _, c := range tree.Pre {
+		if len(c.Chs) == 0 {
+			//	continue
+		}
+		ndata := make([][]float64, len(patternval))
+		retstates[c] = ndata
+	}
+	// start reconstruction
+	for i := 0; i < len(patternval); i++ {
+		//for _, c := range tree.Tips {
+		//	fmt.Println(c.Nam, c.TpConds[i])
+		//}
+		//fmt.Println("p", i, patternval[i])
+		for _, c := range tree.Pre {
+			if len(c.Chs) == 0 {
+				//	continue
+			}
+			//fmt.Println(c.Newick(true))
+			retstates[c][i] = make([]float64, x.GetNumStates())
+			if c == tree.Rt {
+				/*
+					su := 0.
+					for j, s := range c.RtConds[i] {
+						su += (s * x.GetBF()[j])
+					}
+					for j, s := range c.RtConds[i] {
+						//fmt.Print((s*x.GetBF()[j])/su, " ")
+						retstates[c][i][j] = (s * x.GetBF()[j]) / su
+					}
+				*/
+				//fmt.Print("\n")
+			} else {
+				numM, ratM := x.GetStochMapMatrices(c.Len, from, to) //x.GetPCalc(c.Len)
+				//need subtree 1
+				s1probs := c.TpConds
+				//need subtree 2
+				s2probs := c.RvConds
+				tvN := make([]float64, x.GetNumStates())
+				tvR := make([]float64, x.GetNumStates())
+				for j := 0; j < x.GetNumStates(); j++ {
+					for k := 0; k < x.GetNumStates(); k++ {
+						tvN[j] += (s1probs[i][j] * numM.At(j, k) * s2probs[i][k])
+						tvR[j] += (s1probs[i][j] * ratM.At(j, k) * s2probs[i][k])
+					}
+					tvN[j] *= x.GetBF()[j]
+					tvR[j] *= x.GetBF()[j]
+				}
+				//fmt.Println(tvN)
+				//fmt.Println(tvR)
+				if time { //time
+					retstates[c][i] = tvR
+				} else { //number
+					retstates[c][i] = tvN
+				}
+				//su := 0.
+				//for _, s := range tv {
+				//	su += s
+				//}
+				//for j, s := range tv {
+				//	//fmt.Print(s/su, " ")
+				//	retstates[c][i][j] = s / su
+				//}
 				//fmt.Print("\n")
 			}
 		}

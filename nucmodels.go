@@ -119,23 +119,6 @@ func (d *DNAModel) DecomposeQ() {
 	d.X2 = mat.NewDense(4, 4, nil) // second der
 }
 
-func sumMatrix(m *mat.Dense) (s float64) {
-	s = 0
-	for i := 0; i < 4; i++ {
-		for j := 0; j < 4; j++ {
-			s += m.At(i, j)
-		}
-	}
-	return
-}
-func sumRow(m *mat.Dense, i int) (s float64) {
-	s = 0
-	for j := 0; j < 4; j++ {
-		s += m.At(i, j)
-	}
-	return
-}
-
 //SetRateMatrix needs to be done before doing SetupQGTR
 // just send along the 5 rates and this will make them the whole matrix
 func (d *DNAModel) SetRateMatrix(params []float64) {
@@ -265,7 +248,7 @@ func (d *DNAModel) GetPCalc(blen float64) *mat.Dense {
 */
 
 //SetNucMap for getting the position in the array
-func (d *DNAModel) SetNucMap() {
+func (d *DNAModel) SetMap() {
 	d.CharMap = make(map[string][]int)
 	d.CharMap["A"] = []int{0}
 	d.CharMap["C"] = []int{1}
