@@ -9,8 +9,6 @@ import (
 	"os"
 	"runtime/pprof"
 	"sort"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/FePhyFoFum/gophy"
@@ -20,7 +18,8 @@ import (
 func main() {
 	tfn := flag.String("t", "", "tree filename")
 	afn := flag.String("s", "", "seq filename")
-	md := flag.String("m", "1.0,1.0,1.0,1.0,1.0", "model params")
+	//md := flag.Bool("m", false, "model params free")
+	//ebf := flag.Bool("b", true, "use empirical base freqs (alt is estimate)")
 	wks := flag.Int("w", 4, "number of threads")
 	cpuprofile := flag.String("cpuprofile", "", "write cpu profile to file")
 	flag.Parse()
@@ -76,10 +75,6 @@ func main() {
 		nsites = len(i.SQ)
 	}
 	bf := gophy.GetEmpiricalBaseFreqsMS(mseqs, x.NumStates)
-	/*bf[0] = 0.25
-	bf[1] = 0.25
-	bf[2] = 0.25
-	bf[3] = 0.25*/
 	x.SetBaseFreqs(bf)
 	fmt.Println(x.BF)
 	// get the site patternas
@@ -97,34 +92,18 @@ func main() {
 	fmt.Fprintln(os.Stderr, "constant:", len(constant))
 	fmt.Fprintln(os.Stderr, "uninformative:", len(uninformative))
 	// model things
-	mds := strings.Split(*md, ",")
-	modelparams := make([]float64, 5)
-	if len(mds) != len(modelparams) {
-		fmt.Fprintln(os.Stderr, "your model contains ", len(mds), " params, not right")
-		os.Exit(1)
-	} else {
-		for i, j := range mds {
-			f, err := strconv.ParseFloat(j, 64)
-			if err != nil {
-				fmt.Fprintln(os.Stderr, "problem parsing ", j, " as float in model specs")
-				os.Exit(1)
-			}
-			modelparams[i] = f
-		}
-	}
-	x.SetRateMatrix(modelparams, true)
 	x.SetupQJC()
 	//x.SetupQGTR()
 	fmt.Println(x.Q)
 	//os.Exit(0)
 
-	//
 	start := time.Now()
 	l := gophy.PCalcLikePatternsMS(t, x, patternval, *wks)
 	fmt.Println("starting lnL:", l)
 	gophy.OptimizeMULT1R(t, x, patternval, *wks)
 	l = gophy.PCalcLikePatternsMS(t, x, patternval, *wks)
 	fmt.Println("optimized lnL:", l)
+
 	//ancestral states
 	fmt.Println("--------------------------------")
 	fmt.Println("------------anc states----------")

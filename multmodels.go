@@ -151,7 +151,7 @@ func (d *MULTModel) DecomposeQ() {
 
 //SetRateMatrix needs to be done before doing SetupQGTR
 // just send along the 5 rates and this will make them the whole matrix
-func (d *MULTModel) SetRateMatrix(params []float64, sym bool) {
+func (d *MULTModel) SetSymScaledRateMatrix(params []float64, sym bool) {
 	d.R = mat.NewDense(d.NumStates, d.NumStates, nil)
 	cc := 0
 	lasti := 0
