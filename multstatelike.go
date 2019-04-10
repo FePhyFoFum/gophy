@@ -592,10 +592,6 @@ func CalcAncStatesMS(x StateModel, tree *Tree, patternval []float64) (retstates 
 	}
 	// start reconstruction
 	for i := 0; i < len(patternval); i++ {
-		//for _, c := range tree.Tips {
-		//	fmt.Println(c.Nam, c.TpConds[i])
-		//}
-		//fmt.Println("p", i, patternval[i])
 		for _, c := range tree.Pre {
 			if len(c.Chs) == 0 {
 				continue
@@ -608,7 +604,6 @@ func CalcAncStatesMS(x StateModel, tree *Tree, patternval []float64) (retstates 
 					su += (s * x.GetBF()[j])
 				}
 				for j, s := range c.RtConds[i] {
-					//fmt.Print((s*x.GetBF()[j])/su, " ")
 					retstates[c][i][j] = (s * x.GetBF()[j]) / su
 				}
 				//fmt.Print("\n")
@@ -630,10 +625,8 @@ func CalcAncStatesMS(x StateModel, tree *Tree, patternval []float64) (retstates 
 					su += s
 				}
 				for j, s := range tv {
-					//fmt.Print(s/su, " ")
 					retstates[c][i][j] = s / su
 				}
-				//fmt.Print("\n")
 			}
 		}
 	}
@@ -654,28 +647,10 @@ func CalcStochMapMS(x StateModel, tree *Tree, patternval []float64, time bool, f
 	}
 	// start reconstruction
 	for i := 0; i < len(patternval); i++ {
-		//for _, c := range tree.Tips {
-		//	fmt.Println(c.Nam, c.TpConds[i])
-		//}
-		//fmt.Println("p", i, patternval[i])
 		for _, c := range tree.Pre {
-			if len(c.Chs) == 0 {
-				//	continue
-			}
-			//fmt.Println(c.Newick(true))
 			retstates[c][i] = make([]float64, x.GetNumStates())
 			if c == tree.Rt {
-				/*
-					su := 0.
-					for j, s := range c.RtConds[i] {
-						su += (s * x.GetBF()[j])
-					}
-					for j, s := range c.RtConds[i] {
-						//fmt.Print((s*x.GetBF()[j])/su, " ")
-						retstates[c][i][j] = (s * x.GetBF()[j]) / su
-					}
-				*/
-				//fmt.Print("\n")
+				continue
 			} else {
 				numM, ratM := x.GetStochMapMatrices(c.Len, from, to) //x.GetPCalc(c.Len)
 				//need subtree 1
@@ -692,22 +667,11 @@ func CalcStochMapMS(x StateModel, tree *Tree, patternval []float64, time bool, f
 					tvN[j] *= x.GetBF()[j]
 					tvR[j] *= x.GetBF()[j]
 				}
-				//fmt.Println(tvN)
-				//fmt.Println(tvR)
 				if time { //time
 					retstates[c][i] = tvR
 				} else { //number
 					retstates[c][i] = tvN
 				}
-				//su := 0.
-				//for _, s := range tv {
-				//	su += s
-				//}
-				//for j, s := range tv {
-				//	//fmt.Print(s/su, " ")
-				//	retstates[c][i][j] = s / su
-				//}
-				//fmt.Print("\n")
 			}
 		}
 	}

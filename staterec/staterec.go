@@ -76,10 +76,10 @@ func main() {
 		nsites = len(i.SQ)
 	}
 	bf := gophy.GetEmpiricalBaseFreqsMS(mseqs, x.NumStates)
-	bf[0] = 0.25
+	/*bf[0] = 0.25
 	bf[1] = 0.25
 	bf[2] = 0.25
-	bf[3] = 0.25
+	bf[3] = 0.25*/
 	x.SetBaseFreqs(bf)
 	fmt.Println(x.BF)
 	// get the site patternas
