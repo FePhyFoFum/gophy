@@ -7,62 +7,18 @@ import (
 )
 
 /*
- This is for calculating likelihoods for nucleotides
+ This is for calculating likelihoods for multistate
 */
 
-// PCalcLogLikeMS this will calculate log like in parallel
-func PCalcLogLikeMS(t *Tree, x StateModel, nsites int, wks int) (fl float64) {
-	fl = 0.0
-	jobs := make(chan int, nsites)
-	//results := make(chan float64, nsites)
-	results := make(chan LikeResult, nsites)
-	// populate the P matrix dictionary without problems of race conditions
-	// just the first site
-	x.EmptyPDict()
-	fl += CalcLogLikeOneSiteMS(t, x, 0)
-	for i := 0; i < wks; i++ {
-		go CalcLogLikeWorkMS(t, x, jobs, results)
-	}
-	for i := 1; i < nsites; i++ {
-		jobs <- i
-	}
-	close(jobs)
-	rr := LikeResult{}
-	for i := 1; i < nsites; i++ {
-		rr = <-results
-		fl += rr.value
-		//fl += <-results
-	}
-	return
-}
+/*=======================================================================
+	These are the parallel calls for log like and likelihoods
+  =======================================================================
+*/
 
-//PCalcLikeMS parallel calculate likelihood
-func PCalcLikeMS(t *Tree, x StateModel, nsites int, wks int) (fl float64) {
-	fl = 0.0
-	jobs := make(chan int, nsites)
-	//results := make(chan float64, nsites)
-	results := make(chan LikeResult, nsites)
-	// populate the P matrix dictionary without problems of race conditions
-	// just the first site
-	x.EmptyPDict()
-	fl += math.Log(CalcLikeOneSiteMS(t, x, 0))
-	for i := 0; i < wks; i++ {
-		go CalcLikeWorkMS(t, x, jobs, results)
-	}
-	for i := 1; i < nsites; i++ {
-		jobs <- i
-	}
-	close(jobs)
-	rr := LikeResult{}
-	for i := 1; i < nsites; i++ {
-		rr = <-results
-		fl += math.Log(rr.value)
-		//fl += <-results
-	}
-	return
-}
-
-//PCalcLikePatterns parallel caclulation of likelihood with patterns
+// PCalcLikePatternsMS this will calculate like in parallel
+//     It will make a thread pool then calculate the LogLike for the first site
+//     with CalcLikeOneSiteMS and the rest in the pool with CalcLikeWorkMS
+//     This is with patterns.
 func PCalcLikePatternsMS(t *Tree, x StateModel, patternval []float64, wks int) (fl float64) {
 	fl = 0.0
 	nsites := len(patternval)
@@ -89,9 +45,98 @@ func PCalcLikePatternsMS(t *Tree, x StateModel, patternval []float64, wks int) (
 	return
 }
 
-//TODO: this whole bit needs to be checcked
+// PCalcLogLikePatternsMS this will calculate loglike in parallel
+//     It will make a thread pool then calculate the LogLike for the first site
+//     with CalcLogLikeOneSiteMS and the rest in the pool with CalcLogLikeWorkMS
+//     This is with patterns. Probably use this one
+func PCalcLogLikePatternsMS(t *Tree, x StateModel, patternval []float64, wks int) (fl float64) {
+	fl = 0.0
+	nsites := len(patternval)
+	jobs := make(chan int, nsites)
+	//results := make(chan float64, nsites)
+	results := make(chan LikeResult, nsites)
+	// populate the P matrix dictionary without problems of race conditions
+	// just the first site
+	x.EmptyPDict()
+	fl += CalcLogLikeOneSiteMS(t, x, 0) * patternval[0]
+	for i := 0; i < wks; i++ {
+		go CalcLogLikeWorkMS(t, x, jobs, results)
+	}
+	for i := 1; i < nsites; i++ {
+		jobs <- i
+	}
+	close(jobs)
+	rr := LikeResult{}
+	for i := 1; i < nsites; i++ {
+		rr = <-results
+		fl += (rr.value * patternval[rr.site])
+	}
+	return
+}
 
-//PCalcLikePatternsMarked parallel likelihood caclulation with patterns and just update the values
+// PCalcLogLikeMS this will calculate log like in parallel
+//     It will make a thread pool then calculate the LogLike for the first site
+//     with CalcLogLikeOneSiteMS and the rest in the pool with CalcLogLikeWorkMS
+//     This is without patterns.
+func PCalcLogLikeMS(t *Tree, x StateModel, nsites int, wks int) (fl float64) {
+	fl = 0.0
+	jobs := make(chan int, nsites)
+	//results := make(chan float64, nsites)
+	results := make(chan LikeResult, nsites)
+	// populate the P matrix dictionary without problems of race conditions
+	// just the first site
+	x.EmptyPDict()
+	fl += CalcLogLikeOneSiteMS(t, x, 0)
+	for i := 0; i < wks; i++ {
+		go CalcLogLikeWorkMS(t, x, jobs, results)
+	}
+	for i := 1; i < nsites; i++ {
+		jobs <- i
+	}
+	close(jobs)
+	rr := LikeResult{}
+	for i := 1; i < nsites; i++ {
+		rr = <-results
+		fl += rr.value
+		//fl += <-results
+	}
+	return
+}
+
+// PCalcLikeMS this will calculate log like in parallel
+//     It will make a thread pool then calculate the LogLike for the first site
+//     with CalcLikeOneSiteMS and the rest in the pool with CalcLikeWorkMS
+//     This is without patterns.
+func PCalcLikeMS(t *Tree, x StateModel, nsites int, wks int) (fl float64) {
+	fl = 0.0
+	jobs := make(chan int, nsites)
+	//results := make(chan float64, nsites)
+	results := make(chan LikeResult, nsites)
+	// populate the P matrix dictionary without problems of race conditions
+	// just the first site
+	x.EmptyPDict()
+	fl += math.Log(CalcLikeOneSiteMS(t, x, 0))
+	for i := 0; i < wks; i++ {
+		go CalcLikeWorkMS(t, x, jobs, results)
+	}
+	for i := 1; i < nsites; i++ {
+		jobs <- i
+	}
+	close(jobs)
+	rr := LikeResult{}
+	for i := 1; i < nsites; i++ {
+		rr = <-results
+		fl += math.Log(rr.value)
+		//fl += <-results
+	}
+	return
+}
+
+// PCalcLikePatternsMarkedMS this will calculate like in parallel
+//     It will make a thread pool then calculate the LogLike for the first site
+//     with CalcLikeOneSiteMarkedMS and the rest in the pool with CalcLikeWorkMarkedMS
+//     This is with patterns. It will assume that nodes are going to be marked in between
+//     calls to this function.
 func PCalcLikePatternsMarkedMS(t *Tree, x StateModel, patternval []float64, wks int) (fl float64) {
 	fl = 0.0
 	nsites := len(patternval)
@@ -118,33 +163,10 @@ func PCalcLikePatternsMarkedMS(t *Tree, x StateModel, patternval []float64, wks 
 	return
 }
 
-//PCalcLogLikePatterns parallel log likeliohood calculation including patterns
-func PCalcLogLikePatternsMS(t *Tree, x StateModel, patternval []float64, wks int) (fl float64) {
-	fl = 0.0
-	nsites := len(patternval)
-	jobs := make(chan int, nsites)
-	//results := make(chan float64, nsites)
-	results := make(chan LikeResult, nsites)
-	// populate the P matrix dictionary without problems of race conditions
-	// just the first site
-	x.EmptyPDict()
-	fl += CalcLogLikeOneSiteMS(t, x, 0) * patternval[0]
-	for i := 0; i < wks; i++ {
-		go CalcLogLikeWorkMS(t, x, jobs, results)
-	}
-	for i := 1; i < nsites; i++ {
-		jobs <- i
-	}
-	close(jobs)
-	rr := LikeResult{}
-	for i := 1; i < nsites; i++ {
-		rr = <-results
-		fl += (rr.value * patternval[rr.site])
-	}
-	return
-}
-
-// PCalcLogLikeBack a bit of a shortcut. Could do better, but walks back from the n node to the root
+// PCalcLogLikeBackMS this will calculate loglike in parallel
+//     It will make a thread pool then calculate the LogLike for the first site
+//     with CalcLogLikeOneSiteBackMS and the rest in the pool with CalcLogLikeWorkBackMS
+//     This is without patterns. It will start at a node n and go back to the root.
 func PCalcLogLikeBackMS(t *Tree, n *Node, x StateModel, nsites int, wks int) (fl float64) {
 	fl = 0.0
 	jobs := make(chan int, nsites)
@@ -166,7 +188,11 @@ func PCalcLogLikeBackMS(t *Tree, n *Node, x StateModel, nsites int, wks int) (fl
 	return
 }
 
-//PCalcLogLikeMarked parallel calculation of loglike with just updating
+// PCalcLogLikeMarkedMS this will calculate loglike in parallel
+//     It will make a thread pool then calculate the LogLike for the first site
+//     with CalcLogLikeOneSiteMarkedMS and the rest in the pool with CalcLogLikeWorkMarkedMS
+//     This is without patterns. It will assume that nodes are going to be marked in between
+//     calls to this function.
 func PCalcLogLikeMarkedMS(t *Tree, x StateModel, nsites int, wks int) (fl float64) {
 	fl = 0.0
 	jobs := make(chan int, nsites)
@@ -188,7 +214,12 @@ func PCalcLogLikeMarkedMS(t *Tree, x StateModel, nsites int, wks int) (fl float6
 	return
 }
 
-// CalcLogLikeOneSite just calculate the likelihood of one site
+/*=======================================================================
+	These are the non parallel calls to calculate likelihoods for one site
+  =======================================================================
+*/
+
+// CalcLogLikeOneSiteMS is used to calculate the loglike of one site
 // probably used to populate the PDict in the DNA Model so that we can reuse the calculations
 func CalcLogLikeOneSiteMS(t *Tree, x StateModel, site int) float64 {
 	sl := 0.0
@@ -206,7 +237,8 @@ func CalcLogLikeOneSiteMS(t *Tree, x StateModel, site int) float64 {
 	return sl
 }
 
-//CalcLikeOneSiteMS just one site
+// CalcLikeOneSiteMS is used to calculate the like of one site
+// probably used to populate the PDict in the DNA Model so that we can reuse the calculations
 func CalcLikeOneSiteMS(t *Tree, x StateModel, site int) float64 {
 	sl := 0.0
 	for _, n := range t.Post {
@@ -223,7 +255,9 @@ func CalcLikeOneSiteMS(t *Tree, x StateModel, site int) float64 {
 	return sl
 }
 
-// CalcLogLikeOneSiteBackMS like the one above but from nb to the root only
+// CalcLogLikeOneSiteBackMS is used to calculate the loglike of one site
+// probably used to populate the PDict in the DNA Model so that we can reuse the calculations
+// This starts at node nb and goes to the root.
 func CalcLogLikeOneSiteBackMS(t *Tree, nb *Node, x StateModel, site int) float64 {
 	sl := 0.0
 	going := true
@@ -245,7 +279,8 @@ func CalcLogLikeOneSiteBackMS(t *Tree, nb *Node, x StateModel, site int) float64
 	return sl
 }
 
-// CalcLogLikeOneSiteMarkedMS this uses the marked machinery to recalculate
+// CalcLogLikeOneSiteMarkedMS calculates log likelihood for one site using CalcLogLikeNodeMS
+//    This is outside of teh worker pool (probably doing this first to populate the P matrix)
 func CalcLogLikeOneSiteMarkedMS(t *Tree, x StateModel, site int) float64 {
 	sl := 0.0
 	for _, n := range t.Post {
@@ -269,7 +304,8 @@ func CalcLogLikeOneSiteMarkedMS(t *Tree, x StateModel, site int) float64 {
 	return sl
 }
 
-// CalcLikeOneSiteMarkedMS this uses the marked machinery to recalculate
+// CalcLikeOneSiteMarkedMS calculates likelihood for one site using CalcLikeNodeMS
+//    This is outside of teh worker pool (probably doing this first to populate the P matrix)
 func CalcLikeOneSiteMarkedMS(t *Tree, x StateModel, site int) float64 {
 	sl := 0.0
 	for _, n := range t.Post {
@@ -293,7 +329,13 @@ func CalcLikeOneSiteMarkedMS(t *Tree, x StateModel, site int) float64 {
 	return sl
 }
 
-// CalcLogLikeWorkMS this is intended for a worker that will be executing this per site
+/*=======================================================================
+	These are the worker (parallel) calls to calculate likelihoods for one site
+  =======================================================================
+*/
+
+// CalcLogLikeWorkMS calculates log likelihood for one site using CalcLogLikeNodeMS
+//    Work refers to this being part of the worker pool
 func CalcLogLikeWorkMS(t *Tree, x StateModel, jobs <-chan int, results chan<- LikeResult) { //results chan<- float64) {
 	for j := range jobs {
 		sl := 0.0
@@ -312,7 +354,8 @@ func CalcLogLikeWorkMS(t *Tree, x StateModel, jobs <-chan int, results chan<- Li
 	}
 }
 
-//CalcLikeWorkMS this is the worker
+// CalcLikeWorkMS calculates likelihood for one site using CalcLikeNodeMS
+//    Work refers to this being part of the worker pool
 func CalcLikeWorkMS(t *Tree, x StateModel, jobs <-chan int, results chan<- LikeResult) { //results chan<- float64) {
 	for j := range jobs {
 		sl := 0.0
@@ -331,7 +374,8 @@ func CalcLikeWorkMS(t *Tree, x StateModel, jobs <-chan int, results chan<- LikeR
 	}
 }
 
-// CalcLogLikeWorkBack this is intended for a worker that will be executing this per site
+// CalcLogLikeWorkBackMS only calculates the log likelihood back to the root for multistate
+//    Work refers to this being part of the worker pool
 func CalcLogLikeWorkBackMS(t *Tree, nb *Node, x StateModel, jobs <-chan int, results chan<- float64) {
 	for j := range jobs {
 		sl := 0.0
@@ -355,30 +399,8 @@ func CalcLogLikeWorkBackMS(t *Tree, nb *Node, x StateModel, jobs <-chan int, res
 	}
 }
 
-// CalcLikeWorkMarked this is intended to calculate only on the marked nodes back to teh root
-func CalcLikeWorkMarkedMS(t *Tree, x StateModel, jobs <-chan int, results chan<- LikeResult) {
-	for j := range jobs {
-		sl := 0.0
-		for _, n := range t.Post {
-			if len(n.Chs) > 0 {
-				if n.Marked == true {
-					CalcLikeNodeMS(n, x, j)
-				}
-			}
-			if t.Rt == n && n.Marked == true {
-				for i := 0; i < 4; i++ {
-					t.Rt.Data[j][i] *= x.GetBF()[i]
-				}
-				sl = floats.Sum(t.Rt.Data[j])
-			} else {
-				sl = floats.Sum(t.Rt.Data[j])
-			}
-		}
-		results <- LikeResult{value: sl, site: j}
-	}
-}
-
-// CalcLogLikeWorkMarked this is intended to calculate only on the marked nodes back to teh root
+// CalcLogLikeWorkMarkedMS this should only calculate log like of the marked nodes back to the root
+//    Work refers to this being part of the worker pool
 func CalcLogLikeWorkMarkedMS(t *Tree, x StateModel, jobs <-chan int, results chan<- float64) {
 	for j := range jobs {
 		sl := 0.0
@@ -401,7 +423,37 @@ func CalcLogLikeWorkMarkedMS(t *Tree, x StateModel, jobs <-chan int, results cha
 	}
 }
 
-// CalcLogLikeNode calculates likelihood for node
+// CalcLikeWorkMarkedMS this should only calculate like of the marked nodes back to the root
+//    Work refers to this being part of the worker pool
+func CalcLikeWorkMarkedMS(t *Tree, x StateModel, jobs <-chan int, results chan<- LikeResult) {
+	for j := range jobs {
+		sl := 0.0
+		for _, n := range t.Post {
+			if len(n.Chs) > 0 {
+				if n.Marked == true {
+					CalcLikeNodeMS(n, x, j)
+				}
+			}
+			if t.Rt == n && n.Marked == true {
+				for i := 0; i < 4; i++ {
+					t.Rt.Data[j][i] *= x.GetBF()[i]
+				}
+				sl = floats.Sum(t.Rt.Data[j])
+			} else {
+				sl = floats.Sum(t.Rt.Data[j])
+			}
+		}
+		results <- LikeResult{value: sl, site: j}
+	}
+}
+
+/*=======================================================================
+	These are the parts that actually calculate likelihood for one node.
+	These are all called from the functions above
+  =======================================================================
+*/
+
+// CalcLogLikeNodeMS calculates log likelihood for node for multistate
 func CalcLogLikeNodeMS(nd *Node, model StateModel, site int) {
 	for i := 0; i < 4; i++ {
 		nd.Data[site][i] = 0.
@@ -429,7 +481,7 @@ func CalcLogLikeNodeMS(nd *Node, model StateModel, site int) {
 	}
 }
 
-//CalcLikeNode calculate the likelihood of a node
+// CalcLikeNodeMS calculate the likelihood of a node for multistate
 func CalcLikeNodeMS(nd *Node, model StateModel, site int) {
 	for i := 0; i < model.GetNumStates(); i++ {
 		nd.Data[site][i] = 1.
@@ -458,8 +510,12 @@ func CalcLikeNodeMS(nd *Node, model StateModel, site int) {
 	}
 }
 
-/*
- * calculate the conditionals for ancestral calc or branch lengths
+/*=======================================================================
+	These are for calculating ancestral states, stochastic mapping,
+	and branch length optimization. To do this we calculating additional
+	vectors for each edge in order to speed up the calculation (or
+	to calclate the derivatives)
+  =======================================================================
 
  toward tip
 tpcond  X
@@ -470,7 +526,17 @@ tpcond  X
         | | rvcond
 rtcond  x
  toward root
+
+ calculate
+ postorder
+   TPconditionalsMS
+   RTconditionalsMS
+ preorder
+   RVconditionalsMS
+   RVTPconditionalsMS
 */
+
+// TPconditionalsMS calculate TpConds vector for multistate
 func TPconditionalsMS(x StateModel, node *Node, patternval []float64) {
 	if len(node.Chs) > 0 {
 		for s := range patternval {
@@ -484,6 +550,7 @@ func TPconditionalsMS(x StateModel, node *Node, patternval []float64) {
 	}
 }
 
+// RTconditionalsMS calculate RtConds vector for multistate
 func RTconditionalsMS(x StateModel, node *Node, patternval []float64) {
 	p := x.GetPCalc(node.Len)
 	for s := range patternval {
@@ -497,6 +564,8 @@ func RTconditionalsMS(x StateModel, node *Node, patternval []float64) {
 	}
 }
 
+// RVconditionalsMS calculate RvTpConds vector for the Parent of node and
+//     rely on the Par RvConds for multistate
 func RVconditionalsMS(x StateModel, node *Node, patternval []float64) {
 	p := x.GetPCalc(node.Par.Len)
 	for s := range patternval {
@@ -509,6 +578,7 @@ func RVconditionalsMS(x StateModel, node *Node, patternval []float64) {
 	}
 }
 
+// RVTPconditionalsMS calculate RvConds vector multistate
 func RVTPconditionalsMS(x StateModel, node *Node, patternval []float64) {
 	for s := range patternval {
 		for j := 0; j < x.GetNumStates(); j++ {
@@ -525,7 +595,7 @@ func RVTPconditionalsMS(x StateModel, node *Node, patternval []float64) {
 	}
 }
 
-// CalcLikeFrontBack ...
+// CalcLikeFrontBackMS ...
 func CalcLikeFrontBackMS(x StateModel, tree *Tree, patternval []float64) {
 	for _, n := range tree.Post {
 		if len(n.Chs) != 0 {
