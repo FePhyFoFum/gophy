@@ -11,6 +11,7 @@ import (
 // MULTModel multistate model struct
 type MULTModel struct {
 	BF        []float64 // base frequencies
+	EBF       []float64 //empirical base freqs
 	R         *mat.Dense
 	Q         *mat.Dense // common use
 	CharMap   map[string][]int
@@ -33,12 +34,28 @@ func NewMULTModel() *MULTModel {
 	return &MULTModel{}
 }
 
-// SetupQJC setup Q matrix
-func (d *MULTModel) SetupQJC() {
+//SetEqualBF set all equal
+func (d *MULTModel) SetEqualBF() {
 	d.BF = make([]float64, d.NumStates)
 	for i := 0; i < d.NumStates; i++ {
 		d.BF[i] = 1. / float64(d.NumStates)
 	}
+}
+
+//SetEmpiricalBF set all to empirical
+func (d *MULTModel) SetEmpiricalBF() {
+	d.BF = d.EBF
+}
+
+// SetBaseFreqs needs to be done before doing other things
+func (d *MULTModel) SetBaseFreqs(basefreq []float64) {
+	d.BF = basefreq
+}
+
+// SetupQJC setup Q matrix
+//    This is scaled so that change is reflected in the branch lengths
+//    You don't need to use the SetScaledRateMatrix
+func (d *MULTModel) SetupQJC() {
 	d.Ps = make(map[float64]*mat.Dense)
 	d.Q = mat.NewDense(d.NumStates, d.NumStates, nil)
 
@@ -55,11 +72,10 @@ func (d *MULTModel) SetupQJC() {
 }
 
 // SetupQJC1Rate setup Q matrix with one rate, probably for anc multi state
+//     These are unscaled so the branch lengths are going to be time or something else
+//     and not relative to these rates
+//     Will take BF from something else
 func (d *MULTModel) SetupQJC1Rate(rt float64) {
-	d.BF = make([]float64, d.NumStates)
-	for i := 0; i < d.NumStates; i++ {
-		d.BF[i] = 1. / float64(d.NumStates)
-	}
 	d.Ps = make(map[float64]*mat.Dense)
 	d.Q = mat.NewDense(d.NumStates, d.NumStates, nil)
 
@@ -72,10 +88,44 @@ func (d *MULTModel) SetupQJC1Rate(rt float64) {
 			}
 		}
 	}
+}
 
+// SetupQMk setup Q matrix
+//    This is unscaled (so the branch lengths are going to be proportion to some other change
+//    and not to these branch lengths)
+//    Will take the BF from something else
+func (d *MULTModel) SetupQMk(rt []float64, sym bool) {
+	d.Ps = make(map[float64]*mat.Dense)
+	d.Q = mat.NewDense(d.NumStates, d.NumStates, nil)
+	cc := 0
+	for i := 0; i < d.NumStates; i++ {
+		for j := 0; j < d.NumStates; j++ {
+			if i != j {
+				if sym && j > i {
+					d.Q.Set(i, j, rt[cc])
+					d.Q.Set(j, i, rt[cc])
+					cc++
+				} else if sym == false {
+					d.Q.Set(i, j, rt[cc])
+					cc++
+				}
+			} else {
+				d.Q.Set(i, j, 0.0)
+			}
+		}
+	}
+	for i := 0; i < d.NumStates; i++ {
+		sumrow := 0.
+		for j := 0; j < d.NumStates; j++ {
+			sumrow += d.Q.At(i, j)
+		}
+		d.Q.Set(i, i, -sumrow)
+	}
 }
 
 // SetupQGTR setup Q matrix
+//    This is scaled (so the branch lengths are going to be proportional to these changes)
+//    Use SetScaledRateMatrix and then do this
 func (d *MULTModel) SetupQGTR() {
 	fl := make([]float64, d.NumStates*d.NumStates)
 	for i := 0; i < d.NumStates*d.NumStates; i++ {
@@ -127,7 +177,7 @@ func (d *MULTModel) DecomposeQ() {
 	//decompose, each time you change the model
 	var ES mat.Eigen
 	d.EigenVecs = mat.NewDense(d.NumStates, d.NumStates, nil)
-	ES.Factorize(d.QS, true, true)
+	ES.Factorize(d.QS, mat.EigenBoth) //true, true)
 	TC := ES.VectorsTo(nil)
 	for i := 0; i < d.NumStates; i++ {
 		for j := 0; j < d.NumStates; j++ {
@@ -149,9 +199,10 @@ func (d *MULTModel) DecomposeQ() {
 	d.X2 = mat.NewDense(d.NumStates, d.NumStates, nil) // second der
 }
 
-//SetRateMatrix needs to be done before doing SetupQGTR
-// just send along the 5 rates and this will make them the whole matrix
-func (d *MULTModel) SetSymScaledRateMatrix(params []float64, sym bool) {
+//SetScaledRateMatrix needs to be done before doing SetupQGTR
+// just send along the rates and this will make them the whole matrix
+// the scaled is that this is assuming that the last rate is 1
+func (d *MULTModel) SetScaledRateMatrix(params []float64, sym bool) {
 	d.R = mat.NewDense(d.NumStates, d.NumStates, nil)
 	cc := 0
 	lasti := 0
@@ -188,20 +239,6 @@ func (d *MULTModel) SetSymScaledRateMatrix(params []float64, sym bool) {
 			}
 		}
 	}
-}
-
-func (d *MULTModel) PrintRateMatrix() {
-	for i := 0; i < d.NumStates; i++ {
-		for j := 0; j < d.NumStates; j++ {
-			fmt.Print(d.R.At(i, j), " ")
-		}
-		fmt.Print("\n")
-	}
-}
-
-// SetBaseFreqs needs to be done before doing SetupQGTR
-func (d *MULTModel) SetBaseFreqs(basefreq []float64) {
-	d.BF = basefreq
 }
 
 // ExpValue used for the matrix exponential

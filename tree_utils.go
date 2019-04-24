@@ -7,6 +7,9 @@ import (
 
 // GetMrca get the mrca
 func GetMrca(nds []*Node, root *Node) (mrca *Node) {
+	if len(nds) == 1 {
+		return nds[0]
+	}
 	mrca = nil
 	traceback := make([]*Node, 0)
 	first := nds[0]

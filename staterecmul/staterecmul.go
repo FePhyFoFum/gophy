@@ -9,6 +9,7 @@ import (
 	"os"
 	"runtime/pprof"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/FePhyFoFum/gophy"
@@ -27,6 +28,7 @@ func main() {
 	anc := flag.Bool("a", false, "calc anc states")
 	stt := flag.Bool("i", false, "calc stochastic time (states will also be calculated)")
 	stn := flag.Bool("n", false, "calc stochastic number (states will also be calculated)")
+	cds := flag.String("c", "", "clades for models (each line is a different model ';' separate clades on lines")
 	//md := flag.Bool("m", false, "model params free")
 	//ebf := flag.Bool("b", true, "use empirical base freqs (alt is estimate)")
 	wks := flag.Int("w", 4, "number of threads")
@@ -53,27 +55,60 @@ func main() {
 	trees := gophy.ReadTreesFromFile(*tfn)
 	fmt.Println(len(trees), "trees read")
 
+	//read clade file
+	treemodels := processCladeFile(*cds) //name of the model and list of the MRCAs that are included in it
+	fmt.Println("het models")
+	for i, j := range treemodels {
+		fmt.Println(" ", i)
+		for _, k := range j {
+			fmt.Println("   ", k)
+		}
+	}
+
 	//read a seq file
 	nsites := 0
 	seqs := map[string][]string{}
+	mseqsm := map[string]gophy.MSeq{}
 	mseqs, numstates := gophy.ReadMSeqsFromFile(*afn)
 	seqnames := make([]string, 0)
 	for _, i := range mseqs {
 		seqs[i.NM] = i.SQs
+		mseqsm[i.NM] = i
 		seqnames = append(seqnames, i.NM)
 		nsites = len(i.SQ)
 	}
+	//only using this for the site patterns
 	x := gophy.NewMULTModel()
 	x.NumStates = numstates
 	x.SetMap()
-	bf := gophy.GetEmpiricalBaseFreqsMS(mseqs, x.NumStates)
-	x.SetBaseFreqs(bf)
-	x.EBF = x.BF
-	fmt.Fprint(lg, x.BF)
 	// get the site patternas
 	patterns, patternsint, gapsites, constant, uninformative, fullpattern := gophy.GetSitePatternsMS(mseqs, x)
 
 	for _, t := range trees {
+		//setup the multiple models
+		nodemodels, maxint := getModels(t, treemodels)
+		//number of models will be len(treemodels) + 1 for the base
+		fmt.Println(nodemodels, maxint)
+		models := make([]gophy.StateModel, maxint)
+		for i := 0; i < len(models); i++ {
+			// start model
+			xn := gophy.NewMULTModel()
+			xn.SetMap()
+			//empirical freqs for just the relevant seqs
+			tmseqs := make([]gophy.MSeq, 0)
+			for tn := range nodemodels {
+				if len(tn.Chs) == 0 && nodemodels[tn] == i {
+					tmseqs = append(tmseqs, mseqsm[tn.Nam])
+				}
+			}
+			bf := gophy.GetEmpiricalBaseFreqsMS(tmseqs, numstates)
+			x.SetBaseFreqs(bf)
+			x.EBF = x.BF
+			// model things
+			//x.SetRateMatrix(modelparams)
+			//x.SetupQGTR()
+			models[i] = x
+		}
 		patternval, patternvec := gophy.PreparePatternVecsMS(t, patternsint, seqs, x)
 		//this is necessary to get order of the patters in the patternvec since they have no order
 		// this will be used with fullpattern to reconstruct the sequences
@@ -88,7 +123,7 @@ func main() {
 		fmt.Fprintln(os.Stderr, "uninformative:", len(uninformative))
 		// model things
 
-		optimizeThings(t, x, patternval, *wks)
+		optimizeThings(t, models, nodemodels, patternval, *wks)
 
 		//ancestral states
 		if *anc || *stt || *stn {
@@ -127,14 +162,85 @@ func main() {
 	}
 }
 
-func optimizeThings(t *gophy.Tree, x *gophy.MULTModel, patternval []float64, wks int) {
-	x.SetupQJC()
-	l := gophy.PCalcLikePatternsMS(t, x, patternval, wks)
+func getModels(tree *gophy.Tree, treemodels map[string][][]string) (nodemodels map[*gophy.Node]int, maxint int) {
+	nodemodels = map[*gophy.Node]int{}
+	mrcas := map[*gophy.Node]string{} //start of model change, name of model
+	nds := map[string]*gophy.Node{}
+	for _, j := range tree.Tips {
+		nds[j.Nam] = j
+	}
+	for i := range treemodels {
+		for j := range treemodels[i] {
+			tnds := make([]*gophy.Node, 0)
+			for _, k := range treemodels[i][j] {
+				tnds = append(tnds, nds[k])
+			}
+			nd := gophy.GetMrca(tnds, tree.Rt)
+			mrcas[nd] = i
+		}
+	}
+	start := 0
+	modelnames := map[string]int{}
+	for _, i := range tree.Pre {
+		if _, ok := mrcas[i]; ok { // if in there
+			if _, ok := modelnames[mrcas[i]]; ok { //already recorded
+				nodemodels[i] = modelnames[mrcas[i]]
+			} else { //not recorded
+				nodemodels[i] = start
+				modelnames[mrcas[i]] = start
+				start++
+			}
+		} else {
+			if i == tree.Rt {
+				nodemodels[i] = start
+				start++
+			} else {
+				nodemodels[i] = nodemodels[i.Par]
+			}
+		}
+	}
+	maxint = start
+	//preorder traversal
+	return
+}
+
+func processCladeFile(cds string) map[string][][]string {
+	treemodels := make(map[string][][]string)
+	if len(cds) > 0 {
+		f, err := os.Open(cds)
+		if err != nil {
+			fmt.Println(err)
+		}
+		defer f.Close()
+		scanner := bufio.NewScanner(f)
+		for scanner.Scan() {
+			ln := scanner.Text()
+			sts := strings.Split(ln, "=")
+			for i, j := range sts {
+				sts[i] = strings.TrimSpace(j)
+			}
+			if _, ok := treemodels[sts[0]]; !ok {
+				treemodels[sts[0]] = make([][]string, 0)
+			}
+			treemodels[sts[0]] = append(treemodels[sts[0]], strings.Split(sts[1], " "))
+		}
+	} else {
+		fmt.Println("you probably just want staterec")
+		os.Exit(0)
+	}
+	return treemodels
+}
+
+func optimizeThings(t *gophy.Tree, models []gophy.StateModel, nodemodels map[*gophy.Node]int, patternval []float64, wks int) {
+	for _, i := range models {
+		i.SetupQJC1Rate(0.1)
+	}
+	l := gophy.PCalcLikePatternsMSMUL(t, models, nodemodels, patternval, wks)
 	fmt.Println("starting lnL:", l)
-	gophy.OptimizeMS1R(t, x, patternval, wks)
-	gophy.OptimizeMKMS(t, x, x.Q.At(0, 1), patternval, false, wks)
-	gophy.PrintMatrix(x.Q, false)
-	l = gophy.PCalcLikePatternsMS(t, x, patternval, wks)
+	gophy.OptimizeMS1RMul(t, models, nodemodels, patternval, wks)
+	gophy.OptimizeMKMSMul(t, models, nodemodels, 0.1, patternval, false, wks)
+	//gophy.PrintMatrix(x.Q, false)
+	l = gophy.PCalcLikePatternsMSMUL(t, models, nodemodels, patternval, wks)
 	fmt.Println("optimized lnL:", l)
 }
 

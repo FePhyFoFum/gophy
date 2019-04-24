@@ -38,7 +38,7 @@ func GetEmpiricalBaseFreqsMS(seqs []MSeq, numstates int) (bf []float64) {
 }
 
 //ReadMSeqsFromFile obvious
-func ReadMSeqsFromFile(filen string) (seqs []MSeq) {
+func ReadMSeqsFromFile(filen string) (seqs []MSeq, numstates int) {
 	file, err := os.Open(filen)
 	if err != nil {
 		log.Fatal(err)
@@ -48,6 +48,7 @@ func ReadMSeqsFromFile(filen string) (seqs []MSeq) {
 	var cnm string
 	first := true
 	reader := bufio.NewReader(file)
+	numstates = 0
 	for {
 		st, err := reader.ReadString('\n')
 		if len(st) > 0 {
@@ -57,6 +58,12 @@ func ReadMSeqsFromFile(filen string) (seqs []MSeq) {
 					cnm = strings.TrimRight(st[1:], "\n")
 				} else {
 					cs := MSeq{cnm, strings.ToUpper(csq), strings.Split(strings.ToUpper(csq), " ")}
+					for _, i := range cs.SQs {
+						sa, _ := strconv.Atoi(i)
+						if (sa + 1) > numstates {
+							numstates = sa + 1
+						}
+					}
 					seqs = append(seqs, cs)
 					csq = ""
 					cnm = strings.TrimRight(st[1:], "\n")

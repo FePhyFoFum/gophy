@@ -219,7 +219,7 @@ func main() {
 	}
 	// compare to some other tree or bipart
 	if len(*comp) > 0 {
-		runCompare(rp, ignore, *comp, *wks, mapints, maptips, bps, *v)
+		runCompare(rp, ignore, *comp, *wks, mapints, maptips, bps, readtrees, *v)
 	}
 
 	// output verbose conflict information
@@ -489,7 +489,7 @@ func runConflict(outfile string, workers int, bps []gophy.Bipart, mapints map[in
 }
 
 func runCompare(rp RunParams, ignore []string, compfile string, workers int, mapints map[int]string,
-	maptips map[string]int, bps []gophy.Bipart, verbose bool) {
+	maptips map[string]int, bps []gophy.Bipart, numtrees int, verbose bool) {
 	fmt.Fprintln(os.Stderr, "--biparts compared to those in", compfile, "--")
 	fc, err := os.Open(compfile)
 	if err != nil {
@@ -508,7 +508,6 @@ func runCompare(rp RunParams, ignore []string, compfile string, workers int, map
 			continue
 		}
 		rt := gophy.ReadNewickString(ln)
-		//var t gophy.Tree
 		t.Instantiate(rt)
 		for _, n := range t.Tips {
 			if _, ok := maptips[n.Nam]; !ok {
@@ -571,6 +570,13 @@ func runCompare(rp RunParams, ignore []string, compfile string, workers int, map
 			}
 		}
 		fmt.Println(t.Rt.Newick(false) + ";")
+		for _, n := range t.Post {
+			if len(n.Chs) > 1 && n != t.Rt {
+				n.Nam = strconv.Itoa(numtrees - (int(n.FData["conc"]) + int(n.FData["conf"])))
+			}
+		}
+		fmt.Println(t.Rt.Newick(false) + ";")
+
 	}
 	fmt.Fprintln(os.Stderr, "comp done:", end.Sub(start))
 }

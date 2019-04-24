@@ -100,7 +100,7 @@ func (d *DNAModel) DecomposeQ() {
 	//decompose, each time you change the model
 	var ES mat.Eigen
 	d.EigenVecs = mat.NewDense(4, 4, nil)
-	ES.Factorize(d.QS, true, true)
+	ES.Factorize(d.QS, mat.EigenBoth) //true, true)
 	TC := ES.VectorsTo(nil)
 	for i := 0; i < 4; i++ {
 		for j := 0; j < 4; j++ {

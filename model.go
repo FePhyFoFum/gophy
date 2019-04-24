@@ -14,4 +14,10 @@ type StateModel interface {
 	EmptyPDict()
 	GetStochMapMatrices(float64, int, int) (*mat.Dense, *mat.Dense)
 	SetupQJC1Rate(float64)
+	SetupQMk([]float64, bool)            // bool = false is AsyMK
+	SetScaledRateMatrix([]float64, bool) // before setupQGTR
+	SetupQGTR()                          //
+	DecomposeQ()                         //
+	ExpValueFirstD(float64) *mat.Dense   //BL
+	ExpValueSecondD(float64) *mat.Dense  //BL
 }
