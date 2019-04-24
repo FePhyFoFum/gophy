@@ -562,6 +562,7 @@ func runCompare(rp RunParams, ignore []string, compfile string, workers int, map
 	end := time.Now()
 	if treeverbose {
 		fmt.Println("TREES WITH CONFLICT (FIRST), CONCORDANCE (SECOND), UNSUPPORTED (THIRD), PROPS AFTER")
+		t.Rt.Nam = ""
 		for _, n := range t.Post {
 			if len(n.Chs) > 1 && n != t.Rt {
 				n.Nam = n.SData["conf"]
@@ -583,19 +584,19 @@ func runCompare(rp RunParams, ignore []string, compfile string, workers int, map
 		//
 		for _, n := range t.Post {
 			if len(n.Chs) > 1 && n != t.Rt {
-				n.Nam = strconv.FormatFloat(n.FData["conf"]/float64(numtrees), 'f', -1, 64)
+				n.Nam = strconv.FormatFloat(n.FData["conf"]/float64(numtrees), 'f', 3, 64)
 			}
 		}
 		fmt.Println(t.Rt.Newick(false) + ";")
 		for _, n := range t.Post {
 			if len(n.Chs) > 1 && n != t.Rt {
-				n.Nam = strconv.FormatFloat(n.FData["conc"]/float64(numtrees), 'f', -1, 64)
+				n.Nam = strconv.FormatFloat(n.FData["conc"]/float64(numtrees), 'f', 3, 64)
 			}
 		}
 		fmt.Println(t.Rt.Newick(false) + ";")
 		for _, n := range t.Post {
 			if len(n.Chs) > 1 && n != t.Rt {
-				n.Nam = strconv.FormatFloat(float64(numtrees-(int(n.FData["conc"])+int(n.FData["conf"])))/float64(numtrees), 'f', -1, 64)
+				n.Nam = strconv.FormatFloat(float64(numtrees-(int(n.FData["conc"])+int(n.FData["conf"])))/float64(numtrees), 'f', 3, 64)
 			}
 		}
 		fmt.Println(t.Rt.Newick(false) + ";")
