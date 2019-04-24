@@ -274,7 +274,7 @@ func OutputEdges(mapints map[int]string, bps []Bipart, ntrees int, verb bool) {
 
 // CompareTreeToBiparts take biparts from a set , comparetreebps, and compre them to another set bps
 // this one is complicated so keep with it
-func CompareTreeToBiparts(bps []Bipart, comptreebps []Bipart, workers int, mapints map[int]string, verbose bool) {
+func CompareTreeToBiparts(bps []Bipart, comptreebps []Bipart, workers int, mapints map[int]string, verbose bool, treeverbose bool) {
 	jobs := make(chan []int, len(bps)*len(comptreebps))
 	results := make(chan []int, len(bps)*len(comptreebps))
 	for w := 1; w <= workers; w++ {
@@ -347,7 +347,7 @@ func CompareTreeToBiparts(bps []Bipart, comptreebps []Bipart, workers int, mapin
 				bpsConcCounts[x[1]] = 0
 				bpsConcTrees[x[1]] = make(map[int]bool)
 			}
-			if verbose {
+			if verbose || treeverbose {
 				for _, m := range bps[x[0]].TreeIndices {
 					bpsConcTrees[x[0]][m] = true
 					bpsConcTrees[x[1]][m] = true
@@ -361,7 +361,7 @@ func CompareTreeToBiparts(bps []Bipart, comptreebps []Bipart, workers int, mapin
 	}
 
 	// verbose comp concordance with bps
-	if verbose {
+	if verbose || treeverbose {
 		jobs = make(chan []int, len(comptreebps)*len(bps))
 		results = make(chan []int, len(comptreebps)*len(bps))
 
@@ -394,11 +394,13 @@ func CompareTreeToBiparts(bps []Bipart, comptreebps []Bipart, workers int, mapin
 	*/
 	minout := 100
 	// add things that don't conflict so that we can get concordance
-	if verbose {
+	if verbose || treeverbose {
 		for x := range comptreebps {
 			if _, ok := compconfs[x]; !ok {
-				fmt.Print("(", comptreebps[x].Index, ") ", comptreebps[x].NewickWithNames(mapints)+"\n")
-				fmt.Print("  conctrees [", len(compbpsConcTrees[x]), "]: ", IntMapSetString(compbpsConcTrees[x])+"\n")
+				if verbose {
+					fmt.Print("(", comptreebps[x].Index, ") ", comptreebps[x].NewickWithNames(mapints)+"\n")
+					fmt.Print("  conctrees [", len(compbpsConcTrees[x]), "]: ", IntMapSetString(compbpsConcTrees[x])+"\n")
+				}
 				//need to put these at the nodes for concordant
 				for _, n := range comptreebps[x].Nds {
 					n.SData["conc"] = strconv.Itoa(len(compbpsConcTrees[x]))
@@ -423,7 +425,7 @@ func CompareTreeToBiparts(bps []Bipart, comptreebps []Bipart, workers int, mapin
 		for _, v := range y {
 			//n[bpsCounts[v]] = append(n[bpsCounts[v]], v)
 			n[bpsConcCounts[v]] = append(n[bpsConcCounts[v]], v)
-			if verbose {
+			if verbose || treeverbose {
 				if _, ok := bpsConcTrees[v]; !ok {
 					bpsConcTrees[v] = make(map[int]bool)
 				}

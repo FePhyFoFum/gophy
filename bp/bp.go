@@ -47,6 +47,7 @@ func main() {
 	fn := flag.String("t", "", "tree filename")
 	ig := flag.String("ig", "", "ignore these taxa (comma not space separated)")
 	v := flag.Bool("v", false, "verbose results?")
+	tv := flag.Bool("tv", false, "for the -c option. print the results on the comp tree")
 	rng := flag.String("rng", "", "range of trees to check in a large tree file like -rng 0-100 for the first hundred")
 	cpuprofile := flag.String("cpuprofile", "", "write cpu profile to file")
 	memprofile := flag.String("memprofile", "", "write mem profile to file")
@@ -78,6 +79,9 @@ func main() {
 	}
 	if *v == true {
 		fmt.Fprintln(os.Stderr, "verbose")
+	}
+	if *tv == true {
+		fmt.Fprintln(os.Stderr, "tree verbose")
 	}
 
 	//cpu profile code
@@ -219,7 +223,7 @@ func main() {
 	}
 	// compare to some other tree or bipart
 	if len(*comp) > 0 {
-		runCompare(rp, ignore, *comp, *wks, mapints, maptips, bps, readtrees, *v)
+		runCompare(rp, ignore, *comp, *wks, mapints, maptips, bps, readtrees, *v, *tv)
 	}
 
 	// output verbose conflict information
@@ -231,7 +235,7 @@ func main() {
 	//pairwise comparisons
 	if *pca {
 		fmt.Println("--biparts compared to those in the pool of biparts")
-		gophy.CompareTreeToBiparts(bps, bps, *wks, mapints, *v)
+		gophy.CompareTreeToBiparts(bps, bps, *wks, mapints, *v, *tv)
 		/* This is the old comparison to a pool. I don't think we wnat this
 		for j, k := range bpts { // j is tree index, k is list of biparts in bps
 			comptreebps := make([]gophy.Bipart, 0)
@@ -264,7 +268,7 @@ func main() {
 					}
 					fmt.Println("comparing", j, i)
 					start := time.Now()
-					gophy.CompareTreeToBiparts(comptreebps2, comptreebps1, *wks, mapints, *v)
+					gophy.CompareTreeToBiparts(comptreebps2, comptreebps1, *wks, mapints, *v, *tv)
 					end := time.Now()
 					fmt.Fprintln(os.Stderr, "comp done:", end.Sub(start))
 				}
@@ -489,7 +493,7 @@ func runConflict(outfile string, workers int, bps []gophy.Bipart, mapints map[in
 }
 
 func runCompare(rp RunParams, ignore []string, compfile string, workers int, mapints map[int]string,
-	maptips map[string]int, bps []gophy.Bipart, numtrees int, verbose bool) {
+	maptips map[string]int, bps []gophy.Bipart, numtrees int, verbose bool, treeverbose bool) {
 	fmt.Fprintln(os.Stderr, "--biparts compared to those in", compfile, "--")
 	fc, err := os.Open(compfile)
 	if err != nil {
@@ -552,12 +556,12 @@ func runCompare(rp RunParams, ignore []string, compfile string, workers int, map
 	// this is just going to run it on each edge independently
 	for i := range comptreebps {
 		tc := []gophy.Bipart{comptreebps[i]}
-		gophy.CompareTreeToBiparts(bps, tc, workers, mapints, verbose)
+		gophy.CompareTreeToBiparts(bps, tc, workers, mapints, verbose, treeverbose)
 	}
 	//
 	end := time.Now()
-	if verbose {
-		fmt.Println("TREES WITH CONFLICT (FIRST) AND CONCORDANCE (SECOND)")
+	if treeverbose {
+		fmt.Println("TREES WITH CONFLICT (FIRST), CONCORDANCE (SECOND), UNSUPPORTED (THIRD), PROPS AFTER")
 		for _, n := range t.Post {
 			if len(n.Chs) > 1 && n != t.Rt {
 				n.Nam = n.SData["conf"]
@@ -573,6 +577,25 @@ func runCompare(rp RunParams, ignore []string, compfile string, workers int, map
 		for _, n := range t.Post {
 			if len(n.Chs) > 1 && n != t.Rt {
 				n.Nam = strconv.Itoa(numtrees - (int(n.FData["conc"]) + int(n.FData["conf"])))
+			}
+		}
+		fmt.Println(t.Rt.Newick(false) + ";")
+		//
+		for _, n := range t.Post {
+			if len(n.Chs) > 1 && n != t.Rt {
+				n.Nam = strconv.FormatFloat(n.FData["conf"]/float64(numtrees), 'f', -1, 64)
+			}
+		}
+		fmt.Println(t.Rt.Newick(false) + ";")
+		for _, n := range t.Post {
+			if len(n.Chs) > 1 && n != t.Rt {
+				n.Nam = strconv.FormatFloat(n.FData["conc"]/float64(numtrees), 'f', -1, 64)
+			}
+		}
+		fmt.Println(t.Rt.Newick(false) + ";")
+		for _, n := range t.Post {
+			if len(n.Chs) > 1 && n != t.Rt {
+				n.Nam = strconv.FormatFloat(float64(numtrees-(int(n.FData["conc"])+int(n.FData["conf"])))/float64(numtrees), 'f', -1, 64)
 			}
 		}
 		fmt.Println(t.Rt.Newick(false) + ";")

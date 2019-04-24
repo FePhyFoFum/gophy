@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"math"
 
-	"gonum.org/v1/gonum/diff/fd"
-
 	"gonum.org/v1/gonum/optimize"
 )
 
@@ -257,10 +255,10 @@ func OptimizeGTRBPMul(t *Tree, models []*DNAModel, nodemodels map[*Node]int, pat
 	//FC.Relative = 0.001
 	//settings.Converger = &FC
 	//settings.Recorder = nil
-	grad := func(grad, x []float64) []float64 {
+	/*grad := func(grad, x []float64) []float64 {
 		return fd.Gradient(grad, fcn, x, nil)
-	}
-	p := optimize.Problem{Func: fcn, Grad: grad, Hess: nil}
+	}*/
+	p := optimize.Problem{Func: fcn, Grad: nil, Hess: nil}
 	p0 := make([]float64, 0)
 	for range models {
 		for j := 0; j < 5; j++ {
@@ -320,10 +318,10 @@ func OptimizeGTRCompSharedRM(t *Tree, models []*DNAModel, nodemodels map[*Node]i
 		return -lnl
 	}
 	settings := optimize.Settings{}
-	grad := func(grad, x []float64) []float64 {
+	/*grad := func(grad, x []float64) []float64 {
 		return fd.Gradient(grad, fcn, x, nil)
-	}
-	p := optimize.Problem{Func: fcn, Grad: grad, Hess: nil}
+	}*/
+	p := optimize.Problem{Func: fcn, Grad: nil, Hess: nil}
 	p0 := make([]float64, 0)
 	for j := 0; j < 5; j++ {
 		p0 = append(p0, 1.0)
