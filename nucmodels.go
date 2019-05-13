@@ -23,14 +23,19 @@ type DNAModel struct {
 	EigenVecsI *mat.Dense
 	X1         *mat.Dense
 	X2         *mat.Dense
+	NumStates  int
 }
 
 // NewDNAModel get new DNAModel pointer
 func NewDNAModel() *DNAModel {
-	return &DNAModel{}
+	d := &DNAModel{}
+	d.NumStates = 4
+	return d
 }
 
 // SetupQJC setup Q matrix
+//    This is scaled so that change is reflected in the branch lengths
+//    You don't need to use the SetScaledRateMatrix
 func (d *DNAModel) SetupQJC() {
 	d.BF = []float64{0.25, 0.25, 0.25, 0.25}
 	d.Ps = make(map[float64]*mat.Dense)
@@ -45,7 +50,25 @@ func (d *DNAModel) SetupQJC() {
 			}
 		}
 	}
+}
 
+// SetupQJC1Rate setup Q matrix with one rate, probably for anc multi state
+//     These are unscaled so the branch lengths are going to be time or something else
+//     and not relative to these rates
+//     Will take BF from something else
+func (d *DNAModel) SetupQJC1Rate(rt float64) {
+	d.Ps = make(map[float64]*mat.Dense)
+	d.Q = mat.NewDense(d.NumStates, d.NumStates, nil)
+
+	for i := 0; i < d.NumStates; i++ {
+		for j := 0; j < d.NumStates; j++ {
+			if i != j {
+				d.Q.Set(i, j, rt)
+			} else {
+				d.Q.Set(i, j, -(float64(d.NumStates-1) * rt))
+			}
+		}
+	}
 }
 
 // SetupQGTR setup Q matrix
@@ -88,7 +111,82 @@ func (d *DNAModel) SetupQGTR() {
 	}
 }
 
-// this is just for NR optimization for branch lengths
+// SetupQMk setup Q matrix
+//    This is unscaled (so the branch lengths are going to be proportion to some other change
+//    and not to these branch lengths)
+//    Will take the BF from something else
+func (d *DNAModel) SetupQMk(rt []float64, sym bool) {
+	d.Ps = make(map[float64]*mat.Dense)
+	d.Q = mat.NewDense(d.NumStates, d.NumStates, nil)
+	cc := 0
+	for i := 0; i < d.NumStates; i++ {
+		for j := 0; j < d.NumStates; j++ {
+			if i != j {
+				if sym && j > i {
+					d.Q.Set(i, j, rt[cc])
+					d.Q.Set(j, i, rt[cc])
+					cc++
+				} else if sym == false {
+					d.Q.Set(i, j, rt[cc])
+					cc++
+				}
+			} else {
+				d.Q.Set(i, j, 0.0)
+			}
+		}
+	}
+	for i := 0; i < d.NumStates; i++ {
+		sumrow := 0.
+		for j := 0; j < d.NumStates; j++ {
+			sumrow += d.Q.At(i, j)
+		}
+		d.Q.Set(i, i, -sumrow)
+	}
+}
+
+//SetScaledRateMatrix needs to be done before doing SetupQGTR
+// just send along the rates and this will make them the whole matrix
+// the scaled is that this is assuming that the last rate is 1
+func (d *DNAModel) SetScaledRateMatrix(params []float64, sym bool) {
+	d.R = mat.NewDense(d.NumStates, d.NumStates, nil)
+	cc := 0
+	lasti := 0
+	lastj := 0
+	if sym {
+		lasti = d.NumStates - 2
+		lastj = d.NumStates - 1
+	} else {
+		lasti = d.NumStates - 1
+		lastj = d.NumStates - 2
+	}
+	for i := 0; i < d.NumStates; i++ {
+		d.R.Set(i, i, 0)
+		for j := 0; j < d.NumStates; j++ {
+			if i == j {
+				continue
+			}
+			if sym && j > i {
+				if j == lastj && i == lasti {
+					d.R.Set(i, j, 1.0)
+					d.R.Set(j, i, 1.0)
+				} else {
+					d.R.Set(i, j, params[cc])
+					d.R.Set(j, i, params[cc])
+					cc++
+				}
+			} else if sym == false {
+				if j == lastj && i == lasti {
+					d.R.Set(i, j, 1.0)
+				} else {
+					d.R.Set(i, j, params[cc])
+					cc++
+				}
+			}
+		}
+	}
+}
+
+// DecomposeQ this is just for NR optimization for branch lengths
 func (d *DNAModel) DecomposeQ() {
 	d.QS = mat.NewDense(4, 4, nil)
 	d.EigenVecsI = mat.NewDense(4, 4, nil)
@@ -247,7 +345,7 @@ func (d *DNAModel) GetPCalc(blen float64) *mat.Dense {
    N,n ==> {ACGT}
 */
 
-//SetNucMap for getting the position in the array
+//SetMap for getting the position in the array
 func (d *DNAModel) SetMap() {
 	d.CharMap = make(map[string][]int)
 	d.CharMap["A"] = []int{0}
@@ -266,4 +364,75 @@ func (d *DNAModel) SetMap() {
 	d.CharMap["B"] = []int{1, 2, 3}
 	d.CharMap["V"] = []int{0, 1, 2}
 	d.CharMap["D"] = []int{0, 2, 3}
+}
+
+func (d *DNAModel) GetNumStates() int {
+	return d.NumStates
+}
+
+func (d *DNAModel) GetBF() []float64 {
+	return d.BF
+}
+
+func (d *DNAModel) GetStochMapMatrices(dur float64, from int, to int) (summed *mat.Dense, summedR *mat.Dense) {
+	nstates := d.NumStates
+	d.DecomposeQ()
+	Ql := mat.NewDense(nstates, nstates, nil)
+	Ql.Zero()
+	Ql.Set(from, to, d.Q.At(from, to))
+	W := mat.NewDense(nstates, nstates, nil)
+	W.Zero()
+	W.Set(from, from, 1.)
+	summed = mat.NewDense(nstates, nstates, nil)
+	summed.Zero()
+	summedR = mat.NewDense(nstates, nstates, nil)
+	summedR.Zero()
+	for i := 0; i < nstates; i++ {
+		Ei := mat.NewDense(nstates, nstates, nil)
+		Ei.Zero()
+		Ei.Set(i, i, 1.)
+		Si := mat.NewDense(nstates, nstates, nil)
+		Si.Mul(d.EigenVecs, Ei)
+		Si.Mul(Si, d.EigenVecsI)
+		for j := 0; j < nstates; j++ {
+			dij := (d.EigenVals[i] - d.EigenVals[j]) * dur
+			Ej := mat.NewDense(nstates, nstates, nil)
+			Ej.Zero()
+			Ej.Set(j, j, 1.)
+			Sj := mat.NewDense(nstates, nstates, nil)
+			Sj.Mul(d.EigenVecs, Ej)
+			Sj.Mul(Sj, d.EigenVecsI)
+			Iijt := 0.
+			if math.Abs(dij) > 10 {
+				Iijt = (math.Exp(d.EigenVals[i]*dur) - math.Exp(d.EigenVals[j]*dur)) / (d.EigenVals[i] - d.EigenVals[j])
+			} else if math.Abs(dij) < 10e-20 {
+				Iijt = dur * math.Exp(d.EigenVals[j]*dur) * (1. + dij/2. + math.Pow(dij, 2.)/6. + math.Pow(dij, 3.)/24.)
+			} else {
+				if d.EigenVals[i] == d.EigenVals[j] {
+					//					if isImag {
+					//						Iijt = dur * exp(d.EigenVals[j]*dur) * (exp(dij) - 1.) / dij
+					//					} else {
+					Iijt = dur * math.Exp(d.EigenVals[j]*dur) * (math.Expm1((dij))) / dij //(expm1(real(dij))) / dij
+					//					}
+				} else {
+					//					if isImag {
+					//						Iijt = -dur * exp(d.EigenVals[i]*dur) * (exp(-dij) - 1.) / dij
+					//					} else {
+					Iijt = -dur * math.Exp(d.EigenVals[i]*dur) * (math.Expm1((-dij))) / dij //(expm1(real(-dij))) / dij
+					//					}
+				}
+			}
+			temp := mat.NewDense(nstates, nstates, nil)
+			temp.Mul(Si, Ql)
+			temp.Mul(temp, Sj)
+			temp.Scale(Iijt, temp)
+			summed.Add(summed, temp)
+			temp = mat.NewDense(nstates, nstates, nil)
+			temp.Mul(Si, W)
+			temp.Mul(temp, Sj)
+			temp.Scale(Iijt, temp)
+			summedR.Add(summedR, temp)
+		}
+	}
+	return
 }

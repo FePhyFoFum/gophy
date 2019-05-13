@@ -81,10 +81,10 @@ func constructBiparts(s SitePart) (bps []gophy.Bipart) {
 }
 
 func combineBiparts(bps []gophy.Bipart, namesmap map[int]string) {
-	rt := gophy.Node{nil, nil, "root", map[string]string{}, map[string]float64{}, map[string]int{}, 0, 0., nil, false, 0., map[float64]bool{}}
+	rt := gophy.Node{nil, nil, "root", map[string]string{}, map[string]float64{}, map[string]int{}, 0, 0., nil, false, 0., map[float64]bool{}, nil, nil, nil, nil}
 	nodesmap := make(map[int]*gophy.Node)
 	for i := range namesmap {
-		nd := gophy.Node{&rt, nil, strconv.Itoa(i), map[string]string{}, map[string]float64{}, map[string]int{}, 0, 0., nil, false, 0., map[float64]bool{}}
+		nd := gophy.Node{&rt, nil, strconv.Itoa(i), map[string]string{}, map[string]float64{}, map[string]int{}, 0, 0., nil, false, 0., map[float64]bool{}, nil, nil, nil, nil}
 		nodesmap[i] = &nd
 		rt.Chs = append(rt.Chs, &nd)
 	}
@@ -111,7 +111,7 @@ func combineBiparts(bps []gophy.Bipart, namesmap map[int]string) {
 					ochs = append(ochs, j)
 				}
 			}
-			nd := gophy.Node{m, chs, "c" + strconv.Itoa(c), map[string]string{}, map[string]float64{}, map[string]int{}, 0, 0., nil, false, 0., map[float64]bool{}}
+			nd := gophy.Node{m, chs, "c" + strconv.Itoa(c), map[string]string{}, map[string]float64{}, map[string]int{}, 0, 0., nil, false, 0., map[float64]bool{}, nil, nil, nil, nil}
 			nd.Chs = chs
 			for _, j := range chs {
 				j.Par = &nd
@@ -175,7 +175,7 @@ func main() {
 
 	fmt.Println("BF", bf)
 	// get the site patternas
-	patterns, patternsint, gapsites, constant, uninformative := gophy.GetSitePatterns(seqs, nsites, seqnames)
+	patterns, patternsint, gapsites, constant, uninformative, _ := gophy.GetSitePatterns(seqs, nsites, seqnames)
 
 	fmt.Println(" patterns:", len(patternsint), " gaps:", len(gapsites),
 		" constant:", len(constant), " uninformative:", len(uninformative))
@@ -234,10 +234,10 @@ func main() {
 		}
 	}
 
-	fmt.Println("\n--biparts--\n")
+	fmt.Println("\n--biparts--")
 	tmp := make([]int, len(bpsc))
 	copy(tmp, bpsc)
-	ss := gophy.NewSortedIdxSlice(tmp...)
+	ss := gophy.NewSortedIdxSliceD(tmp...)
 	sort.Sort(ss)
 	sbps := make([]gophy.Bipart, 0)
 	for i := len(ss.Idx) - 1; i >= 0; i-- {

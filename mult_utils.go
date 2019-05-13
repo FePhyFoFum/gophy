@@ -6,7 +6,7 @@ import (
 )
 
 //GetSitePatternsMS return site pattens when the datatype for the alignment is a map[string]string
-func GetSitePatternsMS(seqs []MSeq, x *MULTModel) (patterns map[string][]int,
+func GetSitePatternsMS(seqs []MSeq, x *MultStateModel) (patterns map[string][]int,
 	patternsint map[int]float64, gapsites []int, constant []int, uninformative []int, fullpattern []int) {
 	nsites := len(seqs[0].SQs)
 	numstates := x.NumStates
@@ -74,7 +74,7 @@ func GetSitePatternsMS(seqs []MSeq, x *MULTModel) (patterns map[string][]int,
 }
 
 // PreparePatternVecsMS for tree calculations
-func PreparePatternVecsMS(t *Tree, patternsint map[int]float64, seqs map[string][]string, x *MULTModel) (patternval []float64, patternvec []int) {
+func PreparePatternVecsMS(t *Tree, patternsint map[int]float64, seqs map[string][]string, x *MultStateModel) (patternval []float64, patternvec []int) {
 	patternvec = make([]int, len(patternsint))     //which site
 	patternval = make([]float64, len(patternsint)) //log of number of sites
 	count := 0

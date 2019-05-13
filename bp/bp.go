@@ -183,7 +183,7 @@ func main() {
 			break
 		}
 		if err != nil {
-			log.Printf("read %d bytes: %v", ln, err)
+			log.Printf("read %s bytes: %v", ln, err)
 			break
 		}
 	}

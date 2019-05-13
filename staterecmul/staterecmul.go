@@ -78,7 +78,7 @@ func main() {
 		nsites = len(i.SQ)
 	}
 	//only using this for the site patterns
-	x := gophy.NewMULTModel()
+	x := gophy.NewMultStateModel()
 	x.NumStates = numstates
 	x.SetMap()
 	// get the site patternas
@@ -92,7 +92,7 @@ func main() {
 		models := make([]gophy.StateModel, maxint)
 		for i := 0; i < len(models); i++ {
 			// start model
-			xn := gophy.NewMULTModel()
+			xn := gophy.NewMultStateModel()
 			xn.SetMap()
 			//empirical freqs for just the relevant seqs
 			tmseqs := make([]gophy.MSeq, 0)
@@ -102,12 +102,12 @@ func main() {
 				}
 			}
 			bf := gophy.GetEmpiricalBaseFreqsMS(tmseqs, numstates)
-			x.SetBaseFreqs(bf)
-			x.EBF = x.BF
+			xn.SetBaseFreqs(bf)
+			xn.EBF = x.BF
 			// model things
 			//x.SetRateMatrix(modelparams)
 			//x.SetupQGTR()
-			models[i] = x
+			models[i] = xn
 		}
 		patternval, patternvec := gophy.PreparePatternVecsMS(t, patternsint, seqs, x)
 		//this is necessary to get order of the patters in the patternvec since they have no order
@@ -244,7 +244,7 @@ func optimizeThings(t *gophy.Tree, models []gophy.StateModel, nodemodels map[*go
 	fmt.Println("optimized lnL:", l)
 }
 
-func ancState(t *gophy.Tree, x *gophy.MULTModel, patternval []float64, sv *gophy.SortedIntIdxSlice, fullpattern []int) {
+func ancState(t *gophy.Tree, x *gophy.MultStateModel, patternval []float64, sv *gophy.SortedIntIdxSlice, fullpattern []int) {
 	start := time.Now()
 	rets := gophy.CalcAncStatesMS(x, t, patternval)
 	for i := range rets {
@@ -261,7 +261,7 @@ func ancState(t *gophy.Tree, x *gophy.MULTModel, patternval []float64, sv *gophy
 	fmt.Fprintln(os.Stderr, end.Sub(start))
 }
 
-func stochTime(t *gophy.Tree, x *gophy.MULTModel, patternval []float64, sv *gophy.SortedIntIdxSlice, fullpattern []int, patternloglikes []float64) {
+func stochTime(t *gophy.Tree, x *gophy.MultStateModel, patternval []float64, sv *gophy.SortedIntIdxSlice, fullpattern []int, patternloglikes []float64) {
 
 	sttimes := make(map[*gophy.Node][][]float64)
 	for _, nd := range t.Post {
@@ -300,7 +300,7 @@ func stochTime(t *gophy.Tree, x *gophy.MULTModel, patternval []float64, sv *goph
 	}
 }
 
-func stochNumber(t *gophy.Tree, x *gophy.MULTModel, patternval []float64, sv *gophy.SortedIntIdxSlice, fullpattern []int, patternloglikes []float64) {
+func stochNumber(t *gophy.Tree, x *gophy.MultStateModel, patternval []float64, sv *gophy.SortedIntIdxSlice, fullpattern []int, patternloglikes []float64) {
 	stnum := make(map[*gophy.Node][]*mat.Dense)
 	for _, nd := range t.Post {
 		if nd != t.Rt {

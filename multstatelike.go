@@ -455,7 +455,7 @@ func CalcLikeWorkMarkedMS(t *Tree, x StateModel, jobs <-chan int, results chan<-
 
 // CalcLogLikeNodeMS calculates log likelihood for node for multistate
 func CalcLogLikeNodeMS(nd *Node, model StateModel, site int) {
-	for i := 0; i < 4; i++ {
+	for i := 0; i < model.GetNumStates(); i++ {
 		nd.Data[site][i] = 0.
 	}
 	x1 := 0.0
@@ -463,16 +463,16 @@ func CalcLogLikeNodeMS(nd *Node, model StateModel, site int) {
 	for _, c := range nd.Chs {
 		P := model.GetPMap(c.Len)
 		if len(c.Chs) == 0 {
-			for i := 0; i < 4; i++ {
+			for i := 0; i < model.GetNumStates(); i++ {
 				x1 = 0.0
-				for j := 0; j < 4; j++ {
+				for j := 0; j < model.GetNumStates(); j++ {
 					x1 += P.At(i, j) * c.Data[site][j]
 				}
 				nd.Data[site][i] += math.Log(x1)
 			}
 		} else {
 			for i := 0; i < 4; i++ {
-				for j := 0; j < 4; j++ {
+				for j := 0; j < model.GetNumStates(); j++ {
 					x2[j] = math.Log(P.At(i, j)) + c.Data[site][j]
 				}
 				nd.Data[site][i] += floats.LogSumExp(x2)

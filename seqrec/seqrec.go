@@ -49,7 +49,7 @@ func main() {
 	}
 	x := gophy.NewDNAModel()
 	//x.SetupQJC()
-	x.SetNucMap()
+	x.SetMap()
 
 	//read a tree file
 	f, err := os.Open(*tfn)

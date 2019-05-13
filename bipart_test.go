@@ -2,8 +2,9 @@ package gophy_test
 
 import (
 	"fmt"
-	"gophy"
 	"testing"
+
+	"github.com/FePhyFoFum/gophy"
 )
 
 func TestConcordantWith(t *testing.T) {
@@ -23,8 +24,8 @@ func TestConcordantWith(t *testing.T) {
 	grt[0] = true
 	grt[1] = true
 	grt[2] = true
-	b := gophy.Bipart{blt, brt}
-	g := gophy.Bipart{glt, grt}
+	b := gophy.Bipart{Lt: blt, Rt: brt}
+	g := gophy.Bipart{Lt: glt, Rt: grt}
 	fmt.Println(b)
 	fmt.Println(g)
 	fmt.Println(b.ConcordantWith(g))
@@ -53,8 +54,8 @@ func TestConflictsWith(t *testing.T) {
 	grt[4] = true
 	grt[1] = true
 	grt[2] = true
-	b := gophy.Bipart{blt, brt}
-	g := gophy.Bipart{glt, grt}
+	b := gophy.Bipart{Lt: blt, Rt: brt}
+	g := gophy.Bipart{Lt: glt, Rt: grt}
 	if b.ConflictsWith(g) == false {
 		t.Fail()
 	}
@@ -80,8 +81,8 @@ func TestEquals(t *testing.T) {
 	grt[0] = true
 	grt[1] = true
 	grt[2] = true
-	b := gophy.Bipart{blt, brt}
-	g := gophy.Bipart{grt, glt}
+	b := gophy.Bipart{Lt: blt, Rt: brt}
+	g := gophy.Bipart{Lt: grt, Rt: glt}
 	if b.Equals(g) == false {
 		t.Fail()
 	}

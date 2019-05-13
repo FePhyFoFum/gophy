@@ -38,6 +38,7 @@ func GetEmpiricalBaseFreqsMS(seqs []MSeq, numstates int) (bf []float64) {
 }
 
 //ReadMSeqsFromFile obvious
+// file should be fasta in format with starts seperated by spaces and starting at 0 going to whatever
 func ReadMSeqsFromFile(filen string) (seqs []MSeq, numstates int) {
 	file, err := os.Open(filen)
 	if err != nil {

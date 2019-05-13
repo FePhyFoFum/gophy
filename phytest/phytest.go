@@ -122,7 +122,7 @@ func main() {
 	}
 	x := gophy.NewDNAModel()
 	//x.SetupQJC()
-	x.SetNucMap()
+	x.SetMap()
 
 	//read a tree file
 	f, err := os.Open(*tfn)
@@ -156,8 +156,8 @@ func main() {
 	bf := gophy.GetEmpiricalBaseFreqs(seqs)
 	x.SetBaseFreqs(bf)
 	// get the site patternas
-	patterns, patternsint, gapsites, constant, uninformative := gophy.GetSitePatterns(seqs, nsites, seqnames)
-	patternval := gophy.PreparePatternVecs(t, patternsint, seqs)
+	patterns, patternsint, gapsites, constant, uninformative, _ := gophy.GetSitePatterns(seqs, nsites, seqnames)
+	patternval, _ := gophy.PreparePatternVecs(t, patternsint, seqs)
 	//list of sites
 	fmt.Fprintln(os.Stderr, "nsites:", nsites)
 	fmt.Fprintln(os.Stderr, "patterns:", len(patterns), len(patternsint))

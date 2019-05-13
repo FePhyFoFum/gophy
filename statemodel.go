@@ -2,7 +2,7 @@ package gophy
 
 import "gonum.org/v1/gonum/mat"
 
-//interfact for model (DNAModel, MULTModel)
+//interfact for model (DNAModel, MultStateModel, AAModel)
 
 // StateModel ...
 type StateModel interface {

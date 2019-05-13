@@ -63,7 +63,7 @@ func main() {
 		seqnames = append(seqnames, i.NM)
 		nsites = len(i.SQ)
 	}
-	x := gophy.NewMULTModel()
+	x := gophy.NewMultStateModel()
 	x.NumStates = numstates
 	x.SetMap()
 	bf := gophy.GetEmpiricalBaseFreqsMS(mseqs, x.NumStates)
@@ -127,7 +127,7 @@ func main() {
 	}
 }
 
-func optimizeThings(t *gophy.Tree, x *gophy.MULTModel, patternval []float64, wks int) {
+func optimizeThings(t *gophy.Tree, x *gophy.MultStateModel, patternval []float64, wks int) {
 	x.SetupQJC()
 	l := gophy.PCalcLikePatternsMS(t, x, patternval, wks)
 	fmt.Println("starting lnL:", l)
@@ -138,7 +138,7 @@ func optimizeThings(t *gophy.Tree, x *gophy.MULTModel, patternval []float64, wks
 	fmt.Println("optimized lnL:", l)
 }
 
-func ancState(t *gophy.Tree, x *gophy.MULTModel, patternval []float64, sv *gophy.SortedIntIdxSlice, fullpattern []int) {
+func ancState(t *gophy.Tree, x *gophy.MultStateModel, patternval []float64, sv *gophy.SortedIntIdxSlice, fullpattern []int) {
 	start := time.Now()
 	rets := gophy.CalcAncStatesMS(x, t, patternval)
 	for i := range rets {
@@ -155,7 +155,7 @@ func ancState(t *gophy.Tree, x *gophy.MULTModel, patternval []float64, sv *gophy
 	fmt.Fprintln(os.Stderr, end.Sub(start))
 }
 
-func stochTime(t *gophy.Tree, x *gophy.MULTModel, patternval []float64, sv *gophy.SortedIntIdxSlice, fullpattern []int, patternloglikes []float64) {
+func stochTime(t *gophy.Tree, x *gophy.MultStateModel, patternval []float64, sv *gophy.SortedIntIdxSlice, fullpattern []int, patternloglikes []float64) {
 
 	sttimes := make(map[*gophy.Node][][]float64)
 	for _, nd := range t.Post {
@@ -194,7 +194,7 @@ func stochTime(t *gophy.Tree, x *gophy.MULTModel, patternval []float64, sv *goph
 	}
 }
 
-func stochNumber(t *gophy.Tree, x *gophy.MULTModel, patternval []float64, sv *gophy.SortedIntIdxSlice, fullpattern []int, patternloglikes []float64) {
+func stochNumber(t *gophy.Tree, x *gophy.MultStateModel, patternval []float64, sv *gophy.SortedIntIdxSlice, fullpattern []int, patternloglikes []float64) {
 	stnum := make(map[*gophy.Node][]*mat.Dense)
 	for _, nd := range t.Post {
 		if nd != t.Rt {
