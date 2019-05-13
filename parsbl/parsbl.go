@@ -1,10 +1,12 @@
 package main
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
+	"log"
 	"os"
-	"sort"
+	"strings"
 
 	"github.com/FePhyFoFum/gophy"
 )
@@ -12,6 +14,7 @@ import (
 func main() {
 	tfn := flag.String("t", "", "tree filename")
 	afn := flag.String("s", "", "seq filename")
+	nuc := flag.Bool("n", false, "nucleotide data?")
 	flag.Parse()
 	if len(*tfn) == 0 {
 		fmt.Fprintln(os.Stderr, "need a tree filename (-t)")
@@ -21,12 +24,43 @@ func main() {
 		fmt.Fprintln(os.Stderr, "need a seq filename (-s)")
 		os.Exit(1)
 	}
+	if *nuc {
+		fmt.Println("nucleotide data. will write multistate file")
+		f, err := os.Create(*afn + ".gophy.ms")
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer f.Close()
+		lg := bufio.NewWriter(f)
+		tseqs := gophy.ReadSeqsFromFile(*afn)
+		for _, i := range tseqs {
+			lg.WriteString(">" + i.NM + "\n")
+			vals := make([]string, len(i.SQ))
+			for j := range i.SQ {
+				if string(i.SQ[j]) == "A" {
+					vals[j] = "0"
+				}
+				if string(i.SQ[j]) == "C" {
+					vals[j] = "1"
+				}
+				if string(i.SQ[j]) == "G" {
+					vals[j] = "2"
+				}
+				if string(i.SQ[j]) == "T" {
+					vals[j] = "3"
+				}
+			}
+			lg.WriteString(strings.Join(vals, " ") + "\n")
+		}
+		lg.Flush()
+		*afn = *afn + ".gophy.ms"
+	}
 
 	//read a tree file
 	trees := gophy.ReadTreesFromFile(*tfn)
 	fmt.Println(len(trees), "trees read")
 
-	//read a seq file
+	//read a multistate seq file
 	nsites := 0
 	seqs := map[string][]string{}
 	mseqs, numstates := gophy.ReadMSeqsFromFile(*afn)
@@ -45,12 +79,9 @@ func main() {
 	// get the site patternas
 	patterns, patternsint, gapsites, constant, uninformative, _ := gophy.GetSitePatternsMS(mseqs, x)
 	for _, t := range trees {
-		patternval, patternvec := gophy.PreparePatternVecsMS(t, patternsint, seqs, x)
+		patternval, _ := gophy.PreparePatternVecsMS(t, patternsint, seqs, x)
 		//this is necessary to get order of the patters in the patternvec since they have no order
 		// this will be used with fullpattern to reconstruct the sequences
-		sv := gophy.NewSortedIdxSlice(patternvec)
-		sort.Sort(sv)
-		//fmt.Println(sv.IntSlice, sv.Idx)
 		//list of sites
 		fmt.Fprintln(os.Stderr, "nsites:", nsites)
 		fmt.Fprintln(os.Stderr, "patterns:", len(patterns), len(patternsint))
