@@ -68,7 +68,7 @@ func main() {
 	for _, i := range mseqs {
 		seqs[i.NM] = i.SQs
 		seqnames = append(seqnames, i.NM)
-		nsites = len(i.SQ)
+		nsites = len(i.SQs)
 	}
 	x := gophy.NewMultStateModel()
 	x.NumStates = numstates
