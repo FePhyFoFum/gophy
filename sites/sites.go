@@ -136,6 +136,7 @@ func combineBiparts(bps []gophy.Bipart, namesmap map[int]string) {
 func main() {
 	tfn := flag.String("t", "", "tree filename")
 	afn := flag.String("s", "", "fasta aln filename")
+	cbp := flag.Bool("c", false, "do you want to combine biparts?")
 	//wks := flag.Int("w", 4, "number of threads")
 	v := flag.Bool("v", false, "verbose")
 	cpuprofile := flag.String("cpuprofile", "", "write cpu profile to file")
@@ -153,19 +154,19 @@ func main() {
 		defer pprof.StopCPUProfile()
 	}
 
-	//fmt.Fprintln(os.Stderr, "threads:", *wks)
-
 	//read a seq file
 	nsites := 0
 	seqs := map[string]string{}
 	seqnames := make([]string, 0)
 	namesmap := make(map[int]string)
+	namesrevmap := make(map[string]int)
 	count := 0
 	for _, i := range gophy.ReadSeqsFromFile(*afn) {
 		seqs[i.NM] = i.SQ
 		seqnames = append(seqnames, i.NM)
 		nsites = len(i.SQ)
 		namesmap[count] = i.NM
+		namesrevmap[i.NM] = count
 		count++
 	}
 	bf := gophy.GetEmpiricalBaseFreqs(seqs)
@@ -197,11 +198,10 @@ func main() {
 		c++
 	}
 	//end construct siteparts
-
+	var t gophy.Tree
 	//read a tree file
 	if len(*tfn) > 0 {
-		t := gophy.ReadTreeFromFile(*tfn)
-		fmt.Fprintln(os.Stderr, "read tree:", len(t.Tips))
+		t = *gophy.ReadTreeFromFile(*tfn)
 	}
 	//end read tree file
 
@@ -222,10 +222,18 @@ func main() {
 						if j.Equals(i) {
 							eq = true
 							bpsc[ci] += len(sp.Columns)
+							bps[ci].Ct += len(sp.Columns)
+							for _, k := range sp.Columns {
+								bps[ci].TreeIndices = append(bps[ci].TreeIndices, k)
+							}
 							break
 						}
 					}
 					if eq == false {
+						j.Ct += len(sp.Columns)
+						for _, k := range sp.Columns {
+							j.TreeIndices = append(j.TreeIndices, k)
+						}
 						bps = append(bps, j)
 						bpsc = append(bpsc, len(sp.Columns))
 					}
@@ -248,7 +256,70 @@ func main() {
 			sbps = append(sbps, bps[ss.Idx[i]])
 		}
 	}
-	combineBiparts(sbps, namesmap)
+	if *cbp {
+		combineBiparts(sbps, namesmap)
+	}
+	//compare to the tree
+	if *tfn != "" {
+		fmt.Println("\n--treemap--")
+		for i := range t.Pre {
+			n := t.Pre[i]
+			if len(n.Chs) < 2 {
+				continue
+			}
+			fmt.Println(n)
+			ignore := []string{}
+			lt := make(map[int]bool)
+			rt := make(map[int]bool)
+			for _, t := range t.Tips {
+				if gophy.StringSliceContains(ignore, t.Nam) == false {
+					rt[namesrevmap[t.Nam]] = true
+				}
+			}
+			for _, t := range n.GetTips() {
+				if gophy.StringSliceContains(ignore, t.Nam) == false {
+					lt[namesrevmap[t.Nam]] = true
+					delete(rt, namesrevmap[t.Nam])
+				}
+			}
+			if len(rt) < 2 {
+				continue
+			}
+			tbp := gophy.Bipart{Lt: lt, Rt: rt, Nds: []*gophy.Node{n}}
+			bc0 := 0
+			bc1 := 0
+			bc0v := make(map[int]bool)
+			bc1v := make(map[int]bool)
+			for _, t2 := range bps {
+				cc := 0
+				if t2.ConflictsWith(tbp) {
+					cc = 1
+				}
+				cw := 0
+				if t2.ConcordantWith(tbp) {
+					cw = 1
+				}
+				if cw == 1 {
+					bc0 += t2.Ct
+					for _, j := range t2.TreeIndices {
+						bc0v[j] = true
+					}
+				}
+
+				if cc == 1 {
+					bc1 += t2.Ct
+					for _, j := range t2.TreeIndices {
+						bc1v[j] = true
+					}
+				}
+
+			}
+			fmt.Println(" ", bc0, bc1, len(bc0v), len(bc1v))
+			n.Nam = strconv.Itoa(bc0) + "/" + strconv.Itoa(bc1) + "/" +
+				strconv.Itoa(len(bc0v)) + "/" + strconv.Itoa(len(bc1v))
+		}
+		fmt.Println("\n--newick--\n" + t.Rt.Newick(false) + ";")
+	}
 	//end summary
 	end := time.Now()
 	fmt.Println(end.Sub(start))
