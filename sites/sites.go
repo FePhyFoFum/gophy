@@ -80,6 +80,7 @@ func constructBiparts(s SitePart) (bps []gophy.Bipart) {
 	return
 }
 
+//TODO: need to add the functionality for gaps
 func combineBiparts(bps []gophy.Bipart, namesmap map[int]string) {
 	rt := gophy.Node{nil, nil, "root", map[string]string{}, map[string]float64{}, map[string]int{}, 0, 0., nil, false, 0., map[float64]bool{}, nil, nil, nil, nil}
 	nodesmap := make(map[int]*gophy.Node)
@@ -180,9 +181,9 @@ func main() {
 
 	fmt.Println(" patterns:", len(patternsint), " gaps:", len(gapsites),
 		" constant:", len(constant), " uninformative:", len(uninformative))
-
 	//construct siteparts
 	siteparts := make([]SitePart, len(patterns))
+	colmap := make(map[int]int)
 	c := 0
 	for j, m := range patterns {
 		sp := SitePart{}
@@ -191,10 +192,16 @@ func main() {
 		sp.PatternStr = j
 		for i := range seqnames {
 			sji := string(j[i])
+			if sji == "-" || sji == "?" {
+				continue
+			}
 			sp.CharMap[sji] = append(sp.CharMap[sji], i)
 		}
 		sp.Biparts = constructBiparts(sp)
 		siteparts[c] = sp
+		for _, k := range sp.Columns {
+			colmap[k] = c
+		}
 		c++
 	}
 	//end construct siteparts
@@ -286,8 +293,10 @@ func main() {
 				continue
 			}
 			tbp := gophy.Bipart{Lt: lt, Rt: rt, Nds: []*gophy.Node{n}}
+			//bps that conflict (bc0) and are concordant (bc1)
 			bc0 := 0
 			bc1 := 0
+			//sites that conflict (bc0v) and are concordant (bc1v)
 			bc0v := make(map[int]bool)
 			bc1v := make(map[int]bool)
 			for _, t2 := range bps {
@@ -299,14 +308,13 @@ func main() {
 				if t2.ConcordantWith(tbp) {
 					cw = 1
 				}
-				if cw == 1 {
+				if cc == 1 {
 					bc0 += t2.Ct
 					for _, j := range t2.TreeIndices {
 						bc0v[j] = true
 					}
 				}
-
-				if cc == 1 {
+				if cw == 1 {
 					bc1 += t2.Ct
 					for _, j := range t2.TreeIndices {
 						bc1v[j] = true
@@ -317,6 +325,9 @@ func main() {
 			fmt.Println(" ", bc0, bc1, len(bc0v), len(bc1v))
 			n.Nam = strconv.Itoa(bc0) + "/" + strconv.Itoa(bc1) + "/" +
 				strconv.Itoa(len(bc0v)) + "/" + strconv.Itoa(len(bc1v))
+			/*for x := range bc0v {
+				fmt.Println(siteparts[colmap[x]].PatternStr, siteparts[colmap[x]].Columns)
+			}*/
 		}
 		fmt.Println("\n--newick--\n" + t.Rt.Newick(false) + ";")
 	}
