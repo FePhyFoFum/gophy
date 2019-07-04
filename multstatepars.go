@@ -100,6 +100,7 @@ func CalcSankParsNodeMultState(nd *Node, model StateModel, site int) {
 }
 
 //EstParsBLMultState ....
+//  this will just pick one when there are equivalent
 func EstParsBLMultState(t *Tree, model StateModel, patternval []float64, totalsites int) {
 	nsites := len(patternval)
 	for _, n := range t.Post {
@@ -117,6 +118,7 @@ func EstParsBLMultState(t *Tree, model StateModel, patternval []float64, totalsi
 					}
 				}
 				n.IData["anc"] = minj
+				//fmt.Println(n.Newick(false), n.IData["anc"], n.Data[i])
 			} else {
 				from := n.Par.IData["anc"]
 				if len(n.Chs) > 0 {
@@ -136,6 +138,7 @@ func EstParsBLMultState(t *Tree, model StateModel, patternval []float64, totalsi
 						n.FData["parsbl"] += 1. * patternval[i]
 					}
 					n.IData["anc"] = minj
+					//fmt.Println(n.Newick(false), n.IData["anc"], n.Data[i])
 				} else {
 					minj := 0
 					for j := 0; j < model.GetNumStates(); j++ {
@@ -153,6 +156,8 @@ func EstParsBLMultState(t *Tree, model StateModel, patternval []float64, totalsi
 		}
 	}
 	for _, n := range t.Post {
-		n.Len = math.Max(10e-10, n.FData["parsbl"]/(float64(totalsites)))
+		//prop or count
+		//n.Len = math.Max(10e-10, n.FData["parsbl"]/(float64(totalsites)))
+		n.Len = math.Max(0.0, n.FData["parsbl"])
 	}
 }

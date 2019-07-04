@@ -82,6 +82,7 @@ func constructBiparts(s SitePart) (bps []gophy.Bipart) {
 
 //TODO: need to add the functionality for gaps
 func combineBiparts(bps []gophy.Bipart, namesmap map[int]string) {
+	//need to add the support from the smaller ones to the larger ones and go from there
 	rt := gophy.Node{nil, nil, "root", map[string]string{}, map[string]float64{}, map[string]int{}, 0, 0., nil, false, 0., map[float64]bool{}, nil, nil, nil, nil}
 	nodesmap := make(map[int]*gophy.Node)
 	for i := range namesmap {
