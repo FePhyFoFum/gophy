@@ -25,7 +25,7 @@ func main() {
 		os.Exit(1)
 	}
 	if *nuc {
-		fmt.Println("nucleotide data. will write multistate file")
+		fmt.Fprintln(os.Stderr, "nucleotide data. will write multistate file")
 		f, err := os.Create(*afn + ".gophy.ms")
 		if err != nil {
 			log.Fatal(err)
@@ -39,16 +39,16 @@ func main() {
 			for j := range i.SQ {
 				if string(i.SQ[j]) == "A" {
 					vals[j] = "0"
-				}
-				if string(i.SQ[j]) == "C" {
+				} else if string(i.SQ[j]) == "C" {
 					vals[j] = "1"
-				}
-				if string(i.SQ[j]) == "G" {
+				} else if string(i.SQ[j]) == "G" {
 					vals[j] = "2"
-				}
-				if string(i.SQ[j]) == "T" {
+				} else if string(i.SQ[j]) == "T" {
 					vals[j] = "3"
+				} else {
+					vals[j] = "-"
 				}
+
 			}
 			lg.WriteString(strings.Join(vals, " ") + "\n")
 		}
@@ -58,7 +58,7 @@ func main() {
 
 	//read a tree file
 	trees := gophy.ReadTreesFromFile(*tfn)
-	fmt.Println(len(trees), "trees read")
+	fmt.Fprintln(os.Stderr, len(trees), "trees read")
 
 	//read a multistate seq file
 	nsites := 0
@@ -72,6 +72,7 @@ func main() {
 	}
 	x := gophy.NewMultStateModel()
 	x.NumStates = numstates
+	fmt.Println(x.NumStates)
 	x.SetMap()
 	bf := gophy.GetEmpiricalBaseFreqsMS(mseqs, x.NumStates)
 	x.SetBaseFreqs(bf)

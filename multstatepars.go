@@ -138,19 +138,20 @@ func EstParsBLMultState(t *Tree, model StateModel, patternval []float64, totalsi
 						n.FData["parsbl"] += 1. * patternval[i]
 					}
 					n.IData["anc"] = minj
-					//fmt.Println(n.Newick(false), n.IData["anc"], n.Data[i])
 				} else {
 					minj := 0
 					for j := 0; j < model.GetNumStates(); j++ {
 						if n.Data[i][j] == 1.0 {
 							minj = j
+						}
+						if j == from {
 							break
 						}
 					}
 					if minj != from {
 						n.FData["parsbl"] += 1. * patternval[i]
 					}
-
+					//fmt.Println(n.Newick(false), n.IData["anc"], n.Data[i])
 				}
 			}
 		}
