@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"math"
 	"os"
 
 	"github.com/FePhyFoFum/gophy"
@@ -291,12 +290,9 @@ func setNodeVals(nd *gophy.Node, vals []float64) {
 	nd.FData["min"] = gophy.MinF(vals)
 	nd.FData["max"] = gophy.MaxF(vals)
 	nd.FData["supp"] = float64(len(vals))
-	lc, hc := vals[0], vals[0]
-	if len(vals) > 1 {
-		lc, hc = gophy.ConfInt95NormalF(vals)
+	if len(vals) > 2 {
+		nd.FData["confl"], nd.FData["confh"] = gophy.ConfInt95TF(vals)
 	}
-	nd.FData["CONFH"] = hc
-	nd.FData["CONFL"] = math.Max(0, lc)
 }
 
 func calcValues(specTree gophy.Tree, qToN map[int]*gophy.Node, spQuartsD map[int][]float64,
@@ -315,7 +311,7 @@ func calcValues(specTree gophy.Tree, qToN map[int]*gophy.Node, spQuartsD map[int
 }
 
 func writeOutput(specTree gophy.Tree) {
-	calcsF := []string{"mean", "median", "min", "max", "CONFH", "CONFL", "supp"}
+	calcsF := []string{"mean", "median", "min", "max", "supp", "confl", "confh"}
 	for _, i := range calcsF {
 		fmt.Print(specTree.Rt.NewickFloatBL(i) + ";\n")
 	}

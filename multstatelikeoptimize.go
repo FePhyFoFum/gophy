@@ -105,8 +105,8 @@ func AdjustBLNRMS(node *Node, x StateModel, patternvals []float64, t *Tree, wks 
 			templike := 0.
 			tempd1 := 0.
 			tempd2 := 0.
-			for j := 0; j < 4; j++ {
-				for k := 0; k < 4; k++ {
+			for j := 0; j < x.GetNumStates(); j++ {
+				for k := 0; k < x.GetNumStates(); k++ {
 					templike += (s1probs[s][j] * p.At(j, k) * s2probs[s][k] * x.GetBF()[j])
 					tempd1 += (s1probs[s][j] * d1p.At(j, k) * s2probs[s][k] * x.GetBF()[j])
 					tempd2 += (s1probs[s][j] * d2p.At(j, k) * s2probs[s][k] * x.GetBF()[j])

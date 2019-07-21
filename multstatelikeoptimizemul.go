@@ -117,7 +117,7 @@ func AdjustBLNRMSMul(node *Node, models []StateModel, nodemodels map[*Node]int, 
 			templike := 0.
 			tempd1 := 0.
 			tempd2 := 0.
-			for j := 0; j < 4; j++ {
+			for j := 0; j < 4; j++ { //TODO: CHANGE THIS FROM 4!!
 				for k := 0; k < 4; k++ {
 					templike += (s1probs[s][j] * p.At(j, k) * s2probs[s][k] * x.GetBF()[j])
 					tempd1 += (s1probs[s][j] * d1p.At(j, k) * s2probs[s][k] * x.GetBF()[j])

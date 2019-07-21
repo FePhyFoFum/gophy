@@ -5,6 +5,8 @@ import (
 	"sort"
 	"strconv"
 
+	"gonum.org/v1/gonum/stat/distuv"
+
 	"gonum.org/v1/gonum/stat"
 )
 
@@ -401,11 +403,14 @@ func MinF(n []float64) float64 {
 	return sf[0]
 }
 
-// ConfInt95NormalF returns 95% conf int assuming a normal
-// distribution
-func ConfInt95NormalF(nums []float64) (lower float64, upper float64) {
-	conf := 1.95996 // 95% confidence for the mean, http://bit.ly/Mm05eZ
+// ConfInt95TF returns 95% conf int
+// t-stat
+func ConfInt95TF(nums []float64) (lower float64, upper float64) {
 	mean := stat.Mean(nums, nil)
-	dev := stat.StdDev(nums, nil) / math.Sqrt(float64(len(nums)))
-	return mean - dev*conf, mean + dev*conf
+	SE := stat.StdDev(nums, nil) / math.Sqrt(float64(len(nums)))
+	V := float64(len(nums) - 1)
+	ST := distuv.StudentsT{Mu: 0, Nu: V, Sigma: 1}
+	QL := mean + ST.Quantile(0.05)*SE
+	QH := mean + ST.Quantile(0.95)*SE
+	return QL, QH
 }
