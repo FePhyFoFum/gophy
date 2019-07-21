@@ -15,6 +15,7 @@ import (
 func main() {
 	mfn := flag.String("m", "", "map filename")
 	tfn := flag.String("t", "", "tree filename")
+	ver := flag.Bool("v", false, "verbose?")
 	wks := flag.Int("w", 2, "how many workers?")
 	flag.Parse()
 	if len(*mfn) == 0 {
@@ -85,7 +86,7 @@ func main() {
 	spQuartsD, qToN, bigQuartetArr, tipLens, tipTrees := prepareSpTree(mapt, maptips)
 	//processGeneTrees(mapt, trees, maptips, mapints, spQuartsD, bigQuartetArr, tipLens, tipTrees)
 	pprocessGeneTrees(*wks, mapt, trees, maptips, mapints, spQuartsD, bigQuartetArr, tipLens, tipTrees)
-	calcValues(mapt, qToN, spQuartsD, tipLens)
+	calcValues(mapt, qToN, spQuartsD, tipLens, *ver)
 	writeOutput(mapt)
 }
 
@@ -290,13 +291,15 @@ func setNodeVals(nd *gophy.Node, vals []float64) {
 	nd.FData["min"] = gophy.MinF(vals)
 	nd.FData["max"] = gophy.MaxF(vals)
 	nd.FData["supp"] = float64(len(vals))
-	if len(vals) > 2 {
+	if len(vals) <= 2 {
+		nd.FData["confl"], nd.FData["confh"] = nd.FData["min"], nd.FData["max"]
+	} else {
 		nd.FData["confl"], nd.FData["confh"] = gophy.ConfInt95TF(vals)
 	}
 }
 
 func calcValues(specTree gophy.Tree, qToN map[int]*gophy.Node, spQuartsD map[int][]float64,
-	tipLens map[int][]float64) {
+	tipLens map[int][]float64, verbose bool) {
 	for i, j := range qToN {
 		var a []float64
 		if len(j.Chs) == 0 {
@@ -308,10 +311,31 @@ func calcValues(specTree gophy.Tree, qToN map[int]*gophy.Node, spQuartsD map[int
 			setNodeVals(j, a)
 		}
 	}
+	if verbose {
+		f, err := os.Create("lentil.verbose")
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer f.Close()
+		w := bufio.NewWriter(f)
+		for i, j := range qToN {
+			var a []float64
+			if len(j.Chs) == 0 {
+				a = tipLens[i]
+			} else {
+				a = spQuartsD[i]
+			}
+			fmt.Fprint(w, j.Newick(false)+"; ", a, "\n")
+		}
+		err = w.Flush()
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
 }
 
 func writeOutput(specTree gophy.Tree) {
-	calcsF := []string{"mean", "median", "min", "max", "supp", "confl", "confh"}
+	calcsF := []string{"mean", "median", "min", "max", "confl", "confh", "supp"}
 	for _, i := range calcsF {
 		fmt.Print(specTree.Rt.NewickFloatBL(i) + ";\n")
 	}

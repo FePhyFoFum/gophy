@@ -405,12 +405,12 @@ func MinF(n []float64) float64 {
 
 // ConfInt95TF returns 95% conf int
 // t-stat
-func ConfInt95TF(nums []float64) (lower float64, upper float64) {
+func ConfInt95TF(nums []float64) (float64, float64) {
 	mean := stat.Mean(nums, nil)
 	SE := stat.StdDev(nums, nil) / math.Sqrt(float64(len(nums)))
 	V := float64(len(nums) - 1)
 	ST := distuv.StudentsT{Mu: 0, Nu: V, Sigma: 1}
-	QL := mean + ST.Quantile(0.05)*SE
-	QH := mean + ST.Quantile(0.95)*SE
+	QL := mean + ST.Quantile(0.025)*SE
+	QH := mean + ST.Quantile(0.975)*SE
 	return QL, QH
 }
