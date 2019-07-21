@@ -1,5 +1,7 @@
 package gophy
 
+import "errors"
+
 // Tree minimal phylogenetic tree struct
 // don't need this, can use root but here if you want these convienence functions below
 type Tree struct {
@@ -57,4 +59,14 @@ func (t *Tree) Instantiate(rt *Node) {
 	t.populatePrePostIt(t.Rt)
 	//t.populatePreorder(t.Rt)
 	//t.populatePostorder(t.Rt)
+}
+
+// GetTipByName get
+func (t *Tree) GetTipByName(name string) (*Node, error) {
+	for _, n := range t.Tips {
+		if n.Nam == name {
+			return n, nil
+		}
+	}
+	return nil, errors.New("no node with that name")
 }

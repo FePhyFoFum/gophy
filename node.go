@@ -73,6 +73,23 @@ func (n Node) GetTips() (tips []*Node) {
 	return
 }
 
+// GetTipNames returns a slice with node pointers
+func (n Node) GetTipNames() (tips []string) {
+	x := NewNodeStack()
+	x.Push(&n)
+	for x.Empty() == false {
+		c, _ := x.Pop()
+		if len(c.Chs) == 0 {
+			tips = append(tips, c.Nam)
+		} else {
+			for _, h := range c.Chs {
+				x.Push(h)
+			}
+		}
+	}
+	return
+}
+
 // Newick returns a string newick
 func (n Node) Newick(bl bool) (ret string) {
 	var buffer bytes.Buffer
@@ -83,6 +100,30 @@ func (n Node) Newick(bl bool) (ret string) {
 		buffer.WriteString(cn.Newick(bl))
 		if bl == true {
 			s := strconv.FormatFloat(cn.Len, 'f', -1, 64)
+			buffer.WriteString(":")
+			buffer.WriteString(s)
+		}
+		if in == len(n.Chs)-1 {
+			buffer.WriteString(")")
+		} else {
+			buffer.WriteString(",")
+		}
+	}
+	buffer.WriteString(n.Nam)
+	ret = buffer.String()
+	return
+}
+
+// NewickFloatBL returns a string newick with branch lengths of the data in FData[fl]
+func (n Node) NewickFloatBL(fl string) (ret string) {
+	var buffer bytes.Buffer
+	for in, cn := range n.Chs {
+		if in == 0 {
+			buffer.WriteString("(")
+		}
+		buffer.WriteString(cn.NewickFloatBL(fl))
+		if _, ok := cn.FData[fl]; ok {
+			s := strconv.FormatFloat(cn.FData[fl], 'f', -1, 64)
 			buffer.WriteString(":")
 			buffer.WriteString(s)
 		}

@@ -4,6 +4,8 @@ import (
 	"math"
 	"sort"
 	"strconv"
+
+	"gonum.org/v1/gonum/stat"
 )
 
 // CalcSliceIntDifferenceInt calculate the size of the difference (set) between two int slices
@@ -237,6 +239,21 @@ func IntMapIntersectsRet(s1, s2 map[int]bool) (r []int) {
 	return
 }
 
+// IntMapDifferenceRet calculate the difference (set) between two int slices
+func IntMapDifferenceRet(a, b map[int]bool) []int {
+	mb := map[int]bool{}
+	for x := range b {
+		mb[x] = true
+	}
+	ab := []int{}
+	for x := range a {
+		if _, ok := mb[x]; !ok {
+			ab = append(ab, x)
+		}
+	}
+	return ab
+}
+
 // IntMapSetString get a string for printing off a set
 func IntMapSetString(intmap map[int]bool) (s string) {
 	s = ""
@@ -357,4 +374,38 @@ func NewSortedIdxSlice(n []int) *SortedIntIdxSlice {
 // LogFact calculate the log factorial
 func LogFact(k float64) float64 {
 	return k*(math.Log(k)-1) + math.Log(math.Sqrt(6.28318*k))
+}
+
+// MedianF calculate the "median" value
+func MedianF(n []float64) float64 {
+	sf := sort.Float64Slice(n)
+	sf.Sort()
+	m := len(sf) / 2
+	if len(sf)%2 != 0 { //odd
+		return sf[m]
+	}
+	return (sf[m-1] + sf[m]) / 2
+}
+
+// MaxF max
+func MaxF(n []float64) float64 {
+	sf := sort.Float64Slice(n)
+	sf.Sort()
+	return sf[len(sf)-1]
+}
+
+// MinF max
+func MinF(n []float64) float64 {
+	sf := sort.Float64Slice(n)
+	sf.Sort()
+	return sf[0]
+}
+
+// ConfInt95NormalF returns 95% conf int assuming a normal
+// distribution
+func ConfInt95NormalF(nums []float64) (lower float64, upper float64) {
+	conf := 1.95996 // 95% confidence for the mean, http://bit.ly/Mm05eZ
+	mean := stat.Mean(nums, nil)
+	dev := stat.StdDev(nums, nil) / math.Sqrt(float64(len(nums)))
+	return mean - dev*conf, mean + dev*conf
 }
