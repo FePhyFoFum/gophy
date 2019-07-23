@@ -459,7 +459,11 @@ func CalcLogLikeNodeMS(nd *Node, model StateModel, site int) {
 		nd.Data[site][i] = 0.
 	}
 	x1 := 0.0
-	x2 := []float64{0.0, 0.0, 0.0, 0.0}
+	//x2 := []float64{0.0, 0.0, 0.0, 0.0}
+	var x2 []float64
+	for i := 0; i < model.GetNumStates(); i++ {
+		x2 = append(x2, 0.0)
+	}
 	for _, c := range nd.Chs {
 		P := model.GetPMap(c.Len)
 		if len(c.Chs) == 0 {
