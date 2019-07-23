@@ -71,6 +71,9 @@ func PCalcLogLikePatternsMS(t *Tree, x StateModel, patternval []float64, wks int
 		rr = <-results
 		fl += (rr.value * patternval[rr.site])
 	}
+	//fmt.Println(fl)
+	//fl = fl - math.Log(CalcAscBiasVal(t, x))
+	//fmt.Println(fl)
 	return
 }
 
@@ -445,6 +448,85 @@ func CalcLikeWorkMarkedMS(t *Tree, x StateModel, jobs <-chan int, results chan<-
 		}
 		results <- LikeResult{value: sl, site: j}
 	}
+}
+
+/*======================================================================
+This will calculate the likelihood of of each possible type of invariant
+site for use in ascertainment bias correction.
+========================================================================
+*/
+
+// CalcAscBiasVal creates dummy invariant characters for each possible state and sums their likelihoods to yield a Prob(invariant)
+// Used in ascertainment bias correction like: L_marginal = L_unconditioned / Prob(invariant)
+func CalcAscBiasVal(t *Tree, x StateModel) float64 {
+	sl := 0.0
+	if t.Pre[1].Num == 0 { //number the nodes if this hasn't been done
+		count := 0
+		for _, n := range t.Pre {
+			n.Num = count
+			count++
+		}
+	}
+	stateVecs := make(map[int][]float64) // key is node num, val is [states]
+	for state := 0; state < x.GetNumStates(); state++ {
+		for _, n := range t.Post {
+			if len(n.Chs) == 0 {
+				if _, ok := stateVecs[n.Num]; !ok {
+					for i := 0; i < x.GetNumStates(); i++ {
+						stateVecs[n.Num] = append(stateVecs[n.Num], 0.0)
+					}
+				} else {
+					for i := 0; i < x.GetNumStates(); i++ {
+						stateVecs[n.Num][i] = 0.0
+					}
+				}
+				stateVecs[n.Num][state] = 1.0
+			} else if len(n.Chs) > 0 {
+				if _, ok := stateVecs[n.Num]; !ok {
+					for i := 0; i < x.GetNumStates(); i++ {
+						stateVecs[n.Num] = append(stateVecs[n.Num], 1.0)
+					}
+				} else {
+					for i := 0; i < x.GetNumStates(); i++ {
+						stateVecs[n.Num][i] = 1.0
+					}
+				}
+				x1 := 0.0
+				x2 := 0.0
+				for _, c := range n.Chs {
+					P := x.GetPMap(c.Len)
+					if len(c.Chs) == 0 {
+						for i := 0; i < x.GetNumStates(); i++ {
+							x1 = 0.0
+							for j := 0; j < x.GetNumStates(); j++ {
+								x1 += P.At(i, j) * stateVecs[c.Num][j]
+							}
+							stateVecs[n.Num][i] *= x1
+							//nd.Data[site][i] *= x1
+						}
+					} else {
+						for i := 0; i < x.GetNumStates(); i++ {
+							x2 = 0.0
+							for j := 0; j < x.GetNumStates(); j++ {
+								x2 += P.At(i, j) * stateVecs[c.Num][j] //c.Data[site][j]
+							}
+							//nd.Data[site][i] *= x2 //floats.LogSumExp(x2)
+							stateVecs[n.Num][i] *= x2
+
+						}
+					}
+				}
+			}
+			if t.Rt == n {
+				for i := 0; i < x.GetNumStates(); i++ {
+					stateVecs[t.Rt.Num][i] *= x.GetBF()[i]
+				}
+				sl += floats.Sum(stateVecs[t.Rt.Num])
+			}
+
+		}
+	}
+	return sl
 }
 
 /*=======================================================================

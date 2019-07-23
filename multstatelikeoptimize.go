@@ -86,18 +86,18 @@ func AdjustBLNRMS(node *Node, x StateModel, patternvals []float64, t *Tree, wks 
 	if guess < xmin || guess > xmax {
 		guess = 0.1
 	}
-	startL := PCalcLikePatternsMS(t, x, patternvals, wks)
+	startL := PCalcLogLikePatternsMS(t, x, patternvals, wks)
 	startLen := node.Len
 	//need subtree 1
 	s1probs := node.TpConds
 	//need subtree 2
 	s2probs := node.RvConds
 	for z := 0; z < 10; z++ {
-		t := node.Len
-		p := x.GetPCalc(t)
+		curlen := node.Len
+		p := x.GetPCalc(curlen)
 		x.DecomposeQ()
-		d1p := x.ExpValueFirstD(t)
-		d2p := x.ExpValueSecondD(t)
+		d1p := x.ExpValueFirstD(curlen)
+		d2p := x.ExpValueSecondD(curlen)
 		d1 := 0.
 		d2 := 0.
 		like := 1.
@@ -119,17 +119,17 @@ func AdjustBLNRMS(node *Node, x StateModel, patternvals []float64, t *Tree, wks 
 		if len(node.Chs) == 2 && (node.Chs[0].Nam == "taxon_1" || node.Chs[1].Nam == "taxon_1") {
 			//fmt.Println(like, t, t-(d1/d2), d1)
 		}
-		if (t - (d1 / d2)) < 0 {
+		if (curlen - (d1 / d2)) < 0 {
 			node.Len = 10e-12
 			break
 		} else {
-			node.Len = (t - (d1 / d2))
+			node.Len = (curlen - (d1 / d2))
 		}
 		if math.Abs(d1) < threshold {
 			break
 		}
 	}
-	endL := PCalcLikePatternsMS(t, x, patternvals, wks)
+	endL := PCalcLogLikePatternsMS(t, x, patternvals, wks)
 	//make sure that we actually made the likelihood better
 	if startL > endL {
 		node.Len = startLen
