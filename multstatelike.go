@@ -228,7 +228,7 @@ func CalcLogLikeOneSiteMS(t *Tree, x StateModel, site int) float64 {
 			CalcLogLikeNodeMS(n, x, site)
 		}
 		if t.Rt == n {
-			for i := 0; i < 4; i++ {
+			for i := 0; i < x.GetNumStates(); i++ {
 				t.Rt.Data[site][i] += math.Log(x.GetBF()[i])
 			}
 			sl = floats.LogSumExp(t.Rt.Data[site])
@@ -267,7 +267,7 @@ func CalcLogLikeOneSiteBackMS(t *Tree, nb *Node, x StateModel, site int) float64
 			CalcLogLikeNodeMS(cur, x, site)
 		}
 		if cur == t.Rt {
-			for i := 0; i < 4; i++ {
+			for i := 0; i < x.GetNumStates(); i++ {
 				t.Rt.Data[site][i] += math.Log(x.GetBF()[i])
 			}
 			sl = floats.LogSumExp(t.Rt.Data[site])
