@@ -293,7 +293,7 @@ func CalcLogLikeOneSiteMarkedMS(t *Tree, x StateModel, site int) float64 {
 			}
 		}
 		if t.Rt == n && n.Marked == true {
-			for i := 0; i < 4; i++ {
+			for i := 0; i < x.GetNumStates(); i++ {
 				t.Rt.Data[site][i] += math.Log(x.GetBF()[i])
 			}
 			sl = floats.LogSumExp(t.Rt.Data[site])
@@ -318,7 +318,7 @@ func CalcLikeOneSiteMarkedMS(t *Tree, x StateModel, site int) float64 {
 			}
 		}
 		if t.Rt == n && n.Marked == true {
-			for i := 0; i < 4; i++ {
+			for i := 0; i < x.GetNumStates(); i++ {
 				t.Rt.Data[site][i] *= x.GetBF()[i]
 			}
 			sl = floats.Sum(t.Rt.Data[site])
@@ -344,7 +344,7 @@ func CalcLogLikeWorkMS(t *Tree, x StateModel, jobs <-chan int, results chan<- Li
 				CalcLogLikeNodeMS(n, x, j)
 			}
 			if t.Rt == n {
-				for i := 0; i < 4; i++ {
+				for i := 0; i < x.GetNumStates(); i++ {
 					t.Rt.Data[j][i] += math.Log(x.GetBF()[i])
 				}
 				sl = floats.LogSumExp(t.Rt.Data[j])
@@ -386,7 +386,7 @@ func CalcLogLikeWorkBackMS(t *Tree, nb *Node, x StateModel, jobs <-chan int, res
 				CalcLogLikeNodeMS(cur, x, j)
 			}
 			if cur == t.Rt {
-				for i := 0; i < 4; i++ {
+				for i := 0; i < x.GetNumStates(); i++ {
 					t.Rt.Data[j][i] += math.Log(x.GetBF()[i])
 				}
 				sl = floats.LogSumExp(t.Rt.Data[j])
@@ -411,7 +411,7 @@ func CalcLogLikeWorkMarkedMS(t *Tree, x StateModel, jobs <-chan int, results cha
 				}
 			}
 			if t.Rt == n && n.Marked == true {
-				for i := 0; i < 4; i++ {
+				for i := 0; i < x.GetNumStates(); i++ {
 					t.Rt.Data[j][i] += math.Log(x.GetBF()[i])
 				}
 				sl = floats.LogSumExp(t.Rt.Data[j])
@@ -435,7 +435,7 @@ func CalcLikeWorkMarkedMS(t *Tree, x StateModel, jobs <-chan int, results chan<-
 				}
 			}
 			if t.Rt == n && n.Marked == true {
-				for i := 0; i < 4; i++ {
+				for i := 0; i < x.GetNumStates(); i++ {
 					t.Rt.Data[j][i] *= x.GetBF()[i]
 				}
 				sl = floats.Sum(t.Rt.Data[j])
@@ -471,7 +471,7 @@ func CalcLogLikeNodeMS(nd *Node, model StateModel, site int) {
 				nd.Data[site][i] += math.Log(x1)
 			}
 		} else {
-			for i := 0; i < 4; i++ {
+			for i := 0; i < x.GetNumStates(); i++ {
 				for j := 0; j < model.GetNumStates(); j++ {
 					x2[j] = math.Log(P.At(i, j)) + c.Data[site][j]
 				}
@@ -630,7 +630,7 @@ func CalcLikeFrontBackMS(x StateModel, tree *Tree, patternval []float64) {
 		/*if c == tree.Rt { // turn on if you want likelihoods
 			for s := range patternval {
 				tempretlike := 0.
-				for i := 0; i < 4; i++ {
+				for i := 0; i < x.GetNumStates(); i++ {
 					tempretlike += (c.TpConds[s][i] * x.GetBF()[i])
 				}
 				//fmt.Println("site", s, "log(L):", math.Log(tempretlike), "like:", tempretlike, "pattern:", patternval[s])
