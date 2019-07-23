@@ -471,7 +471,7 @@ func CalcLogLikeNodeMS(nd *Node, model StateModel, site int) {
 				nd.Data[site][i] += math.Log(x1)
 			}
 		} else {
-			for i := 0; i < x.GetNumStates(); i++ {
+			for i := 0; i < model.GetNumStates(); i++ {
 				for j := 0; j < model.GetNumStates(); j++ {
 					x2[j] = math.Log(P.At(i, j)) + c.Data[site][j]
 				}
@@ -630,7 +630,7 @@ func CalcLikeFrontBackMS(x StateModel, tree *Tree, patternval []float64) {
 		/*if c == tree.Rt { // turn on if you want likelihoods
 			for s := range patternval {
 				tempretlike := 0.
-				for i := 0; i < x.GetNumStates(); i++ {
+				for i := 0; i < 4; i++ {
 					tempretlike += (c.TpConds[s][i] * x.GetBF()[i])
 				}
 				//fmt.Println("site", s, "log(L):", math.Log(tempretlike), "like:", tempretlike, "pattern:", patternval[s])
