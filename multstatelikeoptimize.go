@@ -8,7 +8,7 @@ import (
 	"gonum.org/v1/gonum/optimize"
 )
 
-// OptimizeMULT1R ...
+// OptimizeMS1R ...
 func OptimizeMS1R(t *Tree, x StateModel, patternvals []float64, wks int) {
 	count := 0
 	//start := time.Now()
@@ -116,9 +116,9 @@ func AdjustBLNRMS(node *Node, x StateModel, patternvals []float64, t *Tree, wks 
 			d2 += (((tempd2 / templike) - (math.Pow(tempd1, 2) / math.Pow(templike, 2))) * patternvals[s])
 			like += math.Log(templike)
 		}
-		if len(node.Chs) == 2 && (node.Chs[0].Nam == "taxon_1" || node.Chs[1].Nam == "taxon_1") {
-			//fmt.Println(like, t, t-(d1/d2), d1)
-		}
+		//if len(node.Chs) == 2 && (node.Chs[0].Nam == "taxon_1" || node.Chs[1].Nam == "taxon_1") {
+		//fmt.Println(like, t, t-(d1/d2), d1)
+		//}
 		if (curlen - (d1 / d2)) < 0 {
 			node.Len = 10e-12
 			break
@@ -134,9 +134,9 @@ func AdjustBLNRMS(node *Node, x StateModel, patternvals []float64, t *Tree, wks 
 	if startL > endL {
 		node.Len = startLen
 	}
-	if len(node.Chs) == 2 && (node.Chs[0].Nam == "taxon_1" || node.Chs[1].Nam == "taxon_1") {
-		fmt.Println("-")
-	}
+	//if len(node.Chs) == 2 && (node.Chs[0].Nam == "taxon_1" || node.Chs[1].Nam == "taxon_1") {
+	//	fmt.Println("-")
+	//}
 }
 
 // OptimizeBLNRMS Newton-Raphson for each branch. Does 4 passes

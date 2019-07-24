@@ -472,9 +472,7 @@ func CalcAscBiasVal(t *Tree, x StateModel) float64 {
 		for _, n := range t.Post {
 			if len(n.Chs) == 0 {
 				if _, ok := stateVecs[n.Num]; !ok {
-					for i := 0; i < x.GetNumStates(); i++ {
-						stateVecs[n.Num] = append(stateVecs[n.Num], 0.0)
-					}
+					stateVecs[n.Num] = make([]float64, x.GetNumStates()) // zero valued initialized
 				} else {
 					for i := 0; i < x.GetNumStates(); i++ {
 						stateVecs[n.Num][i] = 0.0
@@ -483,8 +481,9 @@ func CalcAscBiasVal(t *Tree, x StateModel) float64 {
 				stateVecs[n.Num][state] = 1.0
 			} else if len(n.Chs) > 0 {
 				if _, ok := stateVecs[n.Num]; !ok {
+					stateVecs[n.Num] = make([]float64, x.GetNumStates())
 					for i := 0; i < x.GetNumStates(); i++ {
-						stateVecs[n.Num] = append(stateVecs[n.Num], 1.0)
+						stateVecs[n.Num][i] = 1.0
 					}
 				} else {
 					for i := 0; i < x.GetNumStates(); i++ {
@@ -502,7 +501,6 @@ func CalcAscBiasVal(t *Tree, x StateModel) float64 {
 								x1 += P.At(i, j) * stateVecs[c.Num][j]
 							}
 							stateVecs[n.Num][i] *= x1
-							//nd.Data[site][i] *= x1
 						}
 					} else {
 						for i := 0; i < x.GetNumStates(); i++ {
@@ -510,8 +508,7 @@ func CalcAscBiasVal(t *Tree, x StateModel) float64 {
 							for j := 0; j < x.GetNumStates(); j++ {
 								x2 += P.At(i, j) * stateVecs[c.Num][j] //c.Data[site][j]
 							}
-							//nd.Data[site][i] *= x2 //floats.LogSumExp(x2)
-							stateVecs[n.Num][i] *= x2
+							stateVecs[n.Num][i] *= x2 //floats.LogSumExp(x2)
 
 						}
 					}
@@ -526,7 +523,7 @@ func CalcAscBiasVal(t *Tree, x StateModel) float64 {
 
 		}
 	}
-	return sl
+	return 1 - sl //TODO: check this
 }
 
 /*=======================================================================
