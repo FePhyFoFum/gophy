@@ -2,6 +2,7 @@ package gophy
 
 import (
 	"bytes"
+	"fmt"
 	"strconv"
 )
 
@@ -25,21 +26,22 @@ type Node struct {
 	//
 	// X--<------X
 	// RvTp      RV
-	TpConds   [][]float64 //[site][states]
-	RtConds   [][]float64
-	RvConds   [][]float64
-	RvTpConds [][]float64
-	PRNLen    float64
-	CONTRT    []float64
-	MIS       []bool //this is a slice of bools that indicates whether the index is missing from CONTRT
-	CONPRNLen []float64
-	FAD       float64
-	LAD       float64
-	FINDS     float64
-	ISTIP     bool
-	ANC       bool
-	DIRDESC   bool
-	TimeLen   float64
+	TpConds     [][]float64 //[site][states]
+	RtConds     [][]float64
+	RvConds     [][]float64
+	RvTpConds   [][]float64
+	FAD         float64
+	LAD         float64
+	FINDS       float64
+	TimeLen     float64
+	ContData    []float64
+	Mis         []bool
+	PruneLen    float64
+	ConPruneLen []float64 // prevent race condition when calculating BM likelihood
+	//BMPruneLen  []float64
+	BMLen float64
+	LL    []float64
+	Anc   bool
 	//
 }
 
@@ -225,4 +227,94 @@ func (n *Node) removeChild(c *Node) {
 
 func (n Node) String() string {
 	return n.Newick(false)
+}
+
+//RerootLS reroots all the nodes represented in a graph on n
+func (n *Node) RerootBM(oldroot *Node) *Node {
+	if n == oldroot {
+		fmt.Println("you are trying to reroot on the current root!")
+	}
+	nnodes := 0
+	oldroot.NNodes(&nnodes)
+	var pathnodes = make([]*Node, nnodes)
+	//var pathnodes []*Node
+	curnode := n
+	pathlen := 0 //this will count the number of nodes between the newroot and the oldroot
+	for ind := range pathnodes {
+		pathnodes[ind] = curnode
+		//pathnodes = append(pathnodes,curnode)
+		if curnode == oldroot {
+			break
+		}
+		pathlen++
+		curnode = curnode.Par
+	}
+	var newpar *Node
+	for i := pathlen; i >= 1; i-- {
+		newpar = pathnodes[i-1]
+		curnode = pathnodes[i]
+		curnode.removeChild(newpar)
+		newpar.addChild(curnode)
+		curnode.BMLen = newpar.BMLen
+	}
+	//curnode = nil
+	//newpar = nil
+	n.BMLen = 0.0
+	return n
+}
+
+//Reroot reroots all the nodes represented in a graph on n
+func (n *Node) Reroot(oldroot *Node) *Node {
+	if n == oldroot {
+		fmt.Println("you are trying to reroot on the current root!")
+	}
+	nnodes := 0
+	oldroot.NNodes(&nnodes)
+	var pathnodes = make([]*Node, nnodes)
+	//var pathnodes []*Node
+	curnode := n
+	pathlen := 0 //this will count the number of nodes between the newroot and the oldroot
+	for ind := range pathnodes {
+		pathnodes[ind] = curnode
+		//pathnodes = append(pathnodes,curnode)
+		if curnode == oldroot {
+			break
+		}
+		pathlen++
+		curnode = curnode.Par
+	}
+	var newpar *Node
+	for i := pathlen; i >= 1; i-- {
+		newpar = pathnodes[i-1]
+		curnode = pathnodes[i]
+		curnode.removeChild(newpar)
+		newpar.addChild(curnode)
+		curnode.Len = newpar.Len
+	}
+	//curnode = nil
+	//newpar = nil
+	n.Len = 0.0
+	return n
+}
+
+//NNodes is a helper method that will return the number of internal nodes descending from n (including n)
+func (n *Node) NNodes(count *int) {
+	*count++
+	for _, ch := range n.Chs {
+		ch.NNodes(count)
+	}
+}
+
+//PreorderArray will return a preordered array of all the nodes in a tree
+//TODO: Can remove after some refactoring but here while getting off the ground
+func (n *Node) PreorderArray() (ret []*Node) {
+	var buffer []*Node
+	buffer = append(buffer, n)
+	for _, cn := range n.Chs {
+		for _, cret := range cn.PreorderArray() {
+			buffer = append(buffer, cret)
+		}
+	}
+	ret = buffer
+	return
 }

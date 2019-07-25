@@ -439,3 +439,16 @@ func ConfInt95TF(nums []float64) (float64, float64) {
 	QH := mean + ST.Quantile(0.975)*SE
 	return QL, QH
 }
+
+//ReadLine is like the Python readline() and readlines()
+func ReadLine(path string) (ln []string) {
+	b, err := ioutil.ReadFile(path)
+	if err != nil {
+		fmt.Println(err)
+		fmt.Println("There was an error when reading in the file:", path, ". Are you sure that it exists?")
+		os.Exit(0)
+	}
+	ss := string(b)
+	ln = strings.Split(ss, "\n")
+	return
+}
