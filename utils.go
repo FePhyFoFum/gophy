@@ -22,19 +22,6 @@ func LogFactorial(val int) (x float64) {
 	return
 }
 
-//ReadLine is like the Python readline() and readlines()
-func ReadLine(path string) (ln []string) {
-	b, err := ioutil.ReadFile(path)
-	if err != nil {
-		fmt.Println(err)
-		fmt.Println("There was an error when reading in the file:", path, ". Are you sure that it exists?")
-		os.Exit(0)
-	}
-	ss := string(b)
-	ln = strings.Split(ss, "\n")
-	return
-}
-
 // CalcSliceIntDifferenceInt calculate the size of the difference (set) between two int slices
 func CalcSliceIntDifferenceInt(a, b []int) int {
 	mb := map[int]bool{}

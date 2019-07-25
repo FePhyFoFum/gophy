@@ -44,13 +44,13 @@ func ADPoissonTreeLoglike(nodels []*Node, lam float64) float64 {
 	for _, node := range nodels {
 		if node.Nam == "root" {
 			continue
-		} else if node.ANC == true && node.ISTIP == false { // will calc likelihood of ancestors on the corresponding tip
+		} else if node.Anc == true && len(node.Chs) == 0 { // will calc likelihood of ancestors on the corresponding tip
 			continue
 		}
 		var tf float64
-		if node.ANC == false {
+		if node.Anc == false {
 			tf = node.Par.Height * c
-		} else if node.ANC == true && node.ISTIP == true {
+		} else if node.Anc == true && len(node.Chs) != 0 {
 			tf = node.Par.Par.Height * c
 		}
 		tl := node.Height * c
@@ -147,7 +147,7 @@ func assignHeights(node *Node) {
 	for _, chld := range node.Chs {
 		assignHeights(chld)
 	}
-	if node.ISTIP {
+	if len(node.Chs) == 0 {
 		if node.LAD == 0.0 {
 			node.Height = node.LAD
 		} else {
