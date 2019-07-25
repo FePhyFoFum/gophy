@@ -29,6 +29,17 @@ type Node struct {
 	RtConds   [][]float64
 	RvConds   [][]float64
 	RvTpConds [][]float64
+	PRNLen    float64
+	CONTRT    []float64
+	MIS       []bool //this is a slice of bools that indicates whether the index is missing from CONTRT
+	CONPRNLen []float64
+	FAD       float64
+	LAD       float64
+	FINDS     float64
+	ISTIP     bool
+	ANC       bool
+	DIRDESC   bool
+	TimeLen   float64
 	//
 }
 
@@ -87,6 +98,31 @@ func (n Node) GetTipNames() (tips []string) {
 			}
 		}
 	}
+	return
+}
+
+// NewickChronogram returns a string newick with the branch lengths scaled to time
+func (n Node) NewickChronogram() (ret string) {
+	bl := true
+	var buffer bytes.Buffer
+	for in, cn := range n.Chs {
+		if in == 0 {
+			buffer.WriteString("(")
+		}
+		buffer.WriteString(cn.NewickChronogram())
+		if bl == true {
+			s := strconv.FormatFloat(cn.TimeLen, 'f', -1, 64)
+			buffer.WriteString(":")
+			buffer.WriteString(s)
+		}
+		if in == len(n.Chs)-1 {
+			buffer.WriteString(")")
+		} else {
+			buffer.WriteString(",")
+		}
+	}
+	buffer.WriteString(n.Nam)
+	ret = buffer.String()
 	return
 }
 

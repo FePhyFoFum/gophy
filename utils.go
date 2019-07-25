@@ -1,14 +1,39 @@
 package gophy
 
 import (
+	"fmt"
+	"io/ioutil"
 	"math"
+	"os"
 	"sort"
 	"strconv"
+	"strings"
 
 	"gonum.org/v1/gonum/stat/distuv"
 
 	"gonum.org/v1/gonum/stat"
 )
+
+func LogFactorial(val int) (x float64) {
+	x = 0.
+	for i := 1; i <= val; i++ {
+		x += math.Log(float64(i))
+	}
+	return
+}
+
+//ReadLine is like the Python readline() and readlines()
+func ReadLine(path string) (ln []string) {
+	b, err := ioutil.ReadFile(path)
+	if err != nil {
+		fmt.Println(err)
+		fmt.Println("There was an error when reading in the file:", path, ". Are you sure that it exists?")
+		os.Exit(0)
+	}
+	ss := string(b)
+	ln = strings.Split(ss, "\n")
+	return
+}
 
 // CalcSliceIntDifferenceInt calculate the size of the difference (set) between two int slices
 func CalcSliceIntDifferenceInt(a, b []int) int {
