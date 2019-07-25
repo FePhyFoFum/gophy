@@ -56,7 +56,7 @@ func ReadTreesFromFile(tfn string) (trees []*Tree) {
 // ReadNewickString given a string it will return a pointer to the root node
 func ReadNewickString(ts string) (root *Node) {
 	rt := Node{nil, nil, "root", map[string]string{}, map[string]float64{},
-		map[string]int{}, 0, 0., nil, false, 0., map[float64]bool{}, nil, nil, nil, nil}
+		map[string]int{}, 0, 0., nil, false, 0., map[float64]bool{}, nil, nil, nil, nil, nil, nil, 0.0, nil, 0., nil, false}
 	x := 0
 	nc := string(ts[x : x+1])
 	start := true
@@ -68,7 +68,7 @@ func ReadNewickString(ts string) (root *Node) {
 				start = false
 			} else {
 				nn := Node{cn, nil, "", map[string]string{}, map[string]float64{},
-					map[string]int{}, 0, 0., nil, false, 0., map[float64]bool{}, nil, nil, nil, nil}
+					map[string]int{}, 0, 0., nil, false, 0., map[float64]bool{}, nil, nil, nil, nil, nil, nil, 0.0, nil, 0., nil, false}
 				cn.addChild(&nn)
 				cn = &nn
 			}
@@ -114,7 +114,7 @@ func ReadNewickString(ts string) (root *Node) {
 			x--
 		} else {
 			nn := Node{cn, nil, "", map[string]string{}, map[string]float64{},
-				map[string]int{}, 0, 0., nil, false, 0., map[float64]bool{}, nil, nil, nil, nil}
+				map[string]int{}, 0, 0., nil, false, 0., map[float64]bool{}, nil, nil, nil, nil, nil, nil, 0.0, nil, 0., nil, false}
 			cn.addChild(&nn)
 			cn = &nn
 			var nm bytes.Buffer
