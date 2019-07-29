@@ -3,6 +3,7 @@ package gophy
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"strconv"
 )
 
@@ -109,6 +110,31 @@ func (n Node) Newick(bl bool) (ret string) {
 		buffer.WriteString(cn.Newick(bl))
 		if bl == true {
 			s := strconv.FormatFloat(cn.Len, 'f', -1, 64)
+			buffer.WriteString(":")
+			buffer.WriteString(s)
+		}
+		if in == len(n.Chs)-1 {
+			buffer.WriteString(")")
+		} else {
+			buffer.WriteString(",")
+		}
+	}
+	buffer.WriteString(n.Nam)
+	ret = buffer.String()
+	return
+}
+
+// BMPhylogram returns a string newick with brownian motion branch lengths
+func (n Node) BMPhylogram() (ret string) {
+	bl := true
+	var buffer bytes.Buffer
+	for in, cn := range n.Chs {
+		if in == 0 {
+			buffer.WriteString("(")
+		}
+		buffer.WriteString(cn.BMPhylogram())
+		if bl == true {
+			s := strconv.FormatFloat(cn.BMLen, 'f', -1, 64)
 			buffer.WriteString(":")
 			buffer.WriteString(s)
 		}
@@ -288,4 +314,48 @@ func (n *Node) PreorderArray() (ret []*Node) {
 	}
 	ret = buffer
 	return
+}
+
+func (n *Node) GetBackbone(higherNode *Node) (backbone []*Node) {
+	cur := n
+	for {
+		if cur.Par == nil && cur != higherNode {
+			fmt.Println("failed at getting backbone. higher node is probably not actually above the lower node")
+			break
+		}
+		backbone = append(backbone, cur)
+		if cur.Par == higherNode {
+			break
+		}
+	}
+	return
+}
+
+//GetSib returns the sibling of a node
+func (n *Node) GetSib() *Node {
+	if n.Nam == "root" {
+		fmt.Println("Root node has no sibling")
+		os.Exit(0)
+	}
+	par := n.Par
+	var sib *Node
+	if len(par.Chs) != 2 {
+		if len(par.Chs) == 1 {
+			fmt.Println("Singleton encountered in tree")
+			os.Exit(0)
+		} else {
+			fmt.Println("Multifurcation found in tree")
+			os.Exit(0)
+		}
+	}
+	for _, c := range par.Chs {
+		if c != n {
+			sib = c
+		}
+	}
+	if sib == nil {
+		fmt.Println("something is messed up with the tree. can't find a sister node for node", n)
+		os.Exit(0)
+	}
+	return sib
 }

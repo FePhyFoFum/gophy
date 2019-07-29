@@ -2,69 +2,52 @@ package gophy
 
 import (
 	"fmt"
+	"os"
+
 	//"io/ioutil"
 	"strconv"
 	"strings"
 )
 
-//this will be used to extract the phylip header so that we can allocate according to ntax and ntraits
-func readPhylipHeader(traitfl string) (traits []string, ntax int, ntraits int) {
-	lines := ReadLine(traitfl)
-	//var ntax,ntraits int
-	var err error
-	ss := strings.Split(lines[0], "\t")
-	ntax, err = strconv.Atoi(ss[0])
-	if err != nil {
-		fmt.Println("had trouble reading in the PHYLIP header. Check to make sure that it is correct")
-		fmt.Println(lines[0])
-	}
-	ntraits, err = strconv.Atoi(ss[1])
-	if err != nil {
-		fmt.Println("had trouble reading in the PHYLIP header. Check to make sure that it is correct.")
-		fmt.Println(lines[0])
-	}
-	traits = lines[1:]
-	return
-}
-
-// ReadContinuous will read in a PHYLIP-formatted trait file and return a map
-func ReadContinuous(traitfl string) (map[string][]float64, int, int) {
-	traitlines, ntax, ntraits := readPhylipHeader(traitfl)
-	tm := make(map[string][]float64, ntax)
-	//lnum := 0
-	//var ntax,ntraits int
+//readContinuous will read in a tab-separated file of continuous traits and return a map
+func readContinuous(traitfl string) map[string][]float64 {
+	traitlines := ReadLine(traitfl)
+	tm := make(map[string][]float64)
 	var err error
 	var curtr float64
-	for _, line := range traitlines {
+	ntraits := 0
+	for i, line := range traitlines {
 		if line == "" {
 			continue
 		}
 		ss := strings.Split(line, "\t")
+		if i == 0 {
+			ntraits = len(ss[1:])
+		}
 		curtax := ss[0]
 		var curtraits []float64
 		if len(ss[1:]) != ntraits {
-			fmt.Println("the number of traits specified in the header differs from the number present in this line:")
-			fmt.Println(line)
+			fmt.Println("not all of the taxa in this file share the same number of traits. problem caught at line ", i+1)
 		}
 		for _, v := range ss[1:] {
 			if v != "?" {
 				curtr, err = strconv.ParseFloat(v, 64)
 				if err != nil {
-					fmt.Println("couldn't read in the trait file starting at this line:")
-					fmt.Println(line)
+					fmt.Println("couldn't parse a trait to a float starting at line ", i+1)
+					fmt.Println(curtax, v)
 				}
 			} else {
-				curtr = -1000000.0
+				curtr = -1000000.0 //this just initializes a missing value in an obvious way (want to keep a float for data imputation later)
 			}
 			curtraits = append(curtraits, curtr)
 		}
 		tm[curtax] = curtraits
 	}
-	return tm, ntax, ntraits
+	return tm
 }
 
-//MakeMissingDataSlice will intialize the Mis attribute of node t by identifying traits with LARGE (ie. missing) values and updating Mis accordingly.
-func MakeMissingDataSlice(t *Node) {
+//makeMissingDataSlice will intialize the Mis attribute of node t by identifying traits with LARGE (ie. missing) values and updating Mis accordingly.
+func makeMissingDataSlice(t *Node) {
 	for _, tr := range t.ContData { //create slice marking missing data
 		if tr == -1000000.0 {
 			t.Mis = append(t.Mis, true)
@@ -74,29 +57,32 @@ func MakeMissingDataSlice(t *Node) {
 	}
 }
 
-//MapContinuous maps the traits contained with in a (golang) map to the tips of a tree and initializes slices of the same length for the internal nodes
-func MapContinuous(t *Node, traits map[string][]float64, ntraits int) {
+//MapContinuous maps the traits from a file to the tips of a tree and initializes slices of the same length for the internal nodes
+func MapContinuous(t *Tree, traitfl string) {
+	traits := readContinuous(traitfl)
 	var z float64
-	z = 0.000000000
-	if len(t.Chs) == 0 {
-		t.ContData = traits[t.Nam]
-		t.LL = append(t.LL, z)
-		MakeMissingDataSlice(t)
-	} else {
-		count := 0
-		for {
-			if count == ntraits {
-				break
+	z = 0.0
+	ntraits := 0
+	for _, n := range t.Post {
+		if len(n.Chs) == 0 {
+			if _, ok := traits[n.Nam]; !ok {
+				fmt.Println(n.Nam, " is in the tree but missing from the trait matrix\n(L.87 in map_continuous.go)")
+				os.Exit(0)
 			}
-			t.ContData = append(t.ContData, z)
-			t.Mis = append(t.Mis, false)
-			t.LL = append(t.LL, z)
-			count++
+			n.ContData = traits[n.Nam]
+			if ntraits == 0 {
+				ntraits = len(n.ContData)
+			}
+			n.LL = append(n.LL, z)
+			makeMissingDataSlice(n)
+		} else {
+			for count := 0; count < ntraits; count++ {
+				n.ContData = append(n.ContData, z)
+				n.Mis = append(n.Mis, false)
+				n.LL = append(n.LL, z)
+			}
+			n.ConPruneLen = make([]float64, len(n.ContData))
 		}
-		t.ConPruneLen = make([]float64, len(t.ContData))
-	}
-	t.ConPruneLen = make([]float64, len(t.ContData))
-	for _, chld := range t.Chs {
-		MapContinuous(chld, traits, ntraits)
+		n.ConPruneLen = make([]float64, len(n.ContData))
 	}
 }
