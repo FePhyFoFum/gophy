@@ -1,5 +1,10 @@
 package gophy
 
+import (
+	"fmt"
+	"os"
+)
+
 //InitMissingValues will find the missing sites in a data matrix and plug in values corresponding to the mean of the remaining sites
 func InitMissingValues(tree []*Node) {
 	means := CalcSiteMeans(tree)
@@ -45,92 +50,63 @@ func CalcSiteMeans(nodes []*Node) (siteSum []float64) {
 
 //CalcExpectedTraits will plug in the expected values for missing traits under BM using the pruning/PIC ancestral state estimation approach
 func CalcExpectedTraits(tree *Node) {
-	rnodes := tree.PreorderArray()
-	lnode := 0
-	var expect float64
-	var bot float64
-	var top float64
-	var ltrait float64
-	var llen float64
-	for ind, newroot := range rnodes { //visit each internal node and check any leaves for missing data. if found, calculate input expected value as the PIC at newroot
-		if len(newroot.Chs) == 0 {
-			continue
-		} else if newroot != rnodes[0] {
-			tree = newroot.Reroot(rnodes[lnode])
-			lnode = ind
+	if len(tree.Chs) == 3 {
+		for _, c := range tree.Chs {
+			BMPruneRooted(c)
 		}
-		for _, cn := range tree.Chs {
-			if len(cn.Chs) == 0 { // visit any leaves subtending from newroot
-				for traitIndex := range cn.ContData {
-					if cn.Mis[traitIndex] == true { // check if trait is missing and calculate expectation for each missing value
-						bot = 0.
-						childCount := 0
-						for _, cn2 := range tree.Chs { //calculate PIC at newroot
-							if cn2 != cn {
-								childCount++
-								BMPruneRootedSingle(cn2, traitIndex) // prune root to 3-tip tree
-								bot += 1. / cn2.PruneLen
-								if childCount == 2 {
-									top = ((1. / cn2.PruneLen) * ltrait) + ((1. / llen) * cn2.ContData[traitIndex])
-									break
-								}
-								ltrait = cn2.ContData[traitIndex]
-								llen = cn2.PruneLen
+	} else if len(tree.Chs) == 2 {
+		BMPruneRooted(tree)
+	}
+	for _, c := range tree.Chs {
+		for _, nd := range c.PreorderArray() {
+			if nd.Par == tree {
+				if len(tree.Chs) == 3 {
+					var sibs []*Node
+					for _, c := range tree.Chs {
+						if c != nd {
+							sibs = append(sibs, c)
+						}
+					}
+					for ind := range nd.ContData {
+						if nd.Mis[ind] == true || len(nd.Chs) == 2 {
+							bot := ((1.0 / sibs[0].PruneLen) + (1.0 / sibs[1].PruneLen))
+							nd.ContData[ind] = (((1 / sibs[0].PruneLen) * sibs[1].ContData[ind]) + ((1 / sibs[1].PruneLen) * sibs[0].ContData[ind])) / bot
+							nd.PruneLen = nd.BMLen
+						} else if len(nd.Chs) > 2 {
+							fmt.Println("This tree has a polytomy somewhere other than the root. Please fix.")
+							os.Exit(0)
+						}
+					}
+				} else if len(tree.Chs) == 2 {
+					if len(nd.GetSib().Chs) > 0 {
+						sibs := nd.GetSib().Chs //if the tree is rooted and you are imputing data at a taxon descending from the root, calc average from sibling's children (to get other subtree)
+						for ind := range nd.ContData {
+							if nd.Mis[ind] == true || len(nd.Chs) == 2 {
+								bot := ((1.0 / sibs[0].PruneLen) + (1.0 / sibs[1].PruneLen))
+								nd.ContData[ind] = (((1 / sibs[0].PruneLen) * sibs[1].ContData[ind]) + ((1 / sibs[1].PruneLen) * sibs[0].ContData[ind])) / bot
+								nd.PruneLen = nd.BMLen
 							}
 						}
-						expect = top / bot
-						cn.ContData[traitIndex] = expect
+					} else { //if the subtree on the other side of the root only has a single tip
+						sib := nd.GetSib()
+						nd.PruneLen += sib.PruneLen
+						nd.ContData = sib.ContData
+					}
+				}
+			} else {
+				sib := nd.GetSib()
+				for ind := range nd.ContData {
+					if nd.Mis[ind] == true || len(nd.Chs) == 2 {
+						bot := ((1.0 / sib.PruneLen) + (1.0 / nd.Par.PruneLen))
+						nd.ContData[ind] = (((1 / sib.PruneLen) * nd.Par.ContData[ind]) + ((1 / nd.Par.PruneLen) * sib.ContData[ind])) / bot
+						nd.PruneLen = nd.BMLen + 1.0/bot
+					} else if len(nd.Chs) > 2 {
+						fmt.Println("This tree has a polytomy somewhere other than the root. Please fix.")
+						os.Exit(0)
 					}
 				}
 			}
 		}
+		BMPruneRooted(c)
 	}
-	tree = rnodes[0].Reroot(tree)
-	//fmt.Println(tree.Newick(true))
-}
-
-//AncCalcExpectedTraits will plug in the expected values for missing traits under BM using the pruning/PIC ancestral state estimation approach
-func AncCalcExpectedTraits(tree *Node) {
-	rnodes := tree.PreorderArray()
-	lnode := 0
-	var expect float64
-	var bot float64
-	var top float64
-	var ltrait float64
-	var llen float64
-	for ind, newroot := range rnodes { //visit each internal node and check any leaves for missing data. if found, calculate input expected value as the PIC at newroot
-		if len(newroot.Chs) == 0 {
-			continue
-		} else if newroot != rnodes[0] {
-			tree = newroot.RerootBM(rnodes[lnode])
-			lnode = ind
-		}
-		for _, cn := range tree.Chs {
-			if len(cn.Chs) == 0 { // visit any leaves subtending from newroot
-				for traitIndex := range cn.ContData {
-					if cn.Mis[traitIndex] == true { // check if trait is missing and calculate expectation for each missing value
-						bot = 0.
-						childCount := 0
-						for _, cn2 := range tree.Chs { //calculate PIC at newroot
-							if cn2 != cn {
-								childCount++
-								AncBMPruneRootedSingle(cn2, traitIndex) // prune root to 3-tip tree
-								bot += 1. / cn2.PruneLen
-								if childCount == 2 {
-									top = ((1. / cn2.PruneLen) * ltrait) + ((1. / llen) * cn2.ContData[traitIndex])
-									break
-								}
-								ltrait = cn2.ContData[traitIndex]
-								llen = cn2.PruneLen
-							}
-						}
-						expect = top / bot
-						cn.ContData[traitIndex] = expect
-					}
-				}
-			}
-		}
-	}
-	tree = rnodes[0].RerootBM(tree)
-	//fmt.Println(tree.Newick(true))
 }

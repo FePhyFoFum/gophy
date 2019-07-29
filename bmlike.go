@@ -19,30 +19,6 @@ func BMPruneRooted(n *Node) {
 	for _, chld := range n.Chs {
 		BMPruneRooted(chld)
 	}
-	n.PruneLen = n.Len
-	nchld := len(n.Chs)
-	if nchld != 0 { //&& n.Marked == false {
-		var tempChar float64
-		if nchld != 2 {
-			fmt.Println("This BM pruning algorithm should only be perfomed on fully bifurcating trees/subtrees! Check for multifurcations and singletons.")
-		}
-		c0 := n.Chs[0]
-		c1 := n.Chs[1]
-		bot := ((1.0 / c0.PruneLen) + (1.0 / c1.PruneLen))
-		n.PruneLen += 1.0 / bot
-		for i := range n.Chs[0].ContData {
-			tempChar = (((1 / c0.PruneLen) * c1.ContData[i]) + ((1 / c1.PruneLen) * c0.ContData[i])) / bot
-			n.ContData[i] = tempChar
-		}
-	}
-}
-
-//AncBMPruneRooted will prune BM branch lens and PICs down to a rooted node
-//root node should be a real (ie. bifurcating) root
-func AncBMPruneRooted(n *Node) {
-	for _, chld := range n.Chs {
-		AncBMPruneRooted(chld)
-	}
 	n.PruneLen = n.BMLen
 	nchld := len(n.Chs)
 	if nchld != 0 { //&& n.Marked == false {
@@ -61,15 +37,33 @@ func AncBMPruneRooted(n *Node) {
 	}
 }
 
-//AncBMPruneRootedSingle will prune BM branch lens and calculate PIC of a single trait down to a rooted node
-//root node should be a real (ie. bifurcating) root
-func AncBMPruneRootedSingle(n *Node, i int) {
-	for _, chld := range n.Chs {
-		AncBMPruneRootedSingle(chld, i)
+/*/BMPruneVirtualRoot will prune BM branch lens and PICs to a node treated as the 'virtual' root
+func BMPruneVirtualRoot(n *Node, t *Tree) {
+	if len(t.Rt.Chs) == 3 { // the tree is unrooted
+		virRootSubtree := GetSubtreeRoot(n, t.Rt)
+		var otherSubtrees []*Node
+		for _, c := range t.Rt.Chs {
+			if c != virRootSubtree {
+				BMPruneRooted(c)
+				otherSubtrees = append(otherSubtrees, c)
+			}
+		}
+		c0 := otherSubtrees[0]
+		c1 := otherSubtrees[1]
+		bot := ((1.0 / c0.PruneLen) + (1.0 / c1.PruneLen))
+		virRootSubtree.PruneLen += 1.0 / bot
+		var tempChar float64
+		for i := range c0.ContData {
+			tempChar = (((1 / c0.PruneLen) * c1.ContData[i]) + ((1 / c1.PruneLen) * c0.ContData[i])) / bot
+			n.ContData[i] = tempChar
+		}
+		//prunePath := n.GetBackbone(virRootSubtree)
+
 	}
 	n.PruneLen = n.BMLen
 	nchld := len(n.Chs)
 	if nchld != 0 { //&& n.Marked == false {
+		var tempChar float64
 		if nchld != 2 {
 			fmt.Println("This BM pruning algorithm should only be perfomed on fully bifurcating trees/subtrees! Check for multifurcations and singletons.")
 		}
@@ -77,10 +71,13 @@ func AncBMPruneRootedSingle(n *Node, i int) {
 		c1 := n.Chs[1]
 		bot := ((1.0 / c0.PruneLen) + (1.0 / c1.PruneLen))
 		n.PruneLen += 1.0 / bot
-		tempCharacter := (((1 / c0.PruneLen) * c1.ContData[i]) + ((1 / c1.PruneLen) * c0.ContData[i])) / bot
-		n.ContData[i] = tempCharacter
+		for i := range n.Chs[0].ContData {
+			tempChar = (((1 / c0.PruneLen) * c1.ContData[i]) + ((1 / c1.PruneLen) * c0.ContData[i])) / bot
+			n.ContData[i] = tempChar
+		}
 	}
 }
+*/
 
 //BMPruneRootedSingle will prune BM branch lens and calculate PIC of a single trait down to a rooted node
 //root node should be a real (ie. bifurcating) root
@@ -103,12 +100,6 @@ func BMPruneRootedSingle(n *Node, i int) {
 	}
 }
 
-func debugParChld(tree *Node) {
-	for _, ch := range tree.Chs {
-		fmt.Println(ch.Nam, "\t")
-	}
-}
-
 //AssertUnrootedTree is a quick check to make sure the tree passed is unrooted
 func AssertUnrootedTree(tree *Node) {
 	if len(tree.Chs) != 3 {
@@ -128,30 +119,6 @@ func IterateBMLengths(tree *Tree, niter int) {
 			break
 		}
 	}
-}
-
-//AncMissingTraitsEM will iteratively calculate the ML branch lengths for a particular topology
-func AncMissingTraitsEM(tree *Tree, niter int) (nparam float64) {
-	AssertUnrootedTree(tree.Rt)
-	nodes := tree.Pre
-	InitMissingValues(nodes)
-	itercnt := 0
-	for {
-		AncCalcExpectedTraits(tree.Rt) //calculate Expected trait values
-		ancCalcBMLengths(tree)         //maximize likelihood of branch lengths
-		itercnt++
-		if itercnt == niter {
-			break
-		}
-	}
-	nparam = 0.0
-	for _, n := range nodes {
-		if n.Anc == true && len(n.Chs) == 0 {
-			continue
-		}
-		nparam += 1.0
-	}
-	return
 }
 
 //MissingTraitsEM will iteratively calculate the ML branch lengths for a particular topology
@@ -182,7 +149,7 @@ func ancCalcBMLengths(tree *Tree) {
 			lnode = ind
 		}
 		for _, cn := range tree.Rt.Chs {
-			AncBMPruneRooted(cn)
+			BMPruneRooted(cn)
 		}
 		AncTritomyML(tree.Rt)
 	}
@@ -202,7 +169,7 @@ func calcBMLengths(tree *Tree) {
 			lnode = ind
 		}
 		for _, cn := range tree.Rt.Chs {
-			AncBMPruneRooted(cn)
+			BMPruneRooted(cn)
 		}
 		TritomyML(tree.Rt)
 	}
@@ -303,38 +270,6 @@ func SitewiseLogLike(tree *Node) (sitelikes []float64) {
 	return
 }
 
-/*/WeightedUnrootedLogLike will calculate the log-likelihood of an unrooted tree, while assuming that no sites have missing data.
-func WeightedUnrootedLogLike(tree *Node, startFresh bool, weights []float64) (chll float64) {
-	chll = 0.0
-	for _, ch := range tree.Chs {
-		n := ch.PostorderArray()
-		for i := range ch.ContData {
-			curlike := calcRootedSiteLL(n, startFresh, i)
-			chll += curlike
-		}
-	}
-	sitelikes := 0.0
-	var tmpll float64
-	var contrast, curVar float64
-	for i := range tree.Chs[0].ContData {
-		tmpll = 0.
-		if tree.Chs[0].Mis[i] == false && tree.Chs[1].Mis[i] == false && tree.Chs[2].Mis[i] == false { //do the standard calculation when no subtrees have missing traits
-			contrast = tree.Chs[0].ContData[i] - tree.Chs[1].ContData[i]
-			curVar = tree.Chs[0].PruneLen + tree.Chs[1].PruneLen
-			tmpll = ((-0.5) * ((math.Log(2. * math.Pi)) + (math.Log(curVar)) + (math.Pow(contrast, 2.) / (curVar))))
-			tmpPruneLen := ((tree.Chs[0].PruneLen * tree.Chs[1].PruneLen) / (tree.Chs[0].PruneLen + tree.Chs[1].PruneLen))
-			tmpChar := ((tree.Chs[0].PruneLen * tree.Chs[1].ContData[i]) + (tree.Chs[1].PruneLen * tree.Chs[0].ContData[i])) / curVar
-			contrast = tmpChar - tree.Chs[2].ContData[i]
-			curVar = tree.Chs[2].PruneLen + tmpPruneLen
-			tmpll += ((-0.5) * ((math.Log(2. * math.Pi)) + (math.Log(curVar)) + (math.Pow(contrast, 2.) / (curVar))))
-		}
-		sitelikes += tmpll * weights[i]
-	}
-	chll += sitelikes
-	return
-}
-*/
-
 //MarkAll will mark all of the nodes in a tree ARRAY
 func MarkAll(nodes []*Node) {
 	for _, n := range nodes {
@@ -419,45 +354,6 @@ func calcRootedSiteLLParallel(n *Node, nlikes *float64, startFresh bool, site in
 		}
 	}
 }
-
-/*/calcRootedSiteLL will return the BM likelihood of a tree assuming that no data are missing from the tips.
-func calcRootedSiteLLParallel(n *Node, nlikes *float64, startFresh bool, site int) {
-	for _, chld := range n.Chs {
-		calcRootedSiteLLParallel(chld, nlikes, startFresh, site)
-	}
-	nchld := len(n.Chs)
-	if n.Marked == true {
-		if startFresh == false {
-			if nchld != 0 {
-				*nlikes += n.LL[site]
-			}
-		}
-	}
-	if n.Marked == false || startFresh == true {
-		n.ConPruneLen[site] = n.Len
-		log2pi := 1.8378770664093453
-		if nchld != 0 {
-			if nchld != 2 {
-				fmt.Println("This BM pruning algorithm should only be perfomed on fully bifurcating trees/subtrees! Check for multifurcations and singletons.")
-				os.Exit(0)
-			}
-			c0 := n.Chs[0]
-			c1 := n.Chs[1]
-			curlike := float64(0.0)
-			var tempChar float64
-			curVar := c0.ConPruneLen[site] + c1.ConPruneLen[site]
-			contrast := c0.ContData[site] - c1.ContData[site]
-			curlike += ((-0.5) * ((log2pi) + (math.Log(curVar)) + (math.Pow(contrast, 2) / (curVar))))
-			tempChar = ((c0.ConPruneLen[site] * c1.ContData[site]) + (c1.ConPruneLen[site] * c0.ContData[site])) / (curVar)
-			n.ContData[site] = tempChar
-			*nlikes += curlike
-			tempBranchLength := n.ConPruneLen[site] + ((c0.ConPruneLen[site] * c1.ConPruneLen[site]) / (c0.ConPruneLen[site] + c1.ConPruneLen[site])) // need to calculate the prune length by adding the averaged lengths of the daughter nodes to the length
-			n.ConPruneLen[site] = tempBranchLength                                                                                            // need to calculate the "prune length" by adding the length to the uncertainty
-			n.LL[site] = curlike
-			//n.Marked = true
-		}
-	}
-}*/
 
 func siteTreeLikeParallel(tree, ch1, ch2, ch3 *Node, startFresh bool, weights []float64, jobs <-chan int, results chan<- float64) {
 	for site := range jobs {
@@ -606,150 +502,4 @@ func calcRootedSiteLL(n *Node, nlikes *float64, startFresh bool, site int) {
 			//n.Marked = true
 		}
 	}
-}
-
-//TritomyML will calculate the MLEs for the branch lengths of a tifurcating 3-taxon tree
-func TritomyML(tree *Node) {
-	ntraits := len(tree.Chs[0].ContData)
-	fntraits := float64(ntraits)
-	var x1, x2, x3 float64
-	sumV1 := 0.0
-	sumV2 := 0.0
-	sumV3 := 0.0
-	for i := range tree.Chs[0].ContData {
-		x1 = tree.Chs[0].ContData[i]
-		x2 = tree.Chs[1].ContData[i]
-		x3 = tree.Chs[2].ContData[i]
-		sumV1 += ((x1 - x2) * (x1 - x3))
-		sumV2 += ((x2 - x1) * (x2 - x3))
-		sumV3 += ((x3 - x1) * (x3 - x2))
-	}
-	if sumV1 < 0.0 {
-		sumV1 = 0.000001
-		sumV2 = 0.0
-		sumV3 = 0.0
-		for i := range tree.Chs[0].ContData {
-			x1 = tree.Chs[0].ContData[i]
-			x2 = tree.Chs[1].ContData[i]
-			x3 = tree.Chs[2].ContData[i]
-			sumV2 += (x1 - x2) * (x1 - x2)
-			sumV3 += (x1 - x3) * (x1 - x3)
-		}
-	} else if sumV2 < 0.0 {
-		sumV1 = 0.0
-		sumV2 = 0.00001
-		sumV3 = 0.0
-		for i := range tree.Chs[0].ContData {
-			x1 = tree.Chs[0].ContData[i]
-			x2 = tree.Chs[1].ContData[i]
-			x3 = tree.Chs[2].ContData[i]
-			sumV1 += (x2 - x1) * (x2 - x1)
-			sumV3 += (x2 - x3) * (x2 - x3)
-		}
-	} else if sumV3 < 0.0 {
-		sumV1 = 0.0
-		sumV2 = 0.0
-		sumV3 = 0.0001
-		for i := range tree.Chs[0].ContData {
-			x1 = tree.Chs[0].ContData[i]
-			x2 = tree.Chs[1].ContData[i]
-			x3 = tree.Chs[2].ContData[i]
-			sumV1 += (x3 - x1) * (x3 - x1)
-			sumV2 += (x3 - x2) * (x3 - x2)
-		}
-	}
-	sumV1 = sumV1 / fntraits
-	sumV2 = sumV2 / fntraits
-	sumV3 = sumV3 / fntraits
-	sumV1 = sumV1 - (tree.Chs[0].PruneLen - tree.Chs[0].Len)
-	sumV2 = sumV2 - (tree.Chs[1].PruneLen - tree.Chs[1].Len)
-	sumV3 = sumV3 - (tree.Chs[2].PruneLen - tree.Chs[2].Len)
-	if sumV1 < 0. {
-		sumV1 = 0.0001
-	}
-	if sumV2 < 0. {
-		sumV2 = 0.0001
-	}
-	if sumV3 < 0. {
-		sumV3 = 0.0001
-	}
-	tree.Chs[0].Len = sumV1
-	tree.Chs[1].Len = sumV2
-	tree.Chs[2].Len = sumV3
-}
-
-//AncTritomyML will calculate the MLEs for the branch lengths of a tifurcating 3-taxon tree assuming that direct ancestors may be in the tree
-func AncTritomyML(tree *Node) {
-	ntraits := len(tree.Chs[0].ContData)
-	fntraits := float64(ntraits)
-	var x1, x2, x3 float64
-	sumV1 := 0.0
-	sumV2 := 0.0
-	sumV3 := 0.0
-	for i := range tree.Chs[0].ContData {
-		x1 = tree.Chs[0].ContData[i]
-		x2 = tree.Chs[1].ContData[i]
-		x3 = tree.Chs[2].ContData[i]
-		sumV1 += ((x1 - x2) * (x1 - x3))
-		sumV2 += ((x2 - x1) * (x2 - x3))
-		sumV3 += ((x3 - x1) * (x3 - x2))
-	}
-	if sumV1 < 0.0 || tree.Chs[0].Anc == true && len(tree.Chs[0].Chs) == 0 {
-		sumV1 = 0.0000000000001
-		sumV2 = 0.0
-		sumV3 = 0.0
-		for i := range tree.Chs[0].ContData {
-			x1 = tree.Chs[0].ContData[i]
-			x2 = tree.Chs[1].ContData[i]
-			x3 = tree.Chs[2].ContData[i]
-			sumV2 += (x1 - x2) * (x1 - x2)
-			sumV3 += (x1 - x3) * (x1 - x3)
-		}
-	} else if sumV2 < 0.0 || tree.Chs[1].Anc == true && len(tree.Chs[1].Chs) == 0 {
-		sumV1 = 0.0
-		sumV2 = 0.0000000000001 //0.0
-		sumV3 = 0.0
-		for i := range tree.Chs[0].ContData {
-			x1 = tree.Chs[0].ContData[i]
-			x2 = tree.Chs[1].ContData[i]
-			x3 = tree.Chs[2].ContData[i]
-			sumV1 += (x2 - x1) * (x2 - x1)
-			sumV3 += (x2 - x3) * (x2 - x3)
-		}
-	} else if sumV3 < 0.0 || tree.Chs[2].Anc == true && len(tree.Chs[2].Chs) == 0 {
-		sumV1 = 0.0
-		sumV2 = 0.0
-		sumV3 = 0.0000000000001 //0.0
-		for i := range tree.Chs[0].ContData {
-			x1 = tree.Chs[0].ContData[i]
-			x2 = tree.Chs[1].ContData[i]
-			x3 = tree.Chs[2].ContData[i]
-			sumV1 += (x3 - x1) * (x3 - x1)
-			sumV2 += (x3 - x2) * (x3 - x2)
-		}
-	}
-	if sumV1 != 0.0 {
-		sumV1 = sumV1 / fntraits
-		sumV1 = sumV1 - (tree.Chs[0].PruneLen - tree.Chs[0].BMLen)
-	}
-	if sumV2 != 0.0 {
-		sumV2 = sumV2 / fntraits
-		sumV2 = sumV2 - (tree.Chs[1].PruneLen - tree.Chs[1].BMLen)
-	}
-	if sumV3 != 0.0 {
-		sumV3 = sumV3 / fntraits
-		sumV3 = sumV3 - (tree.Chs[2].PruneLen - tree.Chs[2].BMLen)
-	}
-	if sumV1 < 0. {
-		sumV1 = 0.0
-	}
-	if sumV2 < 0. {
-		sumV2 = 0.0
-	}
-	if sumV3 < 0. {
-		sumV3 = 0.0
-	}
-	tree.Chs[0].BMLen = sumV1
-	tree.Chs[1].BMLen = sumV2
-	tree.Chs[2].BMLen = sumV3
 }

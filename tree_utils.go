@@ -223,3 +223,19 @@ func NNIMoves(tr *Tree) [][]*Node {
 	fmt.Println(moves)
 	return moves
 }
+
+//GetSubtreeRoot will return the root of the subtree to which a node belongs that descends from a higher node (up to the root)
+func GetSubtreeRoot(n *Node, higherNode *Node) (subtreeRoot *Node) {
+	cur := n
+	for {
+		if cur.Par == nil && cur != higherNode {
+			fmt.Println("the higher node indicated is not in the path from the current node to the root")
+			break
+		}
+		if cur.Par == higherNode {
+			break
+		}
+		cur = cur.Par
+	}
+	return
+}
