@@ -40,9 +40,11 @@ type Node struct {
 	PruneLen    float64
 	ConPruneLen []float64 // prevent race condition when calculating BM likelihood
 	//BMPruneLen  []float64
-	BMLen float64
-	LL    []float64
-	Anc   bool
+	BMLen    float64
+	LL       []float64
+	Anc      bool
+	ClustLen map[int]float64
+	//ClustPruneLen map[int]float64 // [][]float64
 	//
 }
 
