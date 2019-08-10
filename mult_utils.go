@@ -6,10 +6,9 @@ import (
 )
 
 //GetSitePatternsMS return site pattens when the datatype for the alignment is a map[string]string
-func GetSitePatternsMS(seqs []MSeq, x *MultStateModel) (patterns map[string][]int,
+func GetSitePatternsMS(seqs []MSeq, charMap map[string][]int, numstates int) (patterns map[string][]int,
 	patternsint map[int]float64, gapsites []int, constant []int, uninformative []int, fullpattern []int) {
 	nsites := len(seqs[0].SQs)
-	numstates := x.NumStates
 	patterns = make(map[string][]int)
 	fullpattern = make([]int, nsites)
 	np := 0
@@ -30,7 +29,7 @@ func GetSitePatternsMS(seqs []MSeq, x *MultStateModel) (patterns map[string][]in
 			case "N":
 				gapcount++
 			default:
-				stats[x.CharMap[c][0]]++ //
+				stats[charMap[c][0]]++ //
 			}
 		}
 		efc := len(seqs) - gapcount
@@ -74,7 +73,8 @@ func GetSitePatternsMS(seqs []MSeq, x *MultStateModel) (patterns map[string][]in
 }
 
 // PreparePatternVecsMS for tree calculations
-func PreparePatternVecsMS(t *Tree, patternsint map[int]float64, seqs map[string][]string, x *MultStateModel) (patternval []float64, patternvec []int) {
+func PreparePatternVecsMS(t *Tree, patternsint map[int]float64, seqs map[string][]string,
+	charMap map[string][]int, numstates int) (patternval []float64, patternvec []int) {
 	patternvec = make([]int, len(patternsint))     //which site
 	patternval = make([]float64, len(patternsint)) //log of number of sites
 	count := 0
@@ -83,14 +83,13 @@ func PreparePatternVecsMS(t *Tree, patternsint map[int]float64, seqs map[string]
 		patternval[count] = patternsint[i]
 		count++
 	}
-	charMap := x.CharMap
 	for _, n := range t.Post {
 		n.Data = make([][]float64, len(patternsint))
 		n.TpConds = make([][]float64, len(patternval))
 		for i := 0; i < len(patternsint); i++ {
-			n.Data[i] = make([]float64, x.NumStates)
-			n.TpConds[i] = make([]float64, x.NumStates)
-			for j := 0; j < x.NumStates; j++ {
+			n.Data[i] = make([]float64, numstates)
+			n.TpConds[i] = make([]float64, numstates)
+			for j := 0; j < numstates; j++ {
 				n.Data[i][j] = 0.0
 				n.TpConds[i][j] = 0.0
 			}

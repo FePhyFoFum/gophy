@@ -71,10 +71,10 @@ func main() {
 	x.EBF = x.BF
 	fmt.Fprint(lg, x.BF)
 	// get the site patternas
-	patterns, patternsint, gapsites, constant, uninformative, fullpattern := gophy.GetSitePatternsMS(mseqs, x)
+	patterns, patternsint, gapsites, constant, uninformative, fullpattern := gophy.GetSitePatternsMS(mseqs, x.GetCharMap(), x.GetNumStates())
 
 	for _, t := range trees {
-		patternval, patternvec := gophy.PreparePatternVecsMS(t, patternsint, seqs, x)
+		patternval, patternvec := gophy.PreparePatternVecsMS(t, patternsint, seqs, x.GetCharMap(), x.GetNumStates())
 		//this is necessary to get order of the patters in the patternvec since they have no order
 		// this will be used with fullpattern to reconstruct the sequences
 		sv := gophy.NewSortedIdxSlice(patternvec)

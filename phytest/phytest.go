@@ -105,11 +105,11 @@ func main() {
 	cpuprofile := flag.String("cpuprofile", "", "write cpu profile to file")
 	flag.Parse()
 	if len(*tfn) == 0 {
-		fmt.Fprintln(os.Stderr, "need a filename")
+		flag.PrintDefaults()
 		os.Exit(1)
 	}
 	if len(*afn) == 0 {
-		fmt.Fprintln(os.Stderr, "need a filename")
+		flag.PrintDefaults()
 		os.Exit(1)
 	}
 	if *cpuprofile != "" {

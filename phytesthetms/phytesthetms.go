@@ -17,12 +17,14 @@ import (
 )
 
 func printModel(modelparams []float64, basefreqs []float64) {
-	fmt.Fprintln(os.Stderr, "basefreqs -- A:", basefreqs[0], " C:", basefreqs[1], " G:", basefreqs[2], " T:", basefreqs[3])
-	fmt.Fprintln(os.Stderr, "modelparams --")
-	fmt.Fprintln(os.Stderr, " - ", modelparams[0], modelparams[1], modelparams[2])
-	fmt.Fprintln(os.Stderr, modelparams[0], " - ", modelparams[3], modelparams[4])
-	fmt.Fprintln(os.Stderr, modelparams[1], modelparams[3], " - ", 1.0)
-	fmt.Fprintln(os.Stderr, modelparams[2], modelparams[4], 1.0, "-")
+	fmt.Fprintln(os.Stderr, "basefreqs --", basefreqs)
+	fmt.Fprintln(os.Stderr, "modelparams --", modelparams)
+	/*
+		fmt.Fprintln(os.Stderr, " - ", modelparams[0], modelparams[1], modelparams[2])
+		fmt.Fprintln(os.Stderr, modelparams[0], " - ", modelparams[3], modelparams[4])
+		fmt.Fprintln(os.Stderr, modelparams[1], modelparams[3], " - ", 1.0)
+		fmt.Fprintln(os.Stderr, modelparams[2], modelparams[4], 1.0, "-")
+	*/
 }
 
 func getModels(t *gophy.Tree, single bool) (nodemodels map[*gophy.Node]int, maxint int) {
@@ -134,47 +136,49 @@ func main() {
 	fmt.Println("number of models:", maxint+1)
 	//read a seq file
 	nsites := 0
-	seqs := map[string]string{}
+	seqs := map[string][]string{}
 	seqnames := make([]string, 0)
-	for _, i := range gophy.ReadSeqsFromFile(*afn) {
-		seqs[i.NM] = i.SQ
+	mseqs, numstates := gophy.ReadMSeqsFromFile(*afn)
+	for _, i := range mseqs {
+		seqs[i.NM] = i.SQs
 		seqnames = append(seqnames, i.NM)
-		nsites = len(i.SQ)
+		nsites = len(i.SQs)
 	}
-	models := make([]*gophy.DNAModel, maxint+1)
-	//models := make([]gophy.StateModel, maxint+1)
+	models := make([]gophy.StateModel, maxint+1)
 	for i := 0; i <= maxint; i++ {
 		// start model
-		x := gophy.NewDNAModel()
+		x := gophy.NewMultStateModel()
+		x.NumStates = numstates
 		x.SetMap()
 		//empirical freqs for just the relevant seqs
-		tseqs := map[string]string{}
+		tseqs := make([]gophy.MSeq, 0)
 		for tn := range nodemodels {
 			if len(tn.Chs) == 0 && nodemodels[tn] == i {
-				tseqs[tn.Nam] = seqs[tn.Nam]
+				for tnn := range mseqs {
+					if mseqs[tnn].NM == tn.Nam {
+						tseqs = append(tseqs, mseqs[tnn])
+					}
+				}
 			}
 		}
-		bf := gophy.GetEmpiricalBaseFreqs(tseqs)
+		bf := gophy.GetEmpiricalBaseFreqsMS(tseqs, x.NumStates)
 		x.SetBaseFreqs(bf)
+		x.EBF = x.BF
 		// model things
-		modelparams := []float64{1.0, 1.0, 1.0, 1.0, 1.0}
+		modelparams := make([]float64, ((((x.NumStates * x.NumStates) - x.NumStates) / 2.) - 1))
+		for m := range modelparams {
+			modelparams[m] = 1.0
+		}
 		printModel(modelparams, bf)
-		x.SetRateMatrix(modelparams)
+		x.SetScaledRateMatrix(modelparams, true)
+		fmt.Println(x.R)
 		x.SetupQGTR()
 		models[i] = x
 	}
-	//FAKE FOR TEST
-	/*for i := range models {
-		x := []float64{0.25075, 0.270125, 0.2655, 0.213625}
-		models[i].SetBaseFreqs(x)
-		models[i].SetupQGTR()
-		fmt.Println("models", models[i].GetBF())
-	}*/
-	//end
 
 	// get the site patternas
-	patterns, patternsint, gapsites, constant, uninformative, _ := gophy.GetSitePatterns(seqs, nsites, seqnames)
-	patternval, _ := gophy.PreparePatternVecs(t, patternsint, seqs)
+	patterns, patternsint, gapsites, constant, uninformative, _ := gophy.GetSitePatternsMS(mseqs, models[0].GetCharMap(), models[0].GetNumStates())
+	patternval, _ := gophy.PreparePatternVecsMS(t, patternsint, seqs, models[0].GetCharMap(), models[0].GetNumStates())
 	//list of sites
 	fmt.Fprintln(os.Stderr, "nsites:", nsites)
 	fmt.Fprintln(os.Stderr, "patterns:", len(patterns), len(patternsint))
@@ -182,15 +186,14 @@ func main() {
 	fmt.Fprintln(os.Stderr, "constant:", len(constant))
 	fmt.Fprintln(os.Stderr, "uninformative:", len(uninformative))
 
-	start := time.Now()
+	//start := time.Now()
 	// calc likelihood
 	w := 10
 	if nsites < w {
 		w = nsites
 	}
 
-	//l := gophy.PCalcLikePatternsMSMUL(t, models, nodemodels, patternval, *wks)
-	l := gophy.PCalcLikePatternsMul(t, models, nodemodels, patternval, *wks)
+	l := gophy.PCalcLikePatternsMSMUL(t, models, nodemodels, patternval, *wks)
 	fmt.Println("starting lnL:", l)
 
 	if *opt {
@@ -198,56 +201,38 @@ func main() {
 		fmt.Println("optimize bl")
 		//optimize branch lengths
 		fmt.Println("getting starting branch lengths (parsimony)")
-		s := gophy.PCalcSankParsPatterns(t, patternval, *wks)
+		s := gophy.PCalcSankParsPatternsMultState(t, numstates, patternval, *wks)
 		fmt.Println("sank:", s, nsites)
-		gophy.EstParsBL(t, patternval, nsites)
+		gophy.EstParsBLMultState(t, numstates, patternval, nsites)
 
 		fmt.Println("start:\n" + t.Rt.Newick(true) + ";")
-		gophy.OptimizeBLNRMult(t, models, nodemodels, patternval, 10)
-		//gophy.OptimizeBLNRMSMul(t, models, nodemodels, patternval, 10)
-		//l = gophy.PCalcLikePatternsMSMUL(t, models, nodemodels, patternval, *wks)
-		l = gophy.PCalcLikePatternsMul(t, models, nodemodels, patternval, *wks)
+		gophy.OptimizeBLNRMSMul(t, models, nodemodels, patternval, 10)
+		l = gophy.PCalcLikePatternsMSMUL(t, models, nodemodels, patternval, *wks)
 		fmt.Println("ln:", l)
 		//optimize model
 		if compfree && ratefree == false {
 			fmt.Println("optimize model: comp free , rate shared")
-			gophy.OptimizeGTRCompSharedRM(t, models, nodemodels, patternval, 10)
+			//gophy.OptimizeGTRCompSharedRM(t, models, nodemodels, patternval, 10)
 		}
 		if compfree && ratefree {
-			gophy.OptimizeGTRBPMul(t, models, nodemodels, patternval, 10)
+			//gophy.OptimizeGTRBPMul(t, models, nodemodels, patternval, 10)
 		}
 		if compfree == false && ratefree {
 			//comp emp
-			gophy.OptimizeGTRMul(t, models, nodemodels, patternval, 10)
+			gophy.OptimizeGTRMSMul(t, models, nodemodels, patternval, 10)
 		}
 		if single {
 			fmt.Println("optimize model: single")
 			//comp emp
-			gophy.OptimizeGTRMul(t, models, nodemodels, patternval, 10)
+			gophy.OptimizeGTRMSMul(t, models, nodemodels, patternval, 10)
 		}
 		//optimize branch lengths
 		fmt.Println("optimize bl2")
-		gophy.OptimizeBLNRMult(t, models, nodemodels, patternval, 10)
+		gophy.OptimizeBLNRMSMul(t, models, nodemodels, patternval, 10)
 
-		end := time.Now()
-		fmt.Fprintln(os.Stderr, end.Sub(start))
 		//print the matrix
-		for _, x := range models {
-			for i := 0; i < 4; i++ {
-				for j := 0; j < 4; j++ {
-					if j < i {
-						fmt.Print("- ")
-					} else {
-						fmt.Print(x.R.At(i, j), " ")
-					}
-				}
-				fmt.Print("\n")
-			}
-			//print the basefreqs
-			fmt.Println(x.BF)
-		}
 		fmt.Println(t.Rt.Newick(true))
-		l = gophy.PCalcLikePatternsMul(t, models, nodemodels, patternval, *wks)
+		l = gophy.PCalcLikePatternsMSMUL(t, models, nodemodels, patternval, *wks)
 		fmt.Println("lnL:", l)
 	}
 }

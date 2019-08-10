@@ -183,3 +183,182 @@ func OptimizeBLNRMSMul(t *Tree, models []StateModel, nodemodels map[*Node]int, p
 		AdjustBLNRMSMul(c, models, nodemodels, patternvals, t, wks, 10e-12)
 	}
 }
+
+// OptimizeGTRMSMul optimize GTR
+func OptimizeGTRMSMul(t *Tree, models []StateModel, nodemodels map[*Node]int, patternvals []float64, wks int) {
+	count := 0
+	//start := time.Now()
+	fcn := func(mds []float64) float64 {
+		for _, i := range mds {
+			if i < 0 {
+				return 1000000000000
+			}
+		}
+		for i, j := range models {
+			cn := i * 5
+			//fmt.Println(mds[cn:cn+5])
+			j.SetRateMatrix(mds[cn : cn+5])
+			j.SetupQGTR()
+		}
+		lnl := PCalcLikePatternsMSMUL(t, models, nodemodels, patternvals, wks)
+		if count%100 == 0 {
+			//curt := time.Now()
+			//fmt.Println(count, lnl, curt.Sub(start))
+			//start = time.Now()
+		}
+		count++
+		return -lnl
+	}
+	settings := optimize.Settings{}
+	p := optimize.Problem{Func: fcn, Grad: nil, Hess: nil}
+	p0 := make([]float64, 0)
+	for range models {
+		for j := 0; j < 5; j++ {
+			p0 = append(p0, 1.0)
+		}
+	}
+	res, err := optimize.Minimize(p, p0, &settings, nil)
+	if err != nil {
+		//fmt.Println(err)
+	}
+	fmt.Println("   ", res.F)
+	for i, j := range models {
+		cn := i * 5
+		fmt.Println(res.X[cn : cn+5])
+		j.SetRateMatrix(res.X[cn : cn+5])
+		j.SetupQGTR()
+	}
+}
+
+// OptimizeGTRBPMul optimize GTR and base composition for the different parts
+func OptimizeGTRBPMSMul(t *Tree, models []StateModel, nodemodels map[*Node]int, patternvals []float64, wks int) {
+	count := 0
+	//start := time.Now()
+	fcn := func(mds []float64) float64 {
+		for _, i := range mds {
+			if i < 0 {
+				return 1000000000000
+			}
+		}
+		for i, j := range models {
+			cn := i * 8
+			//fmt.Println(mds[cn:cn+5])
+			bf := mds[cn+5 : cn+5+3]
+			bf = append(bf, 1-SumFloatVec(bf))
+			for _, k := range bf {
+				if k > 1 || k < 0 {
+					return 1000000000000
+				}
+			}
+			j.SetRateMatrix(mds[cn : cn+5])
+			j.SetBaseFreqs(bf)
+			j.SetupQGTR()
+		}
+		lnl := PCalcLikePatternsMSMUL(t, models, nodemodels, patternvals, wks)
+		if count%100 == 0 {
+			//curt := time.Now()
+			//fmt.Println(count, lnl, curt.Sub(start))
+			//start = time.Now()
+		}
+		count++
+		return -lnl
+	}
+	settings := optimize.Settings{}
+	//settings.MajorIterations = 100
+	//settings.Concurrent = 0
+	//settings.FuncEvaluations = 1000
+	//FC := optimize.FunctionConverge{}
+	//FC.Relative = 0.001
+	//settings.Converger = &FC
+	//settings.Recorder = nil
+	/*grad := func(grad, x []float64) []float64 {
+		return fd.Gradient(grad, fcn, x, nil)
+	}*/
+	p := optimize.Problem{Func: fcn, Grad: nil, Hess: nil}
+	p0 := make([]float64, 0)
+	for range models {
+		for j := 0; j < 5; j++ {
+			p0 = append(p0, 1.0)
+		}
+		for j := 0; j < 3; j++ {
+			p0 = append(p0, 0.25)
+		}
+	}
+	fmt.Println(p0)
+	res, err := optimize.Minimize(p, p0, &settings, nil)
+	if err != nil {
+		//fmt.Println(err)
+	}
+	fmt.Println("   ", res.F)
+	for i, j := range models {
+		cn := i * 8
+		bf := res.X[cn+5 : cn+5+3]
+		bf = append(bf, 1-SumFloatVec(bf))
+		fmt.Println(res.X[cn : cn+8])
+		j.SetRateMatrix(res.X[cn : cn+5])
+		j.SetBaseFreqs(bf)
+		j.SetupQGTR()
+	}
+}
+
+// OptimizeGTRMSCompSharedRM optimize GTR base composition but share rate matrix for the different parts
+func OptimizeGTRMSCompSharedRM(t *Tree, models []StateModel, nodemodels map[*Node]int, patternvals []float64, wks int) {
+	count := 0
+	//start := time.Now()
+	fcn := func(mds []float64) float64 {
+		for _, i := range mds {
+			if i < 0 {
+				return 1000000000000
+			}
+		}
+		for i, j := range models {
+			j.SetRateMatrix(mds[0:5])
+			cn := (i * 3) + 5
+			bf := mds[cn : cn+3]
+			bf = append(bf, 1-SumFloatVec(bf))
+			for _, k := range bf {
+				if k > 1 || k < 0 {
+					return 1000000000000
+				}
+			}
+			j.SetBaseFreqs(bf)
+			j.SetupQGTR()
+		}
+		lnl := PCalcLikePatternsMSMUL(t, models, nodemodels, patternvals, wks)
+		if count%100 == 0 {
+			//curt := time.Now()
+			//fmt.Println(count, lnl, curt.Sub(start))
+			//start = time.Now()
+		}
+		count++
+		return -lnl
+	}
+	settings := optimize.Settings{}
+	/*grad := func(grad, x []float64) []float64 {
+		return fd.Gradient(grad, fcn, x, nil)
+	}*/
+	p := optimize.Problem{Func: fcn, Grad: nil, Hess: nil}
+	p0 := make([]float64, 0)
+	for j := 0; j < 5; j++ {
+		p0 = append(p0, 1.0)
+	}
+	for range models {
+		for j := 0; j < 3; j++ {
+			p0 = append(p0, 0.25)
+		}
+	}
+	fmt.Println(p0)
+	res, err := optimize.Minimize(p, p0, &settings, nil)
+	if err != nil {
+		//fmt.Println(err)
+	}
+	fmt.Println("   ", res.F)
+	for i, j := range models {
+		j.SetRateMatrix(res.X[0:5])
+		cn := (i * 3) + 5
+		bf := res.X[cn : cn+3]
+		bf = append(bf, 1-SumFloatVec(bf))
+		j.SetBaseFreqs(bf)
+		j.SetupQGTR()
+	}
+}

@@ -7,17 +7,19 @@ import (
 )
 
 func sumMatrix(m *mat.Dense) (s float64) {
+	r, _ := m.Dims() // assumes square
 	s = 0
-	for i := 0; i < 4; i++ {
-		for j := 0; j < 4; j++ {
+	for i := 0; i < r; i++ {
+		for j := 0; j < r; j++ {
 			s += m.At(i, j)
 		}
 	}
 	return
 }
 func sumRow(m *mat.Dense, i int) (s float64) {
+	r, _ := m.Dims()
 	s = 0
-	for j := 0; j < 4; j++ {
+	for j := 0; j < r; j++ {
 		s += m.At(i, j)
 	}
 	return
