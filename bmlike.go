@@ -36,7 +36,7 @@ func BMPruneRootedSingle(n *Node, i int) {
 	for _, chld := range n.Chs {
 		BMPruneRootedSingle(chld, i)
 	}
-	n.PruneLen = n.Len
+	n.PruneLen = n.BMLen
 	nchld := len(n.Chs)
 	if nchld != 0 { //&& n.Marked == false {
 		if nchld != 2 {
@@ -101,7 +101,7 @@ func CalcRootedLogLike(n *Node, nlikes *float64, startFresh bool) {
 			}
 		}
 	} else if n.Marked == false || startFresh == true {
-		n.PruneLen = n.Len
+		n.PruneLen = n.BMLen
 		if nchld != 0 {
 			if nchld != 2 {
 				fmt.Println("This BM pruning algorithm should only be perfomed on fully bifurcating trees/subtrees! Check for multifurcations and singletons.")
@@ -119,8 +119,8 @@ func CalcRootedLogLike(n *Node, nlikes *float64, startFresh bool) {
 				n.ContData[i] = tempChar
 			}
 			*nlikes += curlike
-			tempBranchLength := n.Len + ((c0.PruneLen * c1.PruneLen) / (c0.PruneLen + c1.PruneLen)) // need to calculate the prune length by adding the averaged lengths of the daughter nodes to the length
-			n.PruneLen = tempBranchLength                                                           // need to calculate the "prune length" by adding the length to the uncertainty
+			tempBranchLength := n.BMLen + ((c0.PruneLen * c1.PruneLen) / (c0.PruneLen + c1.PruneLen)) // need to calculate the prune length by adding the averaged lengths of the daughter nodes to the length
+			n.PruneLen = tempBranchLength                                                             // need to calculate the "prune length" by adding the length to the uncertainty
 
 			n.Marked = true
 		}
@@ -177,7 +177,7 @@ func calcRootedSiteLLParallel(n *Node, nlikes *float64, startFresh bool, site in
 		}
 	}
 	if n.Marked == false || startFresh == true {
-		n.ConPruneLen[site] = n.Len
+		n.ConPruneLen[site] = n.BMLen
 		log2pi := 1.8378770664093453
 		if nchld != 0 {
 			if nchld != 2 {

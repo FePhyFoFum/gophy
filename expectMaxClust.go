@@ -38,6 +38,7 @@ func (s *HCSearch) SplitEM() {
 		for i := 0; i < s.SplitGen; i++ {
 			s.updateClusters()
 			s.updateMixtureBranchLengths()
+			//s.updateClassificationBranchLengths()
 			//fmt.Println(i)
 			//fmt.Println(s.ClusterString())
 		}
@@ -51,7 +52,7 @@ func (s *HCSearch) updateMixtureBranchLengths() {
 			continue
 		}
 		assignClusterLengths(s.PreorderNodes, v)
-		IterateLengthsWeighted(s.Tree, v, 10)
+		IterateLengthsWeighted(s.Tree, v, 20)
 	}
 }
 
@@ -104,7 +105,6 @@ func (s *HCSearch) siteClusterUpdate(site int, siteClusterLab int) (weights map[
 	for k, v := range llmap {
 		weights[k] = v / llsum
 	}
-
 	if bestClustLab != siteClusterLab { //move the site to its new cluster if the best cluster has changed
 		var newSlice []int
 		for _, s := range siteCluster.Sites {

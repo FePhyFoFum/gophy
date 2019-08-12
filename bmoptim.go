@@ -8,21 +8,25 @@ import (
 
 //ClusterMissingTraitsEM will calculate the BM branch lengths using an iterative EM calculation that imputes missing data using PICs using the traits in a single cluster
 func ClusterMissingTraitsEM(t *Tree, cluster *Cluster, niter int) {
-
-	CalcExpectedTraits(t.Rt)
+	ClusterCalcExpectedTraits(t.Rt, cluster.Sites)
 	for i := 0; i < niter; i++ {
 		BMCalcLensBackFront(t, cluster.Sites)
-		CalcExpectedTraits(t.Rt)
+		ClusterCalcExpectedTraits(t.Rt, cluster.Sites)
 	}
 	BMCalcLensBackFront(t, cluster.Sites)
+	var newlen []float64
+	for _, n := range t.Pre {
+		newlen = append(newlen, n.BMLen) //store the newly calculated branch lengths
+	}
+	cluster.BranchLengths = newlen
 }
 
 //GreedyIterateLengthsMissing will calculate the BM branch lengths using an iterative EM calculation that imputes missing data using PICs using the traits in a single cluster
 func GreedyIterateLengthsMissing(t *Tree, sites []int, niter int) {
-	CalcExpectedTraits(t.Rt)
+	ClusterCalcExpectedTraits(t.Rt, sites)
 	for i := 0; i < niter; i++ {
 		BMCalcLensBackFront(t, sites)
-		CalcExpectedTraits(t.Rt)
+		ClusterCalcExpectedTraits(t.Rt, sites)
 	}
 	BMCalcLensBackFront(t, sites)
 }
@@ -96,11 +100,11 @@ func BMCalcLensBackFront(t *Tree, sites []int) {
 			bot = ((1.0 / c0.PruneLen) + (1.0 / c1.PruneLen))
 			nd.PruneLen = nd.BMLen + 1.0/bot
 			//parSubtreePruneLen[nd] = 1.0 / bot
-			for i := range nd.ContData {
+			for i := range sites {
 				nd.ContData[i] = (((1 / c0.PruneLen) * c1.ContData[i]) + ((1 / c1.PruneLen) * c0.ContData[i])) / bot
 			}
 			virtualTritomyML(nd, sites)
-			nd.PruneLen = nd.BMLen + 1.0/bot
+			nd.PruneLen = nd.BMLen + (1.0 / bot)
 		}
 		BMPruneRooted(c)
 	}
@@ -116,7 +120,7 @@ func BMCalcLensBackFront(t *Tree, sites []int) {
 
 //virtualTritomyML will calculate the MLEs for the branch lengths of a tifurcating 3-taxon tree
 func virtualTritomyML(tree *Node, sites []int) {
-	ntraits := len(tree.Chs[0].ContData)
+	ntraits := len(sites)
 	fntraits := float64(ntraits)
 	var x1, x2, x3 float64
 	sumV1 := 0.0
@@ -180,7 +184,7 @@ func virtualTritomyML(tree *Node, sites []int) {
 
 //AncTritomyML will calculate the MLEs for the branch lengths of a tifurcating 3-taxon tree assuming that direct ancestors may be in the tree
 func AncTritomyML(tree *Node, sites []int) {
-	ntraits := len(tree.Chs[0].ContData)
+	ntraits := len(sites)
 	fntraits := float64(ntraits)
 	var x1, x2, x3 float64
 	sumV1 := 0.0
@@ -350,7 +354,6 @@ func calcBMLensBackFrontWeighted(t *Tree, cluster *Cluster) {
 //virtualTritomyMLWeights will calculate the MLEs for the branch lengths of a tifurcating 3-taxon tree
 func virtualTritomyMLWeights(tree *Node, weights map[int]float64) {
 	ntraits := len(tree.Chs[0].ContData)
-	fntraits := float64(ntraits)
 	var x1, x2, x3, wt float64
 	sumV1 := 0.0
 	sumV2 := 0.0
@@ -413,9 +416,9 @@ func virtualTritomyMLWeights(tree *Node, weights map[int]float64) {
 			sumV2 += ((x3 - x2) * (x3 - x2)) * wt
 		}
 	}
-	tree.Chs[0].BMLen = (sumV1 / fntraits) - (tree.Chs[0].PruneLen - tree.Chs[0].BMLen)
-	tree.Chs[1].BMLen = (sumV2 / fntraits) - (tree.Chs[1].PruneLen - tree.Chs[1].BMLen)
-	tree.BMLen = (sumV3 / fntraits) - (tree.PruneLen - tree.BMLen)
+	tree.Chs[0].BMLen = (sumV1) - (tree.Chs[0].PruneLen - tree.Chs[0].BMLen)
+	tree.Chs[1].BMLen = (sumV2) - (tree.Chs[1].PruneLen - tree.Chs[1].BMLen)
+	tree.BMLen = (sumV3) - (tree.PruneLen - tree.BMLen)
 	if tree.Chs[0].BMLen < 0. {
 		tree.Chs[0].BMLen = 0.0001
 	}
@@ -430,10 +433,11 @@ func virtualTritomyMLWeights(tree *Node, weights map[int]float64) {
 //tritomyWeightedML will calculate the MLEs for the branch lengths of a tifurcating 3-taxon tree
 func tritomyWeightedML(tree *Node, weights map[int]float64) {
 	//ntraits := len(tree.Chs[0].ContData)
-	fntraits := 0.
+	/*fntraits := 0.
 	for _, w := range weights {
 		fntraits += w
 	}
+	//fmt.Println(fntraits)*/
 	var x1, x2, x3 float64
 	sumV1 := 0.0
 	sumV2 := 0.0
@@ -500,9 +504,9 @@ func tritomyWeightedML(tree *Node, weights map[int]float64) {
 			sumV2 += (x3 - x2) * (x3 - x2) * wt
 		}
 	}
-	sumV1 = sumV1 / fntraits
-	sumV2 = sumV2 / fntraits
-	sumV3 = sumV3 / fntraits
+	//sumV1 = sumV1 // fntraits
+	//sumV2 = sumV2 // fntraits
+	//sumV3 = sumV3 // fntraits
 	sumV1 = sumV1 - (tree.Chs[0].PruneLen - tree.Chs[0].BMLen)
 	sumV2 = sumV2 - (tree.Chs[1].PruneLen - tree.Chs[1].BMLen)
 	sumV3 = sumV3 - (tree.Chs[2].PruneLen - tree.Chs[2].BMLen)
