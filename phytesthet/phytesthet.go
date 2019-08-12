@@ -204,8 +204,6 @@ func main() {
 
 		fmt.Println("start:\n" + t.Rt.Newick(true) + ";")
 		gophy.OptimizeBLNRMult(t, models, nodemodels, patternval, 10)
-		//gophy.OptimizeBLNRMSMul(t, models, nodemodels, patternval, 10)
-		//l = gophy.PCalcLikePatternsMSMUL(t, models, nodemodels, patternval, *wks)
 		l = gophy.PCalcLikePatternsMul(t, models, nodemodels, patternval, *wks)
 		fmt.Println("ln:", l)
 		//optimize model

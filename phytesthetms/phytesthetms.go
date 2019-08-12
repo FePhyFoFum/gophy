@@ -175,7 +175,6 @@ func main() {
 		x.SetupQGTR()
 		models[i] = x
 	}
-
 	// get the site patternas
 	patterns, patternsint, gapsites, constant, uninformative, _ := gophy.GetSitePatternsMS(mseqs, models[0].GetCharMap(), models[0].GetNumStates())
 	patternval, _ := gophy.PreparePatternVecsMS(t, patternsint, seqs, models[0].GetCharMap(), models[0].GetNumStates())
@@ -206,29 +205,29 @@ func main() {
 		gophy.EstParsBLMultState(t, numstates, patternval, nsites)
 
 		fmt.Println("start:\n" + t.Rt.Newick(true) + ";")
-		gophy.OptimizeBLNRMSMul(t, models, nodemodels, patternval, 10)
+		gophy.OptimizeBLNRMSMul(t, models, nodemodels, patternval, *wks)
 		l = gophy.PCalcLikePatternsMSMUL(t, models, nodemodels, patternval, *wks)
 		fmt.Println("ln:", l)
 		//optimize model
 		if compfree && ratefree == false {
 			fmt.Println("optimize model: comp free , rate shared")
-			//gophy.OptimizeGTRCompSharedRM(t, models, nodemodels, patternval, 10)
+			gophy.OptimizeGTRMSCompSharedRM(t, models, nodemodels, patternval, *wks)
 		}
 		if compfree && ratefree {
-			//gophy.OptimizeGTRBPMul(t, models, nodemodels, patternval, 10)
+			gophy.OptimizeGTRBPMSMul(t, models, nodemodels, patternval, *wks)
 		}
 		if compfree == false && ratefree {
 			//comp emp
-			gophy.OptimizeGTRMSMul(t, models, nodemodels, patternval, 10)
+			gophy.OptimizeGTRMSMul(t, models, nodemodels, patternval, *wks)
 		}
 		if single {
 			fmt.Println("optimize model: single")
 			//comp emp
-			gophy.OptimizeGTRMSMul(t, models, nodemodels, patternval, 10)
+			gophy.OptimizeGTRMSMul(t, models, nodemodels, patternval, *wks)
 		}
 		//optimize branch lengths
 		fmt.Println("optimize bl2")
-		gophy.OptimizeBLNRMSMul(t, models, nodemodels, patternval, 10)
+		gophy.OptimizeBLNRMSMul(t, models, nodemodels, patternval, *wks)
 
 		//print the matrix
 		fmt.Println(t.Rt.Newick(true))

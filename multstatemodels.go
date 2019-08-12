@@ -51,6 +51,7 @@ func (d *MultStateModel) SetEmpiricalBF() {
 //SetRateMatrix length is (((numstates*numstates)-numstates)/2) - 1
 // or (numstates * numstates) - numstates
 // this is for scaled branch lengths and matrices
+// CHANGE THIS TO UNSCALED
 func (d *MultStateModel) SetRateMatrix(params []float64) {
 	d.R = mat.NewDense(d.NumStates, d.NumStates, nil)
 	if len(params) == (((d.NumStates*d.NumStates)-d.NumStates)/2)-1 {
@@ -249,6 +250,7 @@ func (d *MultStateModel) DecomposeQ() {
 //SetScaledRateMatrix needs to be done before doing SetupQGTR
 // just send along the rates and this will make them the whole matrix
 // the scaled is that this is assuming that the last rate is 1
+//THIS IS THE SAME? AS SETRATEMATRIX?
 func (d *MultStateModel) SetScaledRateMatrix(params []float64, sym bool) {
 	d.R = mat.NewDense(d.NumStates, d.NumStates, nil)
 	cc := 0

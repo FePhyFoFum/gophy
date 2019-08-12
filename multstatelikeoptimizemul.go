@@ -197,7 +197,7 @@ func OptimizeGTRMSMul(t *Tree, models []StateModel, nodemodels map[*Node]int, pa
 		for i, j := range models {
 			cn := i * 5
 			//fmt.Println(mds[cn:cn+5])
-			j.SetRateMatrix(mds[cn : cn+5])
+			j.SetScaledRateMatrix(mds[cn:cn+5], true)
 			j.SetupQGTR()
 		}
 		lnl := PCalcLikePatternsMSMUL(t, models, nodemodels, patternvals, wks)
@@ -225,7 +225,7 @@ func OptimizeGTRMSMul(t *Tree, models []StateModel, nodemodels map[*Node]int, pa
 	for i, j := range models {
 		cn := i * 5
 		fmt.Println(res.X[cn : cn+5])
-		j.SetRateMatrix(res.X[cn : cn+5])
+		j.SetScaledRateMatrix(res.X[cn:cn+5], true)
 		j.SetupQGTR()
 	}
 }
@@ -250,7 +250,7 @@ func OptimizeGTRBPMSMul(t *Tree, models []StateModel, nodemodels map[*Node]int, 
 					return 1000000000000
 				}
 			}
-			j.SetRateMatrix(mds[cn : cn+5])
+			j.SetScaledRateMatrix(mds[cn:cn+5], true)
 			j.SetBaseFreqs(bf)
 			j.SetupQGTR()
 		}
@@ -295,7 +295,7 @@ func OptimizeGTRBPMSMul(t *Tree, models []StateModel, nodemodels map[*Node]int, 
 		bf := res.X[cn+5 : cn+5+3]
 		bf = append(bf, 1-SumFloatVec(bf))
 		fmt.Println(res.X[cn : cn+8])
-		j.SetRateMatrix(res.X[cn : cn+5])
+		j.SetScaledRateMatrix(res.X[cn:cn+5], true)
 		j.SetBaseFreqs(bf)
 		j.SetupQGTR()
 	}
