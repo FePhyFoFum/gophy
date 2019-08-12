@@ -3,6 +3,7 @@ package gophy
 import (
 	"fmt"
 	"math"
+	"os"
 	"strconv"
 
 	"gonum.org/v1/gonum/mat"
@@ -45,6 +46,52 @@ func (d *MultStateModel) SetEqualBF() {
 //SetEmpiricalBF set all to empirical
 func (d *MultStateModel) SetEmpiricalBF() {
 	d.BF = d.EBF
+}
+
+//SetRateMatrix length is (((numstates*numstates)-numstates)/2) - 1
+// or (numstates * numstates) - numstates
+// this is for scaled branch lengths and matrices
+func (d *MultStateModel) SetRateMatrix(params []float64) {
+	d.R = mat.NewDense(d.NumStates, d.NumStates, nil)
+	if len(params) == (((d.NumStates*d.NumStates)-d.NumStates)/2)-1 {
+		//symm
+		pcount := 0
+		for i := 0; i < d.NumStates; i++ {
+			for j := 0; j < d.NumStates; j++ {
+				if j > i {
+					continue
+				}
+				if i == j {
+					d.R.Set(i, j, 0.0)
+				} else if i == d.NumStates-1 && j == d.NumStates-2 {
+					d.R.Set(i, j, 1.0)
+					d.R.Set(j, i, 1.0)
+				} else {
+					d.R.Set(i, j, params[pcount])
+					d.R.Set(j, i, params[pcount])
+					pcount++
+				}
+			}
+		}
+	} else if len(params) == ((d.NumStates*d.NumStates)-d.NumStates)-1 {
+		//nonsymm
+		pcount := 0
+		for i := 0; i < d.NumStates; i++ {
+			for j := 0; j < d.NumStates; j++ {
+				if i == j {
+					d.R.Set(i, j, 0.0)
+				} else if i == d.NumStates-1 && j == d.NumStates-2 {
+					d.R.Set(i, j, 1.0)
+				} else {
+					d.R.Set(i, j, params[pcount])
+					pcount++
+				}
+			}
+		}
+	} else {
+		fmt.Println("WRONG MATRIX SIZE")
+		os.Exit(1)
+	}
 }
 
 // SetBaseFreqs needs to be done before doing other things
@@ -338,6 +385,10 @@ func (d *MultStateModel) SetMap() {
 		d.CharMap["-"][i] = i
 		d.CharMap["N"][i] = i
 	}
+}
+
+func (d *MultStateModel) GetCharMap() map[string][]int {
+	return d.CharMap
 }
 
 func (d *MultStateModel) GetNumStates() int {

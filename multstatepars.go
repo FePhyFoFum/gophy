@@ -11,14 +11,14 @@ type ParsResult struct {
 }
 
 //PCalcSankParsPatternsMultState parallel caclulation of fitch parsimony costs with patterns
-func PCalcSankParsPatternsMultState(t *Tree, model StateModel, patternval []float64, wks int) (fl float64) {
+func PCalcSankParsPatternsMultState(t *Tree, numstates int, patternval []float64, wks int) (fl float64) {
 	fl = 0.0
 	nsites := len(patternval)
 	jobs := make(chan int, nsites)
 	//results := make(chan float64, nsites)
 	results := make(chan ParsResult, nsites)
 	for i := 0; i < wks; i++ {
-		go CalcSankParsWorkMultState(t, model, jobs, results)
+		go CalcSankParsWorkMultState(t, numstates, jobs, results)
 	}
 	for i := 0; i < nsites; i++ {
 		jobs <- i
@@ -33,16 +33,16 @@ func PCalcSankParsPatternsMultState(t *Tree, model StateModel, patternval []floa
 }
 
 //CalcSankParsWorkMultState ...
-func CalcSankParsWorkMultState(t *Tree, model StateModel, jobs <-chan int, results chan<- ParsResult) { //results chan<- float64) {
+func CalcSankParsWorkMultState(t *Tree, numstates int, jobs <-chan int, results chan<- ParsResult) { //results chan<- float64) {
 	for j := range jobs {
 		sl := 0.0
 		for _, n := range t.Post {
 			if len(n.Chs) > 0 {
-				CalcSankParsNodeMultState(n, model, j)
+				CalcSankParsNodeMultState(n, numstates, j)
 			}
 			if t.Rt == n {
 				sl = math.MaxFloat64
-				for i := 0; i < model.GetNumStates(); i++ {
+				for i := 0; i < numstates; i++ {
 					if n.Data[j][i] < sl {
 						sl = n.Data[j][i]
 					}
@@ -54,16 +54,16 @@ func CalcSankParsWorkMultState(t *Tree, model StateModel, jobs <-chan int, resul
 }
 
 //CalcSankParsNodeMultState ...
-func CalcSankParsNodeMultState(nd *Node, model StateModel, site int) {
-	for i := 0; i < model.GetNumStates(); i++ {
+func CalcSankParsNodeMultState(nd *Node, numstates int, site int) {
+	for i := 0; i < numstates; i++ {
 		nd.Data[site][i] = 0.
 	}
 	for _, c := range nd.Chs {
 		// tip , assume that the data are 1.0 and not data are 0.0
 		if len(c.Chs) == 0 {
-			for i := 0; i < model.GetNumStates(); i++ {
+			for i := 0; i < numstates; i++ {
 				minh := math.MaxFloat64
-				for j := 0; j < model.GetNumStates(); j++ {
+				for j := 0; j < numstates; j++ {
 					tempv := 0.0
 					if c.Data[site][j] == 0.0 {
 						tempv += math.MaxFloat64
@@ -81,9 +81,9 @@ func CalcSankParsNodeMultState(nd *Node, model StateModel, site int) {
 				nd.Data[site][i] += minh
 			}
 		} else {
-			for i := 0; i < model.GetNumStates(); i++ {
+			for i := 0; i < numstates; i++ {
 				minh := math.MaxFloat64
-				for j := 0; j < model.GetNumStates(); j++ {
+				for j := 0; j < numstates; j++ {
 					tempv := 0.0
 					if i != j {
 						tempv += 1.0
@@ -101,7 +101,7 @@ func CalcSankParsNodeMultState(nd *Node, model StateModel, site int) {
 
 //EstParsBLMultState ....
 //  this will just pick one when there are equivalent
-func EstParsBLMultState(t *Tree, model StateModel, patternval []float64, totalsites int) {
+func EstParsBLMultState(t *Tree, numstates int, patternval []float64, totalsites int) {
 	nsites := len(patternval)
 	for _, n := range t.Post {
 		n.FData["parsbl"] = 0.0
@@ -111,7 +111,7 @@ func EstParsBLMultState(t *Tree, model StateModel, patternval []float64, totalsi
 			if n == t.Rt {
 				minj := 0
 				minv := n.Data[i][0]
-				for j := 1; j < model.GetNumStates(); j++ {
+				for j := 1; j < numstates; j++ {
 					if n.Data[i][j] < minv {
 						minj = j
 						minv = n.Data[i][j]
@@ -124,7 +124,7 @@ func EstParsBLMultState(t *Tree, model StateModel, patternval []float64, totalsi
 				if len(n.Chs) > 0 {
 					minj := math.MaxInt64
 					minv := math.MaxFloat64
-					for j := 0; j < model.GetNumStates(); j++ {
+					for j := 0; j < numstates; j++ {
 						add := 0.
 						if j != from {
 							add += 1.
@@ -140,11 +140,9 @@ func EstParsBLMultState(t *Tree, model StateModel, patternval []float64, totalsi
 					n.IData["anc"] = minj
 				} else {
 					minj := 0
-					for j := 0; j < model.GetNumStates(); j++ {
+					for j := 0; j < numstates; j++ {
 						if n.Data[i][j] == 1.0 {
 							minj = j
-						}
-						if j == from {
 							break
 						}
 					}
@@ -158,7 +156,7 @@ func EstParsBLMultState(t *Tree, model StateModel, patternval []float64, totalsi
 	}
 	for _, n := range t.Post {
 		//prop or count
-		//n.Len = math.Max(10e-10, n.FData["parsbl"]/(float64(totalsites)))
-		n.Len = math.Max(0.0, n.FData["parsbl"])
+		n.Len = math.Max(10e-10, n.FData["parsbl"]/(float64(totalsites)))
+		//n.Len = math.Max(0.0, n.FData["parsbl"])
 	}
 }

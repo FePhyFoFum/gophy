@@ -366,6 +366,10 @@ func (d *DNAModel) SetMap() {
 	d.CharMap["D"] = []int{0, 2, 3}
 }
 
+func (d *DNAModel) GetCharMap() map[string][]int {
+	return d.CharMap
+}
+
 func (d *DNAModel) GetNumStates() int {
 	return d.NumStates
 }

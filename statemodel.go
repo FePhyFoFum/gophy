@@ -20,4 +20,7 @@ type StateModel interface {
 	DecomposeQ()                         //
 	ExpValueFirstD(float64) *mat.Dense   //BL
 	ExpValueSecondD(float64) *mat.Dense  //BL
+	GetCharMap() map[string][]int
+	SetRateMatrix([]float64)
+	SetBaseFreqs([]float64)
 }

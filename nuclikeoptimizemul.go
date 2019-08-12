@@ -133,7 +133,7 @@ func OptimizeBLNRMult(t *Tree, models []*DNAModel, nodemodels map[*Node]int, pat
 			continue
 		}
 		CalcLikeFrontBackMult(models, nodemodels, t, patternvals)
-		AdjustBLNRMult(c, models, nodemodels, patternvals, t, wks, 10e-12)
+		AdjustBLNRMult(c, models, nodemodels, patternvals, t, wks, 10e-6)
 	}
 	for _, c := range t.Post {
 		if c == t.Rt {
@@ -154,11 +154,11 @@ func OptimizeBLNRMult(t *Tree, models []*DNAModel, nodemodels map[*Node]int, pat
 			continue
 		}
 		CalcLikeFrontBackMult(models, nodemodels, t, patternvals)
-		AdjustBLNRMult(c, models, nodemodels, patternvals, t, wks, 10e-12)
+		AdjustBLNRMult(c, models, nodemodels, patternvals, t, wks, 10e-20)
 	}
 }
 
-// OptimizeGTR optimize GTR
+// OptimizeGTRMul optimize GTR
 func OptimizeGTRMul(t *Tree, models []*DNAModel, nodemodels map[*Node]int, patternvals []float64, wks int) {
 	count := 0
 	//start := time.Now()
@@ -184,11 +184,11 @@ func OptimizeGTRMul(t *Tree, models []*DNAModel, nodemodels map[*Node]int, patte
 		return -lnl
 	}
 	settings := optimize.Settings{}
-	//settings.MajorIterations = 100
+	//settings.MajorIterations = 10000
 	//settings.Concurrent = 0
 	//settings.FuncEvaluations = 1000
 	//FC := optimize.FunctionConverge{}
-	//FC.Relative = 0.001
+	//FC.Relative = 0.1
 	//settings.Converger = &FC
 	//settings.Recorder = nil
 	/*grad := func(grad, x []float64) []float64 {
