@@ -72,7 +72,8 @@ func PCalcLogLikePatternsMS(t *Tree, x StateModel, patternval []float64, wks int
 		fl += (rr.value * patternval[rr.site])
 	}
 	//fmt.Println(fl)
-	fl = fl - math.Log(CalcAscBiasVal(t, x))
+	//TODO: check this and add as an option to the model
+	//fl = fl - math.Log(CalcAscBiasVal(t, x))
 	//fmt.Println(fl)
 	return
 }

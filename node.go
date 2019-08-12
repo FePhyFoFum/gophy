@@ -27,10 +27,11 @@ type Node struct {
 	//
 	// X--<------X
 	// RvTp      RV
-	TpConds     [][]float64 //[site][states]
-	RtConds     [][]float64
-	RvConds     [][]float64
-	RvTpConds   [][]float64
+	TpConds   [][]float64 //[site][states]
+	RtConds   [][]float64
+	RvConds   [][]float64
+	RvTpConds [][]float64
+	//TODO: need comments for these below
 	FAD         float64
 	LAD         float64
 	FINDS       float64
@@ -156,6 +157,7 @@ func (n Node) Newick(bl bool) (ret string) {
 }
 
 // BMPhylogram returns a string newick with brownian motion branch lengths
+//TODO can this and the TimeLen merge with just a boolean?
 func (n Node) BMPhylogram() (ret string) {
 	bl := true
 	var buffer bytes.Buffer
