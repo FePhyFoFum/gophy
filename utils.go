@@ -14,6 +14,14 @@ import (
 	"gonum.org/v1/gonum/stat"
 )
 
+func LogFactorial(val int) (x float64) {
+	x = 0.
+	for i := 1; i <= val; i++ {
+		x += math.Log(float64(i))
+	}
+	return
+}
+
 // CalcSliceIntDifferenceInt calculate the size of the difference (set) between two int slices
 func CalcSliceIntDifferenceInt(a, b []int) int {
 	mb := map[int]bool{}
@@ -429,5 +437,16 @@ func ReadLine(path string) (ln []string) {
 	}
 	ss := string(b)
 	ln = strings.Split(ss, "\n")
+	return
+}
+
+//MaxClustLab returns the maximum value in a map of ints used like a set
+func MaxClustLab(l map[int]*Cluster) (biggest int) {
+	biggest = -10000000
+	for i := range l {
+		if i > biggest {
+			biggest = i
+		}
+	}
 	return
 }

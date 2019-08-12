@@ -31,14 +31,20 @@ type Node struct {
 	RtConds     [][]float64
 	RvConds     [][]float64
 	RvTpConds   [][]float64
+	FAD         float64
+	LAD         float64
+	FINDS       float64
+	TimeLen     float64
 	ContData    []float64
 	Mis         []bool
 	PruneLen    float64
 	ConPruneLen []float64 // prevent race condition when calculating BM likelihood
 	//BMPruneLen  []float64
-	BMLen float64
-	LL    []float64
-	Anc   bool
+	BMLen    float64
+	LL       []float64
+	Anc      bool
+	ClustLen map[int]float64
+	//ClustPruneLen map[int]float64 // [][]float64
 	//
 }
 
@@ -97,6 +103,31 @@ func (n Node) GetTipNames() (tips []string) {
 			}
 		}
 	}
+	return
+}
+
+// NewickChronogram returns a string newick with the branch lengths scaled to time
+func (n Node) NewickChronogram() (ret string) {
+	bl := true
+	var buffer bytes.Buffer
+	for in, cn := range n.Chs {
+		if in == 0 {
+			buffer.WriteString("(")
+		}
+		buffer.WriteString(cn.NewickChronogram())
+		if bl == true {
+			s := strconv.FormatFloat(cn.TimeLen, 'f', -1, 64)
+			buffer.WriteString(":")
+			buffer.WriteString(s)
+		}
+		if in == len(n.Chs)-1 {
+			buffer.WriteString(")")
+		} else {
+			buffer.WriteString(",")
+		}
+	}
+	buffer.WriteString(n.Nam)
+	ret = buffer.String()
 	return
 }
 
