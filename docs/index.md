@@ -8,4 +8,14 @@ Installation of gophy is much like most other github developed _go_ based packag
 While gophy is not finished, there are several tools that you may use. Here is a description of how to compile and use those packages.
 
 ### bp
-_bp_ is a bipartition analyzer. It does a lot of things and pretty quickly. First, to build it, you run `go build github.com/FePhyFoFum/gophy/bp/bp.go`. That will make an executable called _bp_. You can move that to your PATH or just type the full path to use it. Here are some examples of some runs that you can do with bp.
+_bp_ is a bipartition analyzer. It does a lot of things and pretty quickly. First, to build it, you run `go build github.com/FePhyFoFum/gophy/bp/bp.go`. That will make an executable called _bp_. You can move that to your PATH or just type the full path to use it. Some features include 
+ - trees don't need overlapping taxa sets
+ - trees should be unrooted but don't have to be
+ - you can use branch length or support cutoffs
+ - you can compare sets of trees to a tree or to themselves
+ - you can ignore taxa
+ - you can run these multicore
+ - you can compare only a set of trees in a larger tree file
+ - you can plot the concordance, conflict, and uninformativeness (in numbers and percentages) from a set of trees onto another tree
+
+Here are some examples of some runs that you can do with bp. I will generate 
