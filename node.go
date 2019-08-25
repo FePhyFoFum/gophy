@@ -259,13 +259,14 @@ func (n Node) String() string {
 	return n.Newick(false)
 }
 
+//TODO: COMMENT THSE EDIT THESE
 //RerootLS reroots all the nodes represented in a graph on n
 func (n *Node) RerootBM(oldroot *Node) *Node {
 	if n == oldroot {
 		fmt.Println("you are trying to reroot on the current root!")
 	}
 	nnodes := 0
-	oldroot.NNodes(&nnodes)
+	oldroot.NumIntNodes(&nnodes)
 	var pathnodes = make([]*Node, nnodes)
 	//var pathnodes []*Node
 	curnode := n
@@ -299,7 +300,7 @@ func (n *Node) Reroot(oldroot *Node) *Node {
 		fmt.Println("you are trying to reroot on the current root!")
 	}
 	nnodes := 0
-	oldroot.NNodes(&nnodes)
+	oldroot.NumIntNodes(&nnodes)
 	var pathnodes = make([]*Node, nnodes)
 	//var pathnodes []*Node
 	curnode := n
@@ -327,16 +328,16 @@ func (n *Node) Reroot(oldroot *Node) *Node {
 	return n
 }
 
-//NNodes is a helper method that will return the number of internal nodes descending from n (including n)
-func (n *Node) NNodes(count *int) {
+//NumIntNodes is a helper method that will return the number of internal nodes
+// descending from n (including n)
+func (n *Node) NumIntNodes(count *int) {
 	*count++
 	for _, ch := range n.Chs {
-		ch.NNodes(count)
+		ch.NumIntNodes(count)
 	}
 }
 
 //PreorderArray will return a preordered array of all the nodes in a tree
-//TODO: Can remove after some refactoring but here while getting off the ground
 func (n *Node) PreorderArray() (ret []*Node) {
 	var buffer []*Node
 	buffer = append(buffer, n)
@@ -349,6 +350,35 @@ func (n *Node) PreorderArray() (ret []*Node) {
 	return
 }
 
+//PostorderArray will return a postordered array of all the nodes in a tree
+func (n *Node) PostorderArray() (ret []*Node) {
+	for _, cn := range n.Chs {
+		for _, cret := range cn.PostorderArray() {
+			ret = append(ret, cret)
+		}
+	}
+	ret = append(ret, n)
+	return
+}
+
+//PostorderArrayExcl will return a postordered array of all the nodes in a tree
+//   excluding node x
+func (n *Node) PostorderArrayExcl(x *Node) (ret []*Node) {
+	for _, cn := range n.Chs {
+		if x == cn {
+			continue
+		}
+		for _, cret := range cn.PostorderArrayExcl(x) {
+			ret = append(ret, cret)
+		}
+	}
+	if x != n {
+		ret = append(ret, n)
+	}
+	return
+}
+
+// GetBackbone TODO: what is this
 func (n *Node) GetBackbone(higherNode *Node) (backbone []*Node) {
 	cur := n
 	for {

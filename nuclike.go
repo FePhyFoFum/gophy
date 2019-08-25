@@ -463,11 +463,11 @@ func CalcLikeNode(nd *Node, model *DNAModel, site int) {
 
  toward tip
 tpcond  X
-        | | rvtpcond
+        | | rvcond
         | ^
         | |
         v |
-        | | rvcond
+        | | rvtpcond
 rtcond  x
  toward root
 */
@@ -630,4 +630,90 @@ func CalcAncStates(x *DNAModel, tree *Tree, patternval []float64) (retstates map
 		}
 	}
 	return
+}
+
+// calcLogLikeOneSiteSubClade calc for just a clade, starting at a node
+func calcLogLikeOneSiteSubClade(t *Tree, inn *Node, excl bool, x *DNAModel, site int) float64 {
+	sl := 0.0
+	arr := []*Node{}
+	if excl == true {
+		arr = t.Rt.PostorderArrayExcl(inn)
+	} else {
+		arr = inn.PostorderArray()
+	}
+	for _, n := range arr {
+		if len(n.Chs) > 0 {
+			CalcLogLikeNode(n, x, site)
+		}
+		var tn *Node
+		if excl == true { // calc at rt
+			tn = t.Rt
+		} else {
+			tn = inn
+		}
+		if tn == n {
+			for i := 0; i < 4; i++ {
+				n.Data[site][i] += math.Log(x.BF[i])
+			}
+			sl = floats.LogSumExp(n.Data[site])
+		}
+	}
+	return sl
+}
+
+//PCalcLogLikePatternsSubClade parallel log likeliohood calculation including patterns
+func PCalcLogLikePatternsSubClade(t *Tree, n *Node, excl bool, x *DNAModel, patternval []float64, wks int) (fl float64) {
+	fl = 0.0
+	nsites := len(patternval)
+	jobs := make(chan int, nsites)
+	//results := make(chan float64, nsites)
+	results := make(chan LikeResult, nsites)
+	// populate the P matrix dictionary without problems of race conditions
+	// just the first site
+	x.EmptyPDict()
+	fl += calcLogLikeOneSiteSubClade(t, n, excl, x, 0) * patternval[0]
+	for i := 0; i < wks; i++ {
+		go calcLogLikeSubCladeWork(t, n, excl, x, jobs, results)
+	}
+	for i := 1; i < nsites; i++ {
+		jobs <- i
+	}
+	close(jobs)
+	rr := LikeResult{}
+	for i := 1; i < nsites; i++ {
+		rr = <-results
+		fl += (rr.value * patternval[rr.site])
+	}
+	return
+}
+
+// CalcLogLikeSubCladeWork this is intended for a worker that will be executing this per site
+func calcLogLikeSubCladeWork(t *Tree, inn *Node, excl bool, x *DNAModel, jobs <-chan int, results chan<- LikeResult) { //results chan<- float64) {
+	arr := []*Node{}
+	if excl == true {
+		arr = t.Rt.PostorderArrayExcl(inn)
+	} else {
+		arr = inn.PostorderArray()
+	}
+	for j := range jobs {
+		sl := 0.0
+		for _, n := range arr {
+			if len(n.Chs) > 0 {
+				CalcLogLikeNode(n, x, j)
+			}
+			var tn *Node
+			if excl == true { // calc at rt
+				tn = t.Rt
+			} else {
+				tn = inn
+			}
+			if tn == n {
+				for i := 0; i < 4; i++ {
+					n.Data[j][i] += math.Log(x.BF[i])
+				}
+				sl = floats.LogSumExp(n.Data[j])
+			}
+		}
+		results <- LikeResult{value: sl, site: j}
+	}
 }

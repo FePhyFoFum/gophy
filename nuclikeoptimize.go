@@ -264,3 +264,15 @@ func OptimizeGTR(t *Tree, x *DNAModel, patternvals []float64, wks int) {
 	fmt.Println(res.F)
 	x.SetRateMatrix(res.X)
 }
+
+/*
+ * these are by "clade" given a direction
+
+ give direction, x being a standard clade and y being everything but
+ that clade. we use tpcond for X and rvtpcond for Y
+  X
+  |
+  |
+  |
+  Y
+*/
