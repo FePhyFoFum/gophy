@@ -7,7 +7,10 @@ Installation of gophy is much like most other github developed _go_ based packag
 ## some useful packages
 While gophy is not finished, there are several tools that you may use. Here is a description of how to compile and use those packages.
 
-- [bp](#bp)
+- [bp](#bp) : bipartition analyzer
+- [lentil](#lentil) : 
+- [parsbl](#parsbl) : parsimony branch length estimator
+- [sites](#sites) : sites toy
 
 ### bp
 _bp_ is a bipartition analyzer. It does a lot of things and pretty quickly. First, to build it, you run `go build github.com/FePhyFoFum/gophy/bp/bp.go`. That will make an executable called _bp_. You can move that to your PATH or just type the full path to use it. Some features include 
