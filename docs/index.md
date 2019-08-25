@@ -1,6 +1,4 @@
-# gophy
-
-gophy is not finished and may never be. It serves as a phylogenetic development toolkit from which to make tests and tools for a variety of purposes. 
+_gophy_ is not finished and may never be. It serves as a phylogenetic development toolkit from which to make tests and tools for a variety of purposes. 
 
 ## installation
 
