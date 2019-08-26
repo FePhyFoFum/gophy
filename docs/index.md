@@ -23,4 +23,16 @@ _bp_ is a bipartition analyzer. It does a lot of things and pretty quickly. Firs
  - you can compare only a set of trees in a larger tree file
  - you can plot the concordance, conflict, and uninformativeness (in numbers and percentages) from a set of trees onto another tree
 
-Here are some examples of some runs that you can do with bp. I will generate 
+Here are some examples of some runs that you can do with bp. 
+
+_Pairwise comparisons_: You can compare all the trees in a file to each other `bp -t t -pc` or to a pool of biparts made from the trees in the file `bp -t t -pca`. 
+
+_Map concordance and conflict_: _bp_ can take a list of trees, say in a file `t` and map whether bipartitions are concordant, conflicting, or uninformative (based on support or branch length) to another file with a single tree, say in a file `t1`. You run this with `bp -t t -c t1`. This will give a list of the biparts from `t1` and for each that have conflict list the conflicting ones from `t` with the number that conflict (the number in parentheses is just an id for the bipart). If you want to spit out a set of trees with the internal nodes representing conflict, concordance, and uninformative, do `bp -t t -c t1 -tv`. You will get the same output and then a line that says "TREES WITH CONFLICT (FIRST), CONCORDANCE (SECOND), UNSUPPORTED (THIRD), PROPS AFTER" and 6 trees. The first is the number of conflicting trees, concordant trees, and unsupported trees (because of support or branch length cutoffs). The next three are the same order but instead of number, they are proportions.  If you have a big file you can do `bp -t t -c t1 -w 100 -tv` to create a bunch of workers and use multicore. The number of workers is not the number of cores. I generally do ~100. 
+
+### lentil
+
+
+### parsbl
+
+
+### sites
