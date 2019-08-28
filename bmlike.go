@@ -23,7 +23,16 @@ func BMPruneRooted(n *Node) {
 		c1 := n.Chs[1]
 		bot := ((1.0 / c0.PruneLen) + (1.0 / c1.PruneLen))
 		n.PruneLen += 1.0 / bot
+		if math.IsNaN(n.PruneLen) {
+			fmt.Println(c0.Nam, c0.BMLen, c1.Nam, c1.BMLen)
+			os.Exit(0)
+		}
 		for i := range n.Chs[0].ContData {
+			if math.IsNaN(c1.ContData[i]) || math.IsNaN(c0.ContData[i]) {
+				fmt.Println("NaN encoutnered in BMPruneRooted()")
+				fmt.Println(c0.Nam, c0.ContData[i], c0.Mis[i], c0.PruneLen, c1.Nam, c1.ContData[i], c1.Mis[i], c1.PruneLen)
+				os.Exit(0)
+			}
 			tempChar = (((1 / c0.PruneLen) * c1.ContData[i]) + ((1 / c1.PruneLen) * c0.ContData[i])) / bot
 			n.ContData[i] = tempChar
 		}
@@ -207,6 +216,9 @@ func calcRootedSiteLLParallel(n *Node, nlikes *float64, startFresh bool, site in
 				n.ConPruneLen[site] += c0.ConPruneLen[site]
 				n.ContData[site] = c0.ContData[site]
 				n.LL[site] = 0.0
+			} else if c1.Mis[site] == true && c0.Mis[site] == true {
+				n.Mis[site] = true
+				n.LL[site] = 0.0
 			}
 		}
 	}
@@ -215,9 +227,9 @@ func calcRootedSiteLLParallel(n *Node, nlikes *float64, startFresh bool, site in
 func siteTreeLikeParallel(tree, ch1, ch2, ch3 *Node, startFresh bool, weights []float64, jobs <-chan int, results chan<- float64) {
 	for site := range jobs {
 		tmpll := 0.
-		calcRootedSiteLLParallel(ch1, &tmpll, startFresh, site)
-		calcRootedSiteLLParallel(ch2, &tmpll, startFresh, site)
-		calcRootedSiteLLParallel(ch3, &tmpll, startFresh, site)
+		rootedMissingSiteLL(ch1, &tmpll, true, site)
+		rootedMissingSiteLL(ch2, &tmpll, true, site)
+		rootedMissingSiteLL(ch3, &tmpll, true, site)
 		tmpll += calcUnrootedSiteLLParallel(tree, site)
 		tmpll = tmpll * weights[site]
 		results <- tmpll
@@ -250,9 +262,12 @@ func WeightedUnrootedLogLikeParallel(tree *Node, startFresh bool, weights []floa
 func subSiteTreeLikeParallel(tree, ch1, ch2, ch3 *Node, startFresh bool, jobs <-chan int, results chan<- float64) {
 	for site := range jobs {
 		tmpll := 0.
-		calcRootedSiteLLParallel(ch1, &tmpll, startFresh, site)
-		calcRootedSiteLLParallel(ch2, &tmpll, startFresh, site)
-		calcRootedSiteLLParallel(ch3, &tmpll, startFresh, site)
+		//calcRootedSiteLLParallel(ch1, &tmpll, startFresh, site)
+		//calcRootedSiteLLParallel(ch2, &tmpll, startFresh, site)
+		//calcRootedSiteLLParallel(ch3, &tmpll, startFresh, site)
+		rootedMissingSiteLL(ch1, &tmpll, true, site)
+		rootedMissingSiteLL(ch2, &tmpll, true, site)
+		rootedMissingSiteLL(ch3, &tmpll, true, site)
 		tmpll += calcUnrootedSiteLLParallel(tree, site)
 		results <- tmpll
 	}
@@ -285,15 +300,20 @@ func SubUnrootedLogLikeParallel(tree *Node, sites []int, workers int) (sitelikes
 func SingleSiteLL(tree *Node, site int) (sitelike float64) {
 	sitelike = 0.0
 	var tmpll float64
-	ch1 := tree.Chs[0] //.PostorderArray()
-	ch2 := tree.Chs[1] //.PostorderArray()
-	ch3 := tree.Chs[2] //.PostorderArray()
-	tmpll = 0.
-	rootedMissingSiteLL(ch1, &tmpll, true, site)
-	rootedMissingSiteLL(ch2, &tmpll, true, site)
-	rootedMissingSiteLL(ch3, &tmpll, true, site)
-	tmpll += calcUnrootedSiteLLParallel(tree, site)
-	//fmt.Println(tmpll)
+	if len(tree.Chs) == 3 {
+		ch1 := tree.Chs[0] //.PostorderArray()
+		ch2 := tree.Chs[1] //.PostorderArray()
+		ch3 := tree.Chs[2] //.PostorderArray()
+		tmpll = 0.
+		rootedMissingSiteLL(ch1, &tmpll, true, site)
+		rootedMissingSiteLL(ch2, &tmpll, true, site)
+		rootedMissingSiteLL(ch3, &tmpll, true, site)
+		tmpll += calcUnrootedSiteLLParallel(tree, site)
+		//fmt.Println(tmpll)
+	} else if len(tree.Chs) == 2 {
+		tmpll = 0.
+		rootedMissingSiteLL(tree, &tmpll, true, site)
+	}
 	sitelike = tmpll
 	return
 }
@@ -341,7 +361,11 @@ func rootedMissingSiteLL(n *Node, nlikes *float64, startFresh bool, site int) {
 				n.ConPruneLen[site] += c0.ConPruneLen[site]
 				n.ContData[site] = c0.ContData[site]
 				n.LL[site] = 0.0
+			} else if c1.Mis[site] == true && c0.Mis[site] == true {
+				n.Mis[site] = true
+				n.LL[site] = 0.0
 			}
+
 		}
 	}
 }
