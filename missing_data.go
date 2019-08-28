@@ -2,6 +2,7 @@ package gophy
 
 import (
 	"fmt"
+	"math"
 	"os"
 )
 
@@ -67,11 +68,11 @@ func CalcExpectedTraits(tree *Node) {
 							sibs = append(sibs, c)
 						}
 					}
+					bot := ((1.0 / sibs[0].PruneLen) + (1.0 / sibs[1].PruneLen))
+					nd.PruneLen = nd.BMLen + (1.0 / bot)
 					for ind := range nd.ContData {
 						if nd.Mis[ind] == true || len(nd.Chs) == 2 {
-							bot := ((1.0 / sibs[0].PruneLen) + (1.0 / sibs[1].PruneLen))
 							nd.ContData[ind] = (((1 / sibs[0].PruneLen) * sibs[1].ContData[ind]) + ((1 / sibs[1].PruneLen) * sibs[0].ContData[ind])) / bot
-							nd.PruneLen = nd.BMLen
 						} else if len(nd.Chs) > 2 {
 							fmt.Println("This tree has a polytomy somewhere other than the root. Please fix.")
 							os.Exit(0)
@@ -79,13 +80,13 @@ func CalcExpectedTraits(tree *Node) {
 					}
 				} else if len(tree.Chs) == 2 {
 					if len(nd.GetSib().Chs) > 0 {
-						sibs := nd.GetSib().Chs //if the tree is rooted and you are imputing data at a taxon descending from the root, calc average from sibling's children (to get other subtree)
+						sib := nd.GetSib()
+						sibs := sib.Chs //if the tree is rooted and you are imputing data at a taxon descending from the root, calc average from sibling's children (to get other subtree)
+						bot := ((1.0 / sibs[0].PruneLen) + (1.0 / sibs[1].PruneLen))
+						//nd.PruneLen = (sib.BMLen + nd.BMLen) + (1.0 / bot)
+						nd.PruneLen = nd.BMLen + sib.PruneLen
 						for ind := range nd.ContData {
-							if nd.Mis[ind] == true || len(nd.Chs) == 2 {
-								bot := ((1.0 / sibs[0].PruneLen) + (1.0 / sibs[1].PruneLen))
-								nd.ContData[ind] = (((1 / sibs[0].PruneLen) * sibs[1].ContData[ind]) + ((1 / sibs[1].PruneLen) * sibs[0].ContData[ind])) / bot
-								nd.PruneLen = nd.BMLen
-							}
+							nd.ContData[ind] = (((1 / sibs[0].PruneLen) * sibs[1].ContData[ind]) + ((1 / sibs[1].PruneLen) * sibs[0].ContData[ind])) / bot
 						}
 					} else { //if the subtree on the other side of the root only has a single tip
 						sib := nd.GetSib()
@@ -96,13 +97,26 @@ func CalcExpectedTraits(tree *Node) {
 			} else {
 				sib := nd.GetSib()
 				for ind := range nd.ContData {
-					if nd.Mis[ind] == true || len(nd.Chs) == 2 {
-						bot := ((1.0 / sib.PruneLen) + (1.0 / nd.Par.PruneLen))
-						nd.ContData[ind] = (((1 / sib.PruneLen) * nd.Par.ContData[ind]) + ((1 / nd.Par.PruneLen) * sib.ContData[ind])) / bot
-						nd.PruneLen = nd.BMLen + 1.0/bot
-					} else if len(nd.Chs) > 2 {
+					if len(nd.Chs) > 2 {
 						fmt.Println("This tree has a polytomy somewhere other than the root. Please fix.")
 						os.Exit(0)
+					}
+					if nd.Mis[ind] == true || len(nd.Chs) != 0 {
+						bot := ((1.0 / sib.PruneLen) + (1.0 / nd.Par.PruneLen))
+						//fmt.Println(sib.Nam, sib.PruneLen, nd.Par.Nam, nd.Par.PruneLen)
+
+						if math.IsNaN(bot) || math.IsInf(bot, 0) {
+							fmt.Println(sib.Nam, sib.PruneLen, nd.Par.Nam, nd.Par.PruneLen)
+							os.Exit(0)
+						}
+
+						trt := (((1 / sib.PruneLen) * nd.Par.ContData[ind]) + ((1 / nd.Par.PruneLen) * sib.ContData[ind])) / bot
+						if math.IsNaN(trt) {
+							fmt.Println(sib.Nam, sib.ContData[ind], nd.Par.Nam, nd.Par.ContData[ind])
+							os.Exit(0)
+						}
+						nd.ContData[ind] = trt
+						nd.PruneLen = nd.BMLen + 1.0/bot
 					}
 				}
 			}
@@ -130,11 +144,11 @@ func ClusterCalcExpectedTraits(tree *Node, sites []int) {
 							sibs = append(sibs, c)
 						}
 					}
+					bot := ((1.0 / sibs[0].PruneLen) + (1.0 / sibs[1].PruneLen))
+					nd.PruneLen = nd.BMLen + (1.0 / bot)
 					for ind := range sites {
 						if nd.Mis[ind] == true || len(nd.Chs) == 2 {
-							bot := ((1.0 / sibs[0].PruneLen) + (1.0 / sibs[1].PruneLen))
 							nd.ContData[ind] = (((1 / sibs[0].PruneLen) * sibs[1].ContData[ind]) + ((1 / sibs[1].PruneLen) * sibs[0].ContData[ind])) / bot
-							nd.PruneLen = nd.BMLen
 						} else if len(nd.Chs) > 2 {
 							fmt.Println("This tree has a polytomy somewhere other than the root. Please fix.")
 							os.Exit(0)
@@ -142,13 +156,13 @@ func ClusterCalcExpectedTraits(tree *Node, sites []int) {
 					}
 				} else if len(tree.Chs) == 2 {
 					if len(nd.GetSib().Chs) > 0 {
-						sibs := nd.GetSib().Chs //if the tree is rooted and you are imputing data at a taxon descending from the root, calc average from sibling's children (to get other subtree)
+						sib := nd.GetSib()
+						sibs := sib.Chs //if the tree is rooted and you are imputing data at a taxon descending from the root, calc average from sibling's children (to get other subtree)
+						bot := ((1.0 / sibs[0].PruneLen) + (1.0 / sibs[1].PruneLen))
+						//nd.PruneLen = (sib.BMLen + nd.BMLen) + (1.0 / bot)
+						nd.PruneLen = nd.BMLen + sib.PruneLen
 						for ind := range sites {
-							if nd.Mis[ind] == true || len(nd.Chs) == 2 {
-								bot := ((1.0 / sibs[0].PruneLen) + (1.0 / sibs[1].PruneLen))
-								nd.ContData[ind] = (((1 / sibs[0].PruneLen) * sibs[1].ContData[ind]) + ((1 / sibs[1].PruneLen) * sibs[0].ContData[ind])) / bot
-								nd.PruneLen = nd.BMLen
-							}
+							nd.ContData[ind] = (((1 / sibs[0].PruneLen) * sibs[1].ContData[ind]) + ((1 / sibs[1].PruneLen) * sibs[0].ContData[ind])) / bot
 						}
 					} else { //if the subtree on the other side of the root only has a single tip
 						sib := nd.GetSib()
@@ -159,17 +173,36 @@ func ClusterCalcExpectedTraits(tree *Node, sites []int) {
 			} else {
 				sib := nd.GetSib()
 				for ind := range sites {
-					if nd.Mis[ind] == true || len(nd.Chs) == 2 {
-						bot := ((1.0 / sib.PruneLen) + (1.0 / nd.Par.PruneLen))
-						nd.ContData[ind] = (((1 / sib.PruneLen) * nd.Par.ContData[ind]) + ((1 / nd.Par.PruneLen) * sib.ContData[ind])) / bot
-						nd.PruneLen = nd.BMLen + 1.0/bot
-					} else if len(nd.Chs) > 2 {
+					if len(nd.Chs) > 2 {
 						fmt.Println("This tree has a polytomy somewhere other than the root. Please fix.")
 						os.Exit(0)
+					}
+					if nd.Mis[ind] == true || len(nd.Chs) != 0 {
+						bot := ((1.0 / sib.PruneLen) + (1.0 / nd.Par.PruneLen))
+						//fmt.Println(sib.Nam, sib.PruneLen, nd.Par.Nam, nd.Par.PruneLen)
+
+						if math.IsNaN(bot) || math.IsInf(bot, 0) {
+							fmt.Println(sib.Nam, sib.PruneLen, nd.Par.Nam, nd.Par.PruneLen)
+							os.Exit(0)
+						}
+
+						trt := (((1 / sib.PruneLen) * nd.Par.ContData[ind]) + ((1 / nd.Par.PruneLen) * sib.ContData[ind])) / bot
+						if math.IsNaN(trt) {
+							fmt.Println(sib.Nam, sib.ContData[ind], nd.Par.Nam, nd.Par.ContData[ind])
+							os.Exit(0)
+						}
+						nd.ContData[ind] = trt
+						nd.PruneLen = nd.BMLen + 1.0/bot
 					}
 				}
 			}
 		}
 		BMPruneRooted(c)
 	}
+}
+
+func calcSingleExpTrait(c1, c2 *Node, ind int) (val float64) {
+	bot := ((1.0 / c1.PruneLen) + (1.0 / c2.PruneLen))
+	val = (((1 / c1.PruneLen) * c2.ContData[ind]) + ((1 / c2.PruneLen) * c1.ContData[ind])) / bot
+	return
 }
