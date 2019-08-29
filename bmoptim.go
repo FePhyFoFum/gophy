@@ -11,7 +11,7 @@ import (
 func ClusterMissingTraitsEM(t *Tree, cluster *Cluster, niter int) {
 	best := -1000000000.0
 	var newlen []float64
-	for it := 0; it < 20; it++ {
+	for it := 0; it < 4; it++ {
 		for _, n := range t.Pre[1:] {
 			r := rand.Float64()
 			n.BMLen = r
@@ -43,7 +43,7 @@ func ClusterMissingTraitsEM(t *Tree, cluster *Cluster, niter int) {
 func GreedyIterateLengthsMissing(t *Tree, sites []int, niter int) {
 	best := -1000000000.0
 	var newlen []float64
-	for it := 0; it < 20; it++ {
+	for it := 0; it < 4; it++ {
 		for _, n := range t.Pre[1:] {
 			r := rand.Float64()
 			n.BMLen = r

@@ -365,7 +365,6 @@ func rootedMissingSiteLL(n *Node, nlikes *float64, startFresh bool, site int) {
 				n.Mis[site] = true
 				n.LL[site] = 0.0
 			}
-
 		}
 	}
 }
