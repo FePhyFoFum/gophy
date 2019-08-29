@@ -10,7 +10,7 @@ import (
 	"runtime/pprof"
 	"time"
 
-	"github.com/carolinetomo/gophy"
+	"github.com/FePhyFoFum/gophy"
 )
 
 func main() {
