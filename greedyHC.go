@@ -146,6 +146,7 @@ func (s *HCSearch) PerturbedRun() {
 		if clcount == s.MinK {
 			quit = true
 		} else {
+			//fmt.Println(len(s.Clusters), s.CurrentAIC)
 			quit = s.bestClusterJoin()
 		}
 		if quit == true {
@@ -620,15 +621,8 @@ func (s *HCSearch) bestClusterJoin() (quit bool) {
 				aic -= ((2. * params) * (params + 1.)) / (s.NumTraits - params - 2.)
 			}
 			if aic < bestAIC {
-				//fmt.Println(bestAIC)
-				//fmt.Println((((2. * (params * params)) + (2. * params)) / (s.NumTraits - params - 1.)))
 				bestAIC = aic
-				/*
-					best1 = c1
-					best2 = c2
-				*/
 				deleteK = j
-
 				newK = i
 				bestll = clustll
 				bestClusterSites = proposedSites
@@ -640,8 +634,6 @@ func (s *HCSearch) bestClusterJoin() (quit bool) {
 			}
 		}
 	}
-	//oldst := s.ClusterString()
-	//oldaic := s.CurrentAIC
 	if bestAIC < s.CurrentAIC { //+10. {
 		newLab := MaxClustLab(s.Clusters) + 1
 		addClust := new(Cluster)
@@ -650,15 +642,6 @@ func (s *HCSearch) bestClusterJoin() (quit bool) {
 		for _, site := range bestClusterSites {
 			s.SiteAssignments[site] = newLab
 		}
-		/*
-				for _, site := range best2.Sites {
-					best1.Sites = append(best1.Sites, site)
-					s.SiteAssignments[site] = newK
-				}
-
-			best1.LogLike = bestll
-			best1.BranchLengths = bestBranchLengths
-		*/
 		addClust.LogLike = bestll
 		addClust.BranchLengths = bestBranchLengths
 		s.CurrentAIC = bestAIC
@@ -683,8 +666,8 @@ func InitGreedyHC(tree *Tree, gen int, pr int, crit int, rstart bool, k int, run
 	if rstart == false {
 		s.startingClustersAllSeparate()
 	} else if rstart == true {
-		//s.singleStartingCluster()
-		s.randomStartingClusters()
+		s.singleStartingCluster()
+		//s.randomStartingClusters()
 	}
 
 	s.PrintFreq = pr
