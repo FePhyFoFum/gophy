@@ -598,7 +598,7 @@ func (s *HCSearch) bestClusterJoin() (quit bool) {
 					n.BMLen = r
 				}
 				if clen <= 15 {
-					GreedyIterateLengthsMissing(s.Tree, proposedSites, 10)
+					GreedyIterateLengthsMissing(s.Tree, proposedSites, 20)
 				} else if clen <= 25 && clen > 15 {
 					GreedyIterateLengthsMissing(s.Tree, proposedSites, 20)
 				} else if clen > 25 {
@@ -686,6 +686,7 @@ func InitGreedyHC(tree *Tree, gen int, pr int, crit int, rstart bool, k int, run
 		//s.singleStartingCluster()
 		s.randomStartingClusters()
 	}
+
 	s.PrintFreq = pr
 	s.JoinLikes = make(map[int]map[int]float64)
 	s.SplitGen = splitgen

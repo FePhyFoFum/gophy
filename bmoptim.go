@@ -3,32 +3,78 @@ package gophy
 import (
 	"fmt"
 	"math"
+	"math/rand"
 	"os"
 )
 
 //ClusterMissingTraitsEM will calculate the BM branch lengths using an iterative EM calculation that imputes missing data using PICs using the traits in a single cluster
 func ClusterMissingTraitsEM(t *Tree, cluster *Cluster, niter int) {
-	ClusterCalcExpectedTraits(t.Rt, cluster.Sites)
-	for i := 0; i < niter; i++ {
-		BMCalcLensBackFront(t, cluster.Sites)
-		ClusterCalcExpectedTraits(t.Rt, cluster.Sites)
-	}
-	BMCalcLensBackFront(t, cluster.Sites)
+	best := -1000000000.0
 	var newlen []float64
-	for _, n := range t.Pre {
-		newlen = append(newlen, n.BMLen) //store the newly calculated branch lengths
+	for it := 0; it < 20; it++ {
+		for _, n := range t.Pre[1:] {
+			r := rand.Float64()
+			n.BMLen = r
+		}
+		for i := 0; i < niter; i++ {
+			CalcExpectedTraits(t.Rt)
+			BMCalcLensBackFront(t, cluster.Sites)
+		}
+		if len(t.Rt.Chs) == 3 {
+			ll := SubUnrootedLogLikeParallel(t.Rt, cluster.Sites, 4)
+			if ll > best {
+				best = ll
+				newlen = nil
+				for _, n := range t.Pre {
+					newlen = append(newlen, n.BMLen) //store the newly calculated branch lengths
+				}
+			}
+		} else {
+			fmt.Println("picard currently only runs on unrooted trees.")
+		}
+	}
+	for i, n := range t.Pre {
+		n.BMLen = newlen[i]
 	}
 	cluster.BranchLengths = newlen
 }
 
 //GreedyIterateLengthsMissing will calculate the BM branch lengths using an iterative EM calculation that imputes missing data using PICs using the traits in a single cluster
 func GreedyIterateLengthsMissing(t *Tree, sites []int, niter int) {
-	ClusterCalcExpectedTraits(t.Rt, sites)
-	for i := 0; i < niter; i++ {
-		BMCalcLensBackFront(t, sites)
-		ClusterCalcExpectedTraits(t.Rt, sites)
+	best := -1000000000.0
+	var newlen []float64
+	for it := 0; it < 20; it++ {
+		for _, n := range t.Pre[1:] {
+			r := rand.Float64()
+			n.BMLen = r
+		}
+		for i := 0; i < niter; i++ {
+			CalcExpectedTraits(t.Rt)
+			BMCalcLensBackFront(t, sites)
+		}
+		if len(t.Rt.Chs) == 3 {
+			ll := SubUnrootedLogLikeParallel(t.Rt, sites, 4)
+			if ll > best {
+				best = ll
+				for _, n := range t.Pre {
+					newlen = append(newlen, n.BMLen) //store the newly calculated branch lengths
+				}
+			}
+		} else {
+			ll := PBMLogLikeRt(t.Rt, true, 4)
+			if ll > best {
+				best = ll
+				newlen = nil
+				for _, n := range t.Pre {
+					newlen = append(newlen, n.BMLen) //store the newly calculated branch lengths
+				}
+
+			}
+		}
 	}
-	BMCalcLensBackFront(t, sites)
+	for i, n := range t.Pre {
+		n.BMLen = newlen[i]
+	}
 }
 
 //BMOptimBLEM will calculate the BM branch lengths using an iterative EM calculation that imputes missing data using PICs
@@ -37,12 +83,49 @@ func BMOptimBLEM(t *Tree, niter int) {
 	for i := range t.Rt.ContData {
 		sites = append(sites, i)
 	}
-	CalcExpectedTraits(t.Rt)
-	for i := 0; i < niter; i++ {
-		BMCalcLensBackFront(t, sites)
-		CalcExpectedTraits(t.Rt)
+	best := -1000000000.0
+	var newlen []float64
+	for it := 0; it < niter; it++ {
+		for _, n := range t.Pre[1:] {
+			r := rand.Float64()
+			n.BMLen = r
+		}
+		for i := 0; i < 10; i++ {
+			CalcExpectedTraits(t.Rt)
+			BMCalcLensBackFront(t, sites)
+		}
+		if len(t.Rt.Chs) == 3 {
+			ll := SubUnrootedLogLikeParallel(t.Rt, sites, 4)
+			if ll > best {
+				best = ll
+				newlen = nil
+				for _, n := range t.Pre {
+					newlen = append(newlen, n.BMLen) //store the newly calculated branch lengths
+				}
+			}
+		} else {
+			ll := PBMLogLikeRt(t.Rt, true, 4)
+			if ll > best {
+				best = ll
+				newlen = nil
+				for _, n := range t.Pre {
+					newlen = append(newlen, n.BMLen) //store the newly calculated branch lengths
+				}
+				for i, n := range t.Pre {
+					n.BMLen = newlen[i]
+				}
+				//fmt.Println("MID:", PBMLogLikeRt(t.Rt, true, 4), best, ll)
+				//fmt.Println(t.Rt.BMPhylogram())
+			}
+		}
 	}
-	BMCalcLensBackFront(t, sites)
+	for i, n := range t.Pre {
+		n.BMLen = newlen[i]
+	}
+	//CalcExpectedTraits(t.Rt)
+	//ll := PBMLogLikeRt(t.Rt, true, 4)
+	//fmt.Println("DONE:", PBMLogLikeRt(t.Rt, true, 4), best)
+
 }
 
 //BMCalcLensBackFront will do one pass of the EM branch length estimation
@@ -53,9 +136,11 @@ func BMCalcLensBackFront(t *Tree, sites []int) {
 			BMPruneRooted(c)
 		}
 		AncTritomyML(t.Rt, sites)
+
 		for _, c := range t.Rt.Chs {
 			BMPruneRooted(c)
 		}
+
 	} else {
 		BMPruneRooted(t.Rt)
 	}
@@ -171,13 +256,13 @@ func virtualTritomyML(tree *Node, sites []int) {
 	tree.Chs[0].BMLen = (sumV1 / fntraits) - (tree.Chs[0].PruneLen - tree.Chs[0].BMLen)
 	tree.Chs[1].BMLen = (sumV2 / fntraits) - (tree.Chs[1].PruneLen - tree.Chs[1].BMLen)
 	tree.BMLen = (sumV3 / fntraits) - (tree.PruneLen - tree.BMLen)
-	if tree.Chs[0].BMLen < 0. {
+	if tree.Chs[0].BMLen <= 0. {
 		tree.Chs[0].BMLen = 0.0001
 	}
-	if tree.Chs[1].BMLen < 0. {
+	if tree.Chs[1].BMLen <= 0. {
 		tree.Chs[1].BMLen = 0.0001
 	}
-	if tree.BMLen < 0. {
+	if tree.BMLen <= 0. {
 		tree.BMLen = 0.0001
 	}
 }
@@ -244,18 +329,22 @@ func AncTritomyML(tree *Node, sites []int) {
 		sumV3 = sumV3 / fntraits
 		sumV3 = sumV3 - (tree.Chs[2].PruneLen - tree.Chs[2].BMLen)
 	}
-	if sumV1 < 0. {
+	if sumV1 <= 0. {
 		sumV1 = 0.0
 	}
-	if sumV2 < 0. {
+	if sumV2 <= 0. {
 		sumV2 = 0.0
 	}
-	if sumV3 < 0. {
+	if sumV3 <= 0. {
 		sumV3 = 0.0
 	}
 	tree.Chs[0].BMLen = sumV1
 	tree.Chs[1].BMLen = sumV2
 	tree.Chs[2].BMLen = sumV3
+	if math.IsNaN(sumV1) || math.IsNaN(sumV2) || math.IsNaN(sumV3) {
+		fmt.Println(tree.Chs[0].Nam, sumV1, tree.Chs[1].Nam, sumV2, tree.Chs[2].Nam, sumV3)
+		os.Exit(0)
+	}
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////
@@ -419,15 +508,20 @@ func virtualTritomyMLWeights(tree *Node, weights map[int]float64) {
 	tree.Chs[0].BMLen = (sumV1) - (tree.Chs[0].PruneLen - tree.Chs[0].BMLen)
 	tree.Chs[1].BMLen = (sumV2) - (tree.Chs[1].PruneLen - tree.Chs[1].BMLen)
 	tree.BMLen = (sumV3) - (tree.PruneLen - tree.BMLen)
-	if tree.Chs[0].BMLen < 0. {
+	if tree.Chs[0].BMLen <= 0. {
 		tree.Chs[0].BMLen = 0.0001
 	}
-	if tree.Chs[1].BMLen < 0. {
+	if tree.Chs[1].BMLen <= 0. {
 		tree.Chs[1].BMLen = 0.0001
 	}
-	if tree.BMLen < 0. {
+	if tree.BMLen <= 0. {
 		tree.BMLen = 0.0001
 	}
+	if math.IsNaN(sumV1) || math.IsNaN(sumV2) || math.IsNaN(sumV3) {
+		fmt.Println(tree.Nam, sumV1, tree.Chs[0].Nam, sumV2, tree.Chs[1].Nam, sumV3)
+		os.Exit(0)
+	}
+
 }
 
 //tritomyWeightedML will calculate the MLEs for the branch lengths of a tifurcating 3-taxon tree
