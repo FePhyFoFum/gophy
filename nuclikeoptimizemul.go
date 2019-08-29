@@ -72,7 +72,7 @@ func AdjustBLNRMult(node *Node, models []*DNAModel, nodemodels map[*Node]int, pa
 	if guess < xmin || guess > xmax {
 		guess = 0.1
 	}
-	startL := PCalcLikePatternsMul(t, models, nodemodels, patternvals, wks)
+	startL := PCalcLogLikePatternsMul(t, models, nodemodels, patternvals, wks)
 	x := models[nodemodels[node]]
 	startLen := node.Len
 	//need subtree 1
@@ -116,7 +116,7 @@ func AdjustBLNRMult(node *Node, models []*DNAModel, nodemodels map[*Node]int, pa
 			break
 		}
 	}
-	endL := PCalcLikePatterns(t, x, patternvals, wks)
+	endL := PCalcLogLikePatterns(t, x, patternvals, wks)
 	//make sure that we actually made the likelihood better
 	if startL > endL {
 		node.Len = startLen
@@ -286,7 +286,8 @@ func OptimizeGTRBPMul(t *Tree, models []*DNAModel, nodemodels map[*Node]int, pat
 }
 
 // OptimizeGTRCompSharedRM optimize GTR base composition but share rate matrix for the different parts
-func OptimizeGTRCompSharedRM(t *Tree, models []*DNAModel, nodemodels map[*Node]int, patternvals []float64, wks int) {
+func OptimizeGTRCompSharedRM(t *Tree, models []*DNAModel, nodemodels map[*Node]int,
+	usemodelvals bool, patternvals []float64, wks int) {
 	count := 0
 	//start := time.Now()
 	fcn := func(mds []float64) float64 {
@@ -318,17 +319,34 @@ func OptimizeGTRCompSharedRM(t *Tree, models []*DNAModel, nodemodels map[*Node]i
 		return -lnl
 	}
 	settings := optimize.Settings{}
+	FC := optimize.FunctionConverge{}
+	FC.Absolute = 10e-3
+	FC.Iterations = 75
+	settings.Converger = &FC
 	/*grad := func(grad, x []float64) []float64 {
 		return fd.Gradient(grad, fcn, x, nil)
 	}*/
 	p := optimize.Problem{Func: fcn, Grad: nil, Hess: nil}
 	p0 := make([]float64, 0)
-	for j := 0; j < 5; j++ {
-		p0 = append(p0, 1.0)
-	}
-	for range models {
-		for j := 0; j < 3; j++ {
-			p0 = append(p0, 0.25)
+	if usemodelvals == false {
+		for j := 0; j < 5; j++ {
+			p0 = append(p0, 1.0)
+		}
+		for range models {
+			for j := 0; j < 3; j++ {
+				p0 = append(p0, 0.25)
+			}
+		}
+	} else {
+		p0 = append(p0, models[0].R.At(0, 1))
+		p0 = append(p0, models[0].R.At(0, 2))
+		p0 = append(p0, models[0].R.At(0, 3))
+		p0 = append(p0, models[0].R.At(1, 2))
+		p0 = append(p0, models[0].R.At(1, 3))
+		for i := range models {
+			for j := 0; j < 3; j++ {
+				p0 = append(p0, models[i].BF[j])
+			}
 		}
 	}
 	fmt.Println(p0)
@@ -336,7 +354,7 @@ func OptimizeGTRCompSharedRM(t *Tree, models []*DNAModel, nodemodels map[*Node]i
 	if err != nil {
 		//fmt.Println(err)
 	}
-	fmt.Println("   ", res.F)
+	//fmt.Println("   ", res.F)
 	for i, j := range models {
 		j.SetRateMatrix(res.X[0:5])
 		cn := (i * 3) + 5

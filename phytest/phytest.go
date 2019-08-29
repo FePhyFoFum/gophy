@@ -183,7 +183,7 @@ func main() {
 	printModel(modelparams, bf)
 	x.SetRateMatrix(modelparams)
 	x.SetupQGTR()
-
+	fmt.Println(x.Q)
 	//
 	l := gophy.PCalcLikePatterns(t, x, patternval, *wks)
 	fmt.Println("starting lnL:", l)

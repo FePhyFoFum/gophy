@@ -409,6 +409,9 @@ func CalcLogLikeNode(nd *Node, model *DNAModel, site int) {
 	x1 := 0.0
 	x2 := []float64{0.0, 0.0, 0.0, 0.0}
 	for _, c := range nd.Chs {
+		if math.IsNaN(c.Len) {
+			c.Len = 0.0
+		}
 		P := model.GetPMap(c.Len)
 		if len(c.Chs) == 0 {
 			for i := 0; i < 4; i++ {
@@ -452,7 +455,7 @@ func CalcLikeNode(nd *Node, model *DNAModel, site int) {
 				for j := 0; j < 4; j++ {
 					x2 += P.At(i, j) * c.Data[site][j]
 				}
-				nd.Data[site][i] *= x2 //floats.LogSumExp(x2)
+				nd.Data[site][i] *= x2
 			}
 		}
 	}
@@ -652,10 +655,67 @@ func calcLogLikeOneSiteSubClade(t *Tree, inn *Node, excl bool, x *DNAModel, site
 			tn = inn
 		}
 		if tn == n {
-			for i := 0; i < 4; i++ {
-				n.Data[site][i] += math.Log(x.BF[i])
+			if tn == t.Rt { //only happens at the root
+				for i := 0; i < 4; i++ {
+					n.Data[site][i] += math.Log(x.BF[i])
+				}
+				sl = floats.LogSumExp(n.Data[site])
+			} else {
+				//needs to get the branch length incorporated
+				p := x.GetPCalc(n.Len)
+				rtconds := make([]float64, x.GetNumStates())
+				for j := 0; j < 4; j++ {
+					templike := 0.0
+					for k := 0; k < 4; k++ {
+						templike += p.At(j, k) * n.Data[site][k]
+					}
+					rtconds[j] = templike // TODO: this needs to be checked. not log.
+				}
+				sl = floats.LogSumExp(rtconds)
 			}
-			sl = floats.LogSumExp(n.Data[site])
+		}
+	}
+	return sl
+}
+
+// calcLogLikeOneSiteSubClade calc for just a clade, starting at a node
+func calcLikeOneSiteSubClade(t *Tree, inn *Node, excl bool, x *DNAModel, site int) float64 {
+	sl := 0.0
+	arr := []*Node{}
+	if excl == true {
+		arr = t.Rt.PostorderArrayExcl(inn)
+	} else {
+		arr = inn.PostorderArray()
+	}
+	for _, n := range arr {
+		if len(n.Chs) > 0 {
+			CalcLikeNode(n, x, site)
+		}
+		var tn *Node
+		if excl == true { // calc at rt
+			tn = t.Rt
+		} else {
+			tn = inn
+		}
+		if tn == n {
+			if tn == t.Rt { //only happens at the root
+				for i := 0; i < 4; i++ {
+					n.Data[site][i] *= x.BF[i]
+				}
+				sl = floats.Sum(n.Data[site])
+			} else {
+				//needs to get the branch length incorporated
+				p := x.GetPCalc(n.Len)
+				rtconds := make([]float64, x.GetNumStates())
+				for j := 0; j < 4; j++ {
+					templike := 0.0
+					for k := 0; k < 4; k++ {
+						templike += p.At(j, k) * n.Data[site][k]
+					}
+					rtconds[j] = templike
+				}
+				sl = floats.Sum(rtconds)
+			}
 		}
 	}
 	return sl
@@ -687,6 +747,76 @@ func PCalcLogLikePatternsSubClade(t *Tree, n *Node, excl bool, x *DNAModel, patt
 	return
 }
 
+//PCalcLikePatternsSubClade parallel log likeliohood calculation including patterns
+func PCalcLikePatternsSubClade(t *Tree, n *Node, excl bool, x *DNAModel, patternval []float64, wks int) (fl float64) {
+	fl = 0.0
+	nsites := len(patternval)
+	jobs := make(chan int, nsites)
+	//results := make(chan float64, nsites)
+	results := make(chan LikeResult, nsites)
+	// populate the P matrix dictionary without problems of race conditions
+	// just the first site
+	x.EmptyPDict()
+	fl += calcLikeOneSiteSubClade(t, n, excl, x, 0) * patternval[0]
+	for i := 0; i < wks; i++ {
+		go calcLikeSubCladeWork(t, n, excl, x, jobs, results)
+	}
+	for i := 1; i < nsites; i++ {
+		jobs <- i
+	}
+	close(jobs)
+	rr := LikeResult{}
+	for i := 1; i < nsites; i++ {
+		rr = <-results
+		fl += (math.Log(rr.value) * patternval[rr.site])
+	}
+	return
+}
+
+// calcLikeSubCladeWork this is intended for a worker that will be executing this per site
+func calcLikeSubCladeWork(t *Tree, inn *Node, excl bool, x *DNAModel, jobs <-chan int, results chan<- LikeResult) { //results chan<- float64) {
+	arr := []*Node{}
+	if excl == true {
+		arr = t.Rt.PostorderArrayExcl(inn)
+	} else {
+		arr = inn.PostorderArray()
+	}
+	for j := range jobs {
+		sl := 0.0
+		for _, n := range arr {
+			if len(n.Chs) > 0 {
+				CalcLikeNode(n, x, j)
+			}
+			var tn *Node
+			if excl == true { // calc at rt
+				tn = t.Rt
+			} else {
+				tn = inn
+			}
+			if tn == n {
+				if tn == t.Rt { //only happens at the root
+					for i := 0; i < 4; i++ {
+						n.Data[j][i] *= x.BF[i]
+					}
+					sl = floats.Sum(n.Data[j])
+				} else {
+					p := x.GetPCalc(n.Len)
+					rtconds := make([]float64, x.GetNumStates())
+					for m := 0; m < 4; m++ {
+						templike := 0.0
+						for k := 0; k < 4; k++ {
+							templike += p.At(m, k) * n.Data[j][k]
+						}
+						rtconds[m] = templike
+					}
+					sl = floats.Sum(rtconds)
+				}
+			}
+		}
+		results <- LikeResult{value: sl, site: j}
+	}
+}
+
 // CalcLogLikeSubCladeWork this is intended for a worker that will be executing this per site
 func calcLogLikeSubCladeWork(t *Tree, inn *Node, excl bool, x *DNAModel, jobs <-chan int, results chan<- LikeResult) { //results chan<- float64) {
 	arr := []*Node{}
@@ -708,10 +838,23 @@ func calcLogLikeSubCladeWork(t *Tree, inn *Node, excl bool, x *DNAModel, jobs <-
 				tn = inn
 			}
 			if tn == n {
-				for i := 0; i < 4; i++ {
-					n.Data[j][i] += math.Log(x.BF[i])
+				if tn == t.Rt { //only happens at the root
+					for i := 0; i < 4; i++ {
+						n.Data[j][i] += math.Log(x.BF[i])
+					}
+					sl = floats.LogSumExp(n.Data[j])
+				} else {
+					p := x.GetPCalc(n.Len)
+					rtconds := make([]float64, x.GetNumStates())
+					for m := 0; m < 4; m++ {
+						templike := 0.0
+						for k := 0; k < 4; k++ {
+							templike += p.At(m, k) * n.Data[j][k]
+						}
+						rtconds[m] = templike //TODO: make sure this is all correct
+					}
+					sl = floats.LogSumExp(rtconds) //hm, I don't think this is right. should be log
 				}
-				sl = floats.LogSumExp(n.Data[j])
 			}
 		}
 		results <- LikeResult{value: sl, site: j}

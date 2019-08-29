@@ -55,7 +55,7 @@ func ReadTreesFromFile(tfn string) (trees []*Tree) {
 
 // ReadNewickString given a string it will return a pointer to the root node
 func ReadNewickString(ts string) (root *Node) {
-	rt := Node{nil, nil, "root", map[string]string{}, map[string]float64{},
+	rt := Node{nil, nil, "", map[string]string{}, map[string]float64{},
 		map[string]int{}, 0, 0., nil, false, 0., map[float64]bool{}, nil, nil, nil, nil, 0.0, 0.0, 0.0, 0.0, nil, nil, 0.0, nil, 0.0, nil, false, nil}
 	x := 0
 	nc := string(ts[x : x+1])

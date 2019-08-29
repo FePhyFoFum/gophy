@@ -73,7 +73,7 @@ func AdjustBLNR(node *Node, x *DNAModel, patternvals []float64, t *Tree, wks int
 	if guess < xmin || guess > xmax {
 		guess = 0.1
 	}
-	startL := PCalcLikePatterns(t, x, patternvals, wks)
+	startL := PCalcLogLikePatterns(t, x, patternvals, wks) // TODO: make sure loglike gets the same, was like. should be the same
 	startLen := node.Len
 	//need subtree 1
 	s1probs := node.TpConds
@@ -116,7 +116,7 @@ func AdjustBLNR(node *Node, x *DNAModel, patternvals []float64, t *Tree, wks int
 			break
 		}
 	}
-	endL := PCalcLikePatterns(t, x, patternvals, wks)
+	endL := PCalcLogLikePatterns(t, x, patternvals, wks) // TODO: make sure loglike gets the same, was like. should be the same
 	//make sure that we actually made the likelihood better
 	if startL > endL {
 		node.Len = startLen
@@ -229,6 +229,79 @@ func OptimizeBLS(t *Tree, x *DNAModel, patternvals []float64, wks int) {
 
 // OptimizeGTR optimize GTR
 func OptimizeGTR(t *Tree, x *DNAModel, patternvals []float64, wks int) {
+	fcn := func(mds []float64) float64 {
+		for _, i := range mds {
+			if i < 0 {
+				return 1000000000000
+			}
+		}
+		x.SetRateMatrix(mds)
+		x.SetupQGTR()
+		lnl := PCalcLikePatterns(t, x, patternvals, wks)
+		return -lnl
+	}
+	settings := optimize.Settings{}
+	FC := optimize.FunctionConverge{}
+	FC.Absolute = 10e-3
+	FC.Iterations = 75
+	settings.Converger = &FC
+	p := optimize.Problem{Func: fcn, Grad: nil, Hess: nil}
+	p0 := []float64{1.0, 1.0, 1.0, 1.0, 1.0}
+	res, err := optimize.Minimize(p, p0, &settings, nil)
+	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Println(res.F)
+	x.SetRateMatrix(res.X)
+}
+
+//OptimizeBF optimizing the basefreq model but for a clade
+func OptimizeBF(t *Tree, x *DNAModel, patternvals []float64, wks int) {
+	count := 0
+	fcn := func(mds []float64) float64 {
+		mds1 := make([]float64, 4)
+		tsum := 0.
+		for j, i := range mds {
+			if i < 0 {
+				return 1000000000000
+			}
+			mds1[j] = i
+			tsum += i
+		}
+		if tsum > 1.0 {
+			return 1000000000000
+		}
+		mds1[3] = 1. - tsum
+		x.SetBaseFreqs(mds1)
+		x.SetupQGTR()
+		lnl := PCalcLikePatterns(t, x, patternvals, wks)
+		count++
+		return -lnl
+	}
+	settings := optimize.Settings{}
+	FC := optimize.FunctionConverge{}
+	FC.Absolute = 10e-3
+	FC.Iterations = 75
+	settings.Converger = &FC
+	p := optimize.Problem{Func: fcn, Grad: nil, Hess: nil}
+	p0 := []float64{0.25, 0.25, 0.25} // 4-1
+	res, err := optimize.Minimize(p, p0, &settings, nil)
+	if err != nil {
+		fmt.Println(err)
+	}
+	mds1 := make([]float64, 4)
+	tsum := 0.
+	for j, i := range res.X {
+		mds1[j] = i
+		tsum += i
+	}
+	mds1[3] = 1. - tsum
+	x.SetBaseFreqs(mds1)
+	x.SetupQGTR()
+}
+
+//OptimizeGTRSubClade optimizing the GTR model but for a subclade
+func OptimizeGTRSubClade(t *Tree, n *Node, excl bool, x *DNAModel, patternvals []float64, wks int) {
 	count := 0
 	start := time.Now()
 	fcn := func(mds []float64) float64 {
@@ -239,7 +312,7 @@ func OptimizeGTR(t *Tree, x *DNAModel, patternvals []float64, wks int) {
 		}
 		x.SetRateMatrix(mds)
 		x.SetupQGTR()
-		lnl := PCalcLikePatterns(t, x, patternvals, wks)
+		lnl := PCalcLogLikePatternsSubClade(t, n, excl, x, patternvals, wks)
 		if count%100 == 0 {
 			curt := time.Now()
 			fmt.Println(count, lnl, curt.Sub(start))
@@ -265,14 +338,47 @@ func OptimizeGTR(t *Tree, x *DNAModel, patternvals []float64, wks int) {
 	x.SetRateMatrix(res.X)
 }
 
-/*
- * these are by "clade" given a direction
-
- give direction, x being a standard clade and y being everything but
- that clade. we use tpcond for X and rvtpcond for Y
-  X
-  |
-  |
-  |
-  Y
-*/
+//OptimizeBFSubClade optimizing the basefreq model but for a subclade
+func OptimizeBFSubClade(t *Tree, n *Node, excl bool, x *DNAModel, patternvals []float64, wks int) {
+	count := 0
+	fcn := func(mds []float64) float64 {
+		mds1 := make([]float64, 4)
+		tsum := 0.
+		for j, i := range mds {
+			if i < 0 {
+				return 1000000000000
+			}
+			mds1[j] = i
+			tsum += i
+		}
+		if tsum > 1.0 {
+			return 1000000000000
+		}
+		mds1[3] = 1. - tsum
+		x.SetBaseFreqs(mds1)
+		x.SetupQGTR()
+		lnl := PCalcLikePatternsSubClade(t, n, excl, x, patternvals, wks)
+		count++
+		return -lnl
+	}
+	settings := optimize.Settings{}
+	FC := optimize.FunctionConverge{}
+	FC.Absolute = 10e-3
+	FC.Iterations = 75
+	settings.Converger = &FC
+	p := optimize.Problem{Func: fcn, Grad: nil, Hess: nil}
+	p0 := []float64{0.25, 0.25, 0.25} // 4-1
+	res, err := optimize.Minimize(p, p0, &settings, nil)
+	if err != nil {
+		fmt.Println(err)
+	}
+	mds1 := make([]float64, 4)
+	tsum := 0.
+	for j, i := range res.X {
+		mds1[j] = i
+		tsum += i
+	}
+	mds1[3] = 1. - tsum
+	x.SetBaseFreqs(mds1)
+	x.SetupQGTR()
+}

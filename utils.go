@@ -320,6 +320,20 @@ func log1exp(x float64) float64 {
 	return math.Log1p(math.Exp(x))
 }
 
+//CalcAIC k=numparams
+func CalcAIC(ln float64, k float64) (x float64) {
+	x = (2. * k) - (2. * ln)
+	return
+}
+
+//CalcAICC k=numparams,n=samplesize
+func CalcAICC(lnl float64, k float64, n int) (x float64) {
+	aic := CalcAIC(lnl, k)
+	x = aic + (((2. * math.Pow(k, 2.)) +
+		(2. * k)) / (float64(n) - k - 1.))
+	return
+}
+
 // NodeSlicePosition take a *[]Node slice and teh get the index of the element node
 func NodeSlicePosition(sl []*Node, nd *Node) (x int) {
 	x = -1
