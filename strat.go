@@ -1,5 +1,7 @@
 package gophy
 
+// Calculate stratigraphic likelihoods with trees
+
 import (
 	"fmt"
 	"math"
@@ -8,6 +10,8 @@ import (
 	"strings"
 )
 
+// PoissonTreeLoglike calculates the Poisson LogLike based on
+//  stratigraphic ranges
 func PoissonTreeLoglike(tree *Tree) float64 {
 	nodels := tree.Pre
 	lam := 1.0
@@ -20,16 +24,16 @@ func PoissonTreeLoglike(tree *Tree) float64 {
 		tf := node.Par.Height * c
 		tl := node.Height * c
 		brlik := 0.0
-		if node.FINDS > 1 {
-			f := node.FAD * c
-			l := node.LAD * c
-			a := math.Log(math.Pow(f-l, (node.FINDS - 2.0)))
-			b := math.Log(math.Pow(lam, node.FINDS))
+		if node.FData["FINDS"] > 1 {
+			f := node.FData["FAD"] * c
+			l := node.FData["LAD"] * c
+			a := math.Log(math.Pow(f-l, (node.FData["FINDS"] - 2.0)))
+			b := math.Log(math.Pow(lam, node.FData["FINDS"]))
 			c := -lam * (tf - tl)
-			brlik = (a + b + c) - float64(LogFactorial(int(node.FINDS-2.0)))
-		} else if node.FINDS == 1 {
+			brlik = (a + b + c) - float64(LogFactorial(int(node.FData["FINDS"]-2.0)))
+		} else if node.FData["FINDS"] == 1 {
 			brlik = math.Log(lam) + (-lam * (tf - tl))
-		} else if node.FINDS == 0 {
+		} else if node.FData["FINDS"] == 0 {
 			brlik = -lam * (tf - tl)
 		}
 		treelik += brlik
@@ -37,6 +41,8 @@ func PoissonTreeLoglike(tree *Tree) float64 {
 	return treelik
 }
 
+// ADPoissonTreeLoglike calculates the ancestor - descendent
+//  for a set of stratigraphic ranges
 func ADPoissonTreeLoglike(nodels []*Node, lam float64) float64 {
 	//lam := 10.0
 	c := 1.0
@@ -55,16 +61,16 @@ func ADPoissonTreeLoglike(nodels []*Node, lam float64) float64 {
 		}
 		tl := node.Height * c
 		brlik := 0.0
-		if node.FINDS > 1 {
-			f := node.FAD * c
-			l := node.LAD * c
-			a := math.Log(math.Pow(f-l, (node.FINDS - 2.0)))
-			b := math.Log(math.Pow(lam, node.FINDS))
+		if node.FData["FINDS"] > 1 {
+			f := node.FData["FAD"] * c
+			l := node.FData["LAD"] * c
+			a := math.Log(math.Pow(f-l, (node.FData["FINDS"] - 2.0)))
+			b := math.Log(math.Pow(lam, node.FData["FINDS"]))
 			c := -lam * (tf - tl)
-			brlik = (a + b + c) - float64(LogFactorial(int(node.FINDS-2.0)))
-		} else if node.FINDS == 1 {
+			brlik = (a + b + c) - float64(LogFactorial(int(node.FData["FINDS"]-2.0)))
+		} else if node.FData["FINDS"] == 1 {
 			brlik = math.Log(lam) + (-lam * (tf - tl))
-		} else if node.FINDS == 0 {
+		} else if node.FData["FINDS"] == 0 {
 			brlik = -lam * (tf - tl)
 		}
 		treelik += brlik
@@ -72,6 +78,8 @@ func ADPoissonTreeLoglike(nodels []*Node, lam float64) float64 {
 	return treelik
 }
 
+// ReadStrat reads stratigraphic ranges from a file and assigns those
+//  data to a tree
 func ReadStrat(stratfl string, t *Tree) {
 	nodels := t.Pre
 	lines := ReadLine(stratfl)
@@ -117,9 +125,9 @@ func ReadStrat(stratfl string, t *Tree) {
 		for _, node := range nodels {
 			if node.Nam == curtax {
 				if _, ok := matched[curtax]; !ok {
-					node.FAD = fad
-					node.LAD = lad
-					node.FINDS = n
+					node.FData["FAD"] = fad
+					node.FData["LAD"] = lad
+					node.FData["FINDS"] = n
 					matched[curtax] = true
 					matchcount++
 				} else {
@@ -148,19 +156,20 @@ func assignHeights(node *Node) {
 		assignHeights(chld)
 	}
 	if len(node.Chs) == 0 {
-		if node.LAD == 0.0 {
-			node.Height = node.LAD
+		if node.FData["LAD"] == 0.0 {
+			node.Height = node.FData["LAD"]
 		} else {
-			node.Height = node.LAD - 0.000001
+			node.Height = node.FData["LAD"] - 0.000001
 		}
 	} else {
 		oldestChildHeight := OldestChildAge(node)
 		node.Height = oldestChildHeight + 0.001
-		node.FAD = node.Height
+		node.FData["FAD"] = node.Height
 	}
 
 }
 
+// MakeStratHeights assigns the strat heights
 func MakeStratHeights(tree *Tree) {
 	assignHeights(tree.Rt)
 	postTree := tree.Post
@@ -168,16 +177,17 @@ func MakeStratHeights(tree *Tree) {
 		if node.Par == nil {
 			continue
 		} else {
-			node.TimeLen = node.Par.Height - node.Height
+			node.FData["TimeLen"] = node.Par.Height - node.Height
 		}
 	}
 }
 
+// OldestChildAge returns the oldest Child
 func OldestChildAge(node *Node) float64 {
 	oldestChildHeight := 0.0
 	for _, c := range node.Chs {
-		if c.FAD > oldestChildHeight && c.Nam+"_ancestral" != node.Nam {
-			oldestChildHeight = c.FAD
+		if c.FData["FAD"] > oldestChildHeight && c.Nam+"_ancestral" != node.Nam {
+			oldestChildHeight = c.FData["FAD"]
 		}
 	}
 	return oldestChildHeight

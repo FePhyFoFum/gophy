@@ -89,8 +89,6 @@ func PCalcLikePatterns(t *Tree, x *DNAModel, patternval []float64, wks int) (fl 
 	return
 }
 
-//TODO: this whole bit needs to be checcked
-
 //PCalcLikePatternsMarked parallel likelihood caclulation with patterns and just update the values
 func PCalcLikePatternsMarked(t *Tree, x *DNAModel, patternval []float64, wks int) (fl float64) {
 	fl = 0.0
@@ -128,6 +126,7 @@ func PCalcLogLikePatterns(t *Tree, x *DNAModel, patternval []float64, wks int) (
 	// populate the P matrix dictionary without problems of race conditions
 	// just the first site
 	x.EmptyPDict()
+	x.EmptyPLDict()
 	fl += CalcLogLikeOneSite(t, x, 0) * patternval[0]
 	for i := 0; i < wks; i++ {
 		go CalcLogLikeWork(t, x, jobs, results)
@@ -412,8 +411,8 @@ func CalcLogLikeNode(nd *Node, model *DNAModel, site int) {
 		if math.IsNaN(c.Len) {
 			c.Len = 0.0
 		}
-		P := model.GetPMap(c.Len)
 		if len(c.Chs) == 0 {
+			P := model.GetPMap(c.Len)
 			for i := 0; i < 4; i++ {
 				x1 = 0.0
 				for j := 0; j < 4; j++ {
@@ -422,9 +421,11 @@ func CalcLogLikeNode(nd *Node, model *DNAModel, site int) {
 				nd.Data[site][i] += math.Log(x1)
 			}
 		} else {
+			PL := model.GetPMapLogged(c.Len)
 			for i := 0; i < 4; i++ {
 				for j := 0; j < 4; j++ {
-					x2[j] = math.Log(P.At(i, j)) + c.Data[site][j]
+					//x2[j] = math.Log(P.At(i, j)) + c.Data[site][j]
+					x2[j] = PL.At(i, j) + c.Data[site][j]
 				}
 				nd.Data[site][i] += floats.LogSumExp(x2)
 			}
@@ -432,7 +433,7 @@ func CalcLogLikeNode(nd *Node, model *DNAModel, site int) {
 	}
 }
 
-//CalcLikeNode calculate the likelihood of a node
+// CalcLikeNode calculate the likelihood of a node
 func CalcLikeNode(nd *Node, model *DNAModel, site int) {
 	for i := 0; i < 4; i++ {
 		nd.Data[site][i] = 1.
@@ -474,6 +475,7 @@ tpcond  X
 rtcond  x
  toward root
 */
+// TPconditionals regular tip conditionals
 func TPconditionals(node *Node, patternval []float64) {
 	if len(node.Chs) > 0 {
 		for s := range patternval {
@@ -487,6 +489,7 @@ func TPconditionals(node *Node, patternval []float64) {
 	}
 }
 
+// RTconditionals tipconds calculated to the rt (including BL)
 func RTconditionals(x *DNAModel, node *Node, patternval []float64) {
 	p := x.GetPCalc(node.Len)
 	for s := range patternval {
@@ -500,6 +503,7 @@ func RTconditionals(x *DNAModel, node *Node, patternval []float64) {
 	}
 }
 
+// RVconditionals take par RvTpConds and put get bl
 func RVconditionals(x *DNAModel, node *Node, patternval []float64) {
 	p := x.GetPCalc(node.Par.Len)
 	for s := range patternval {
@@ -512,6 +516,7 @@ func RVconditionals(x *DNAModel, node *Node, patternval []float64) {
 	}
 }
 
+// RVTPconditionals
 func RVTPconditionals(node *Node, patternval []float64) {
 	for s := range patternval {
 		for j := 0; j < 4; j++ {
@@ -635,6 +640,9 @@ func CalcAncStates(x *DNAModel, tree *Tree, patternval []float64) (retstates map
 	return
 }
 
+// Subclade calculators for log and likelihoods
+// these are for just calculating for one clade
+
 // calcLogLikeOneSiteSubClade calc for just a clade, starting at a node
 func calcLogLikeOneSiteSubClade(t *Tree, inn *Node, excl bool, x *DNAModel, site int) float64 {
 	sl := 0.0
@@ -731,6 +739,7 @@ func PCalcLogLikePatternsSubClade(t *Tree, n *Node, excl bool, x *DNAModel, patt
 	// populate the P matrix dictionary without problems of race conditions
 	// just the first site
 	x.EmptyPDict()
+	x.EmptyPLDict()
 	fl += calcLogLikeOneSiteSubClade(t, n, excl, x, 0) * patternval[0]
 	for i := 0; i < wks; i++ {
 		go calcLogLikeSubCladeWork(t, n, excl, x, jobs, results)

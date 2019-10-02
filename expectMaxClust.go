@@ -6,21 +6,6 @@ import (
 	"math/rand"
 )
 
-/*
-type HCSearch struct {
-	Tree            *Node
-	PreorderNodes   []*Node
-	Clusters        map[int]*Cluster
-	SiteAssignments map[int]int
-	Gen             int
-	Threads         int
-	Workers         int
-	ClustOutFile    string
-	LogOutFile      string
-	K               int
-	PrintFreq       int
-}
-*/
 func (s *HCSearch) RunEM() {
 	for i := 0; i < s.Gen; i++ {
 		if i%s.PrintFreq == 0 {

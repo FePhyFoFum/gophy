@@ -166,12 +166,36 @@ func ReadSeqsFromFile(filen string) (seqs []Seq) {
 			break
 		}
 		if err != nil {
-			log.Printf("read %d bytes: %v", st, err)
+			log.Printf("read %v bytes: %v", st, err)
 			break
 		}
 	}
 	// get the last one
 	cs := Seq{cnm, strings.ToUpper(csq)}
 	seqs = append(seqs, cs)
+	return
+}
+
+// ReadPatternsSeqsFromFile return the seqs and patternsint
+func ReadPatternsSeqsFromFile(sfn string) (seqs map[string]string, patternsint map[int]float64, nsites int, bf []float64) {
+	nsites = 0
+	seqs = map[string]string{}
+	seqnames := make([]string, 0)
+	for _, i := range ReadSeqsFromFile(sfn) {
+		seqs[i.NM] = i.SQ
+		seqnames = append(seqnames, i.NM)
+		nsites = len(i.SQ)
+	}
+	// get the site patternas
+	bf = GetEmpiricalBaseFreqs(seqs)
+	//patterns, patternsint, gapsites, constant, uninformative, _ := GetSitePatterns(seqs, nsites, seqnames)
+	_, patternsint, _, _, _, _ = GetSitePatterns(seqs, nsites, seqnames)
+
+	//list of sites
+	//fmt.Fprintln(os.Stderr, "nsites:", nsites)
+	//fmt.Fprintln(os.Stderr, "patterns:", len(patterns), len(patternsint))
+	//fmt.Fprintln(os.Stderr, "onlygaps:", len(gapsites))
+	//fmt.Fprintln(os.Stderr, "constant:", len(constant))
+	//fmt.Fprintln(os.Stderr, "uninformative:", len(uninformative))
 	return
 }

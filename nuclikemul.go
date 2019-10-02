@@ -11,7 +11,8 @@ import (
 */
 
 //PCalcLikePatternsMul parallel caclulation of likelihood with patterns
-func PCalcLikePatternsMul(t *Tree, models []*DNAModel, nodemodels map[*Node]int, patternval []float64, wks int) (fl float64) {
+func PCalcLikePatternsMul(t *Tree, models []*DNAModel, nodemodels map[*Node]int,
+	patternval []float64, wks int) (fl float64) {
 	fl = 0.0
 	nsites := len(patternval)
 	jobs := make(chan int, nsites)
@@ -22,9 +23,9 @@ func PCalcLikePatternsMul(t *Tree, models []*DNAModel, nodemodels map[*Node]int,
 	for _, x := range models {
 		x.EmptyPDict()
 	}
-	fl += math.Log(CalcLikeOneSiteMul(t, models, nodemodels, 0)) * patternval[0]
+	fl += math.Log(calcLikeOneSiteMul(t, models, nodemodels, 0)) * patternval[0]
 	for i := 0; i < wks; i++ {
-		go CalcLikeWorkMul(t, models, nodemodels, jobs, results)
+		go calcLikeWorkMul(t, models, nodemodels, jobs, results)
 	}
 	for i := 1; i < nsites; i++ {
 		jobs <- i
@@ -39,7 +40,127 @@ func PCalcLikePatternsMul(t *Tree, models []*DNAModel, nodemodels map[*Node]int,
 	return
 }
 
-//PCalcLogLikePatternsMul...
+//PCalcLikePatternsMulSubClade parallel log likeliohood calculation including patterns
+func PCalcLikePatternsMulSubClade(t *Tree, n *Node, excl bool, models []*DNAModel,
+	nodemodels map[*Node]int, patternval []float64, wks int) (fl float64) {
+	fl = 0.0
+	nsites := len(patternval)
+	jobs := make(chan int, nsites)
+	//results := make(chan float64, nsites)
+	results := make(chan LikeResult, nsites)
+	// populate the P matrix dictionary without problems of race conditions
+	// just the first site
+	for _, x := range models {
+		x.EmptyPDict()
+	}
+	fl += calcLikeOneSiteMulSubClade(t, n, excl, models, nodemodels, 0) * patternval[0]
+	for i := 0; i < wks; i++ {
+		go calcLikeMulSubCladeWork(t, n, excl, models, nodemodels, jobs, results)
+	}
+	for i := 1; i < nsites; i++ {
+		jobs <- i
+	}
+	close(jobs)
+	rr := LikeResult{}
+	for i := 1; i < nsites; i++ {
+		rr = <-results
+		fl += (math.Log(rr.value) * patternval[rr.site])
+	}
+	return
+}
+
+// calcLikeSubCladeWork this is intended for a worker that will be executing this per site
+func calcLikeMulSubCladeWork(t *Tree, inn *Node, excl bool, models []*DNAModel,
+	nodemodels map[*Node]int, jobs <-chan int, results chan<- LikeResult) { //results chan<- float64) {
+	arr := []*Node{}
+	if excl == true {
+		arr = t.Rt.PostorderArrayExcl(inn)
+	} else {
+		arr = inn.PostorderArray()
+	}
+	for j := range jobs {
+		sl := 0.0
+		for _, n := range arr {
+			x := models[nodemodels[n]]
+			if len(n.Chs) > 0 {
+				calcLikeNodeMul(n, x, j)
+			}
+			var tn *Node
+			if excl == true { // calc at rt
+				tn = t.Rt
+			} else {
+				tn = inn
+			}
+			if tn == n {
+				if tn == t.Rt { //only happens at the root
+					for i := 0; i < 4; i++ {
+						n.Data[j][i] *= x.BF[i]
+					}
+					sl = floats.Sum(n.Data[j])
+				} else {
+					p := x.GetPCalc(n.Len)
+					rtconds := make([]float64, x.GetNumStates())
+					for m := 0; m < 4; m++ {
+						templike := 0.0
+						for k := 0; k < 4; k++ {
+							templike += p.At(m, k) * n.Data[j][k]
+						}
+						rtconds[m] = templike
+					}
+					sl = floats.Sum(rtconds)
+				}
+			}
+		}
+		results <- LikeResult{value: sl, site: j}
+	}
+}
+
+// calcLogLikeOneSiteSubClade calc for just a clade, starting at a node
+func calcLikeOneSiteMulSubClade(t *Tree, inn *Node, excl bool, models []*DNAModel,
+	nodemodels map[*Node]int, site int) float64 {
+	sl := 0.0
+	arr := []*Node{}
+	if excl == true {
+		arr = t.Rt.PostorderArrayExcl(inn)
+	} else {
+		arr = inn.PostorderArray()
+	}
+	for _, n := range arr {
+		x := models[nodemodels[n]]
+		if len(n.Chs) > 0 {
+			calcLikeNodeMul(n, x, site)
+		}
+		var tn *Node
+		if excl == true { // calc at rt
+			tn = t.Rt
+		} else {
+			tn = inn
+		}
+		if tn == n {
+			if tn == t.Rt { //only happens at the root
+				for i := 0; i < 4; i++ {
+					n.Data[site][i] *= x.BF[i]
+				}
+				sl = floats.Sum(n.Data[site])
+			} else {
+				//needs to get the branch length incorporated
+				p := x.GetPCalc(n.Len)
+				rtconds := make([]float64, x.GetNumStates())
+				for j := 0; j < 4; j++ {
+					templike := 0.0
+					for k := 0; k < 4; k++ {
+						templike += p.At(j, k) * n.Data[site][k]
+					}
+					rtconds[j] = templike
+				}
+				sl = floats.Sum(rtconds)
+			}
+		}
+	}
+	return sl
+}
+
+//PCalcLogLikePatternsMul ...
 func PCalcLogLikePatternsMul(t *Tree, models []*DNAModel, nodemodels map[*Node]int, patternval []float64, wks int) (fl float64) {
 	fl = 0.0
 	nsites := len(patternval)
@@ -50,6 +171,7 @@ func PCalcLogLikePatternsMul(t *Tree, models []*DNAModel, nodemodels map[*Node]i
 	// just the first site
 	for _, x := range models {
 		x.EmptyPDict()
+		x.EmptyPLDict()
 	}
 	fl += CalcLogLikeOneSiteMul(t, models, nodemodels, 0) * patternval[0]
 	for i := 0; i < wks; i++ {
@@ -68,12 +190,12 @@ func PCalcLogLikePatternsMul(t *Tree, models []*DNAModel, nodemodels map[*Node]i
 }
 
 //CalcLikeOneSiteMul just one site
-func CalcLikeOneSiteMul(t *Tree, models []*DNAModel, nodemodels map[*Node]int, site int) float64 {
+func calcLikeOneSiteMul(t *Tree, models []*DNAModel, nodemodels map[*Node]int, site int) float64 {
 	sl := 0.0
 	for _, n := range t.Post {
 		x := models[nodemodels[n]]
 		if len(n.Chs) > 0 {
-			CalcLikeNodeMul(n, x, site)
+			calcLikeNodeMul(n, x, site)
 		}
 		if t.Rt == n {
 			for i := 0; i < 4; i++ {
@@ -103,14 +225,14 @@ func CalcLogLikeOneSiteMul(t *Tree, models []*DNAModel, nodemodels map[*Node]int
 	return sl
 }
 
-//CalcLikeWorkMul this is the worker
-func CalcLikeWorkMul(t *Tree, models []*DNAModel, nodemodels map[*Node]int, jobs <-chan int, results chan<- LikeResult) { //results chan<- float64) {
+//calcLikeWorkMul this is the worker
+func calcLikeWorkMul(t *Tree, models []*DNAModel, nodemodels map[*Node]int, jobs <-chan int, results chan<- LikeResult) { //results chan<- float64) {
 	for j := range jobs {
 		sl := 0.0
 		for _, n := range t.Post {
 			x := models[nodemodels[n]]
 			if len(n.Chs) > 0 {
-				CalcLikeNodeMul(n, x, j)
+				calcLikeNodeMul(n, x, j)
 			}
 			if t.Rt == n {
 				for i := 0; i < 4; i++ {
@@ -143,8 +265,8 @@ func CalcLogLikeWorkMul(t *Tree, models []*DNAModel, nodemodels map[*Node]int, j
 	}
 }
 
-//CalcLikeNodeMul calculate the likelihood of a node
-func CalcLikeNodeMul(nd *Node, model *DNAModel, site int) {
+//calcLikeNodeMul calculate the likelihood of a node
+func calcLikeNodeMul(nd *Node, model *DNAModel, site int) {
 	for i := 0; i < 4; i++ {
 		nd.Data[site][i] = 1.
 	}
@@ -166,7 +288,7 @@ func CalcLikeNodeMul(nd *Node, model *DNAModel, site int) {
 				for j := 0; j < 4; j++ {
 					x2 += P.At(i, j) * c.Data[site][j]
 				}
-				nd.Data[site][i] *= x2 //floats.LogSumExp(x2)
+				nd.Data[site][i] *= x2
 			}
 		}
 	}

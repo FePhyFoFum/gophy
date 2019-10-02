@@ -13,9 +13,10 @@ type DNAModel struct {
 	Q       *mat.Dense // common use
 	CharMap map[string][]int
 	//sync.RWMutex
-	Ps map[float64]*mat.Dense
-	X  *mat.Dense
-	P  mat.Dense
+	Ps  map[float64]*mat.Dense
+	PsL map[float64]*mat.Dense
+	X   *mat.Dense
+	P   mat.Dense
 	//for decomposing
 	QS         *mat.Dense
 	EigenVals  []float64  // to be exponentiated
@@ -31,6 +32,19 @@ func NewDNAModel() *DNAModel {
 	d := &DNAModel{}
 	d.NumStates = 4
 	return d
+}
+
+// DeepCopyDNAModel ...
+func (d *DNAModel) DeepCopyDNAModel() *DNAModel {
+	outm := NewDNAModel()
+	outm.BF = []float64{0.25, 0.25, 0.25, 0.25}
+	copy(outm.BF, d.BF)
+	outm.Q = mat.NewDense(4, 4, nil)
+	outm.R = mat.NewDense(4, 4, nil)
+	outm.R.Copy(d.R)
+	outm.Q.Copy(d.Q)
+	outm.SetMap()
+	return outm
 }
 
 // SetupQJC setup Q matrix
@@ -302,6 +316,12 @@ func (d *DNAModel) EmptyPDict() {
 	d.Ps = make(map[float64]*mat.Dense)
 }
 
+// EmptyPLDict the logged one
+func (d *DNAModel) EmptyPLDict() {
+	d.PsL = nil
+	d.PsL = make(map[float64]*mat.Dense)
+}
+
 // GetPMap get the Ps from the dictionary
 func (d *DNAModel) GetPMap(blen float64) *mat.Dense {
 	//d.RLock()
@@ -318,6 +338,23 @@ func (d *DNAModel) GetPMap(blen float64) *mat.Dense {
 	//X := d.Ps[blen]
 	//d.RUnlock()
 	return d.Ps[blen]
+}
+
+// GetPMapLogged get the Ps from the dictionary
+func (d *DNAModel) GetPMapLogged(blen float64) *mat.Dense {
+	if _, ok := d.PsL[blen]; ok {
+		return d.PsL[blen]
+	}
+	P := mat.NewDense(4, 4, nil)
+	P.Scale(blen, d.Q)
+	P.Exp(P)
+	for i := 0; i < 4; i++ {
+		for j := 0; j < 4; j++ {
+			P.Set(i, j, math.Log(P.At(i, j)))
+		}
+	}
+	d.PsL[blen] = P
+	return d.PsL[blen]
 }
 
 // GetPCalc calculate P matrix

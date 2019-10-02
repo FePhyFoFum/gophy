@@ -18,6 +18,9 @@ type Node struct {
 	Num       int
 	Len       float64     //branch length
 	Data      [][]float64 // [site][states]
+	BData     [][]*SupFlo //[site][states]
+	ContData  []float64   //[site] cont
+	Mis       []bool      //[site] missing site
 	Marked    bool        //just for like calculations
 	Height    float64
 	MarkedMap map[float64]bool //the float is for an id for the query
@@ -32,45 +35,15 @@ type Node struct {
 	RvConds   [][]float64
 	RvTpConds [][]float64
 	//TODO: need comments for these below
-	FAD         float64
-	LAD         float64
-	FINDS       float64
-	TimeLen     float64
-	ContData    []float64
-	Mis         []bool
+	//FAD         float64
+	//LAD         float64
+	//FINDS       float64
+	//TimeLen     float64
 	PruneLen    float64
 	ConPruneLen []float64 // prevent race condition when calculating BM likelihood
-	//BMPruneLen  []float64
-	BMLen    float64
-	LL       []float64
-	Anc      bool
-	ClustLen map[int]float64
-	//ClustPruneLen map[int]float64 // [][]float64
-	//
-}
-
-// Walk just a simple walker with chans
-// can use this with this
-/*
-ch := make(chan *Node)
-go func() {
-	rt.Walk(ch)
-	close(ch)
-}()
-for n := range ch {
-	t.Post = append(t.Post, n)
-	if len(n.Chs) == 0 {
-		t.Tips = append(t.Tips, n)
-	}
-}*/
-func (n *Node) Walk(ch chan *Node) {
-	if n == nil {
-		return
-	}
-	for i := range n.Chs {
-		n.Chs[i].Walk(ch)
-	}
-	ch <- n
+	BMLen       float64
+	Anc         bool
+	ClustLen    map[int]float64
 }
 
 // GetTips returns a slice with node pointers
@@ -107,31 +80,6 @@ func (n Node) GetTipNames() (tips []string) {
 	return
 }
 
-// NewickChronogram returns a string newick with the branch lengths scaled to time
-func (n Node) NewickChronogram() (ret string) {
-	bl := true
-	var buffer bytes.Buffer
-	for in, cn := range n.Chs {
-		if in == 0 {
-			buffer.WriteString("(")
-		}
-		buffer.WriteString(cn.NewickChronogram())
-		if bl == true {
-			s := strconv.FormatFloat(cn.TimeLen, 'f', -1, 64)
-			buffer.WriteString(":")
-			buffer.WriteString(s)
-		}
-		if in == len(n.Chs)-1 {
-			buffer.WriteString(")")
-		} else {
-			buffer.WriteString(",")
-		}
-	}
-	buffer.WriteString(n.Nam)
-	ret = buffer.String()
-	return
-}
-
 // Newick returns a string newick
 func (n Node) Newick(bl bool) (ret string) {
 	var buffer bytes.Buffer
@@ -157,7 +105,6 @@ func (n Node) Newick(bl bool) (ret string) {
 }
 
 // BMPhylogram returns a string newick with brownian motion branch lengths
-//TODO can this and the TimeLen merge with just a boolean?
 func (n Node) BMPhylogram() (ret string) {
 	bl := true
 	var buffer bytes.Buffer
@@ -350,7 +297,7 @@ func (n *Node) PreorderArray() (ret []*Node) {
 	return
 }
 
-//PostorderArray will return a postordered array of all the nodes in a tree
+//PostorderArray will return a postordered array of all the nodes starting at n
 func (n *Node) PostorderArray() (ret []*Node) {
 	for _, cn := range n.Chs {
 		for _, cret := range cn.PostorderArray() {
@@ -361,7 +308,7 @@ func (n *Node) PostorderArray() (ret []*Node) {
 	return
 }
 
-//PostorderArrayExcl will return a postordered array of all the nodes in a tree
+//PostorderArrayExcl will return a postordered array of all the nodes starting at n
 //   excluding node x
 func (n *Node) PostorderArrayExcl(x *Node) (ret []*Node) {
 	for _, cn := range n.Chs {

@@ -73,13 +73,11 @@ func MapContinuous(t *Tree, traitfl string) {
 			if ntraits == 0 {
 				ntraits = len(n.ContData)
 			}
-			n.LL = append(n.LL, z)
 			makeMissingDataSlice(n)
 		} else {
 			for count := 0; count < ntraits; count++ {
 				n.ContData = append(n.ContData, z)
 				n.Mis = append(n.Mis, false)
-				n.LL = append(n.LL, z)
 			}
 			n.ConPruneLen = make([]float64, len(n.ContData))
 		}

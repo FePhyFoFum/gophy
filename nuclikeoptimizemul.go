@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 
+	"gonum.org/v1/gonum/floats"
 	"gonum.org/v1/gonum/optimize"
 )
 
@@ -215,7 +216,8 @@ func OptimizeGTRMul(t *Tree, models []*DNAModel, nodemodels map[*Node]int, patte
 }
 
 // OptimizeGTRBPMul optimize GTR and base composition for the different parts
-func OptimizeGTRBPMul(t *Tree, models []*DNAModel, nodemodels map[*Node]int, patternvals []float64, wks int) {
+func OptimizeGTRBPMul(t *Tree, models []*DNAModel, nodemodels map[*Node]int, usemodelvals bool,
+	patternvals []float64, wks int) {
 	count := 0
 	//start := time.Now()
 	fcn := func(mds []float64) float64 {
@@ -224,88 +226,19 @@ func OptimizeGTRBPMul(t *Tree, models []*DNAModel, nodemodels map[*Node]int, pat
 				return 1000000000000
 			}
 		}
-		for i, j := range models {
-			cn := i * 8
-			//fmt.Println(mds[cn:cn+5])
-			bf := mds[cn+5 : cn+5+3]
+		cur := 0
+		for _, j := range models {
+			j.SetRateMatrix(mds[cur : cur+5])
+			cur += 5
+			bf := []float64{mds[cur], mds[cur+1], mds[cur+2]}
+			cur += 3
 			bf = append(bf, 1-SumFloatVec(bf))
 			for _, k := range bf {
 				if k > 1 || k < 0 {
 					return 1000000000000
 				}
 			}
-			j.SetRateMatrix(mds[cn : cn+5])
-			j.SetBaseFreqs(bf)
-			j.SetupQGTR()
-		}
-		lnl := PCalcLikePatternsMul(t, models, nodemodels, patternvals, wks)
-		if count%100 == 0 {
-			//curt := time.Now()
-			//fmt.Println(count, lnl, curt.Sub(start))
-			//start = time.Now()
-		}
-		count++
-		return -lnl
-	}
-	settings := optimize.Settings{}
-	//settings.MajorIterations = 100
-	//settings.Concurrent = 0
-	//settings.FuncEvaluations = 1000
-	//FC := optimize.FunctionConverge{}
-	//FC.Relative = 0.001
-	//settings.Converger = &FC
-	//settings.Recorder = nil
-	/*grad := func(grad, x []float64) []float64 {
-		return fd.Gradient(grad, fcn, x, nil)
-	}*/
-	p := optimize.Problem{Func: fcn, Grad: nil, Hess: nil}
-	p0 := make([]float64, 0)
-	for range models {
-		for j := 0; j < 5; j++ {
-			p0 = append(p0, 1.0)
-		}
-		for j := 0; j < 3; j++ {
-			p0 = append(p0, 0.25)
-		}
-	}
-	fmt.Println(p0)
-	res, err := optimize.Minimize(p, p0, &settings, nil)
-	if err != nil {
-		//fmt.Println(err)
-	}
-	fmt.Println("   ", res.F)
-	for i, j := range models {
-		cn := i * 8
-		bf := res.X[cn+5 : cn+5+3]
-		bf = append(bf, 1-SumFloatVec(bf))
-		fmt.Println(res.X[cn : cn+8])
-		j.SetRateMatrix(res.X[cn : cn+5])
-		j.SetBaseFreqs(bf)
-		j.SetupQGTR()
-	}
-}
 
-// OptimizeGTRCompSharedRM optimize GTR base composition but share rate matrix for the different parts
-func OptimizeGTRCompSharedRM(t *Tree, models []*DNAModel, nodemodels map[*Node]int,
-	usemodelvals bool, patternvals []float64, wks int) {
-	count := 0
-	//start := time.Now()
-	fcn := func(mds []float64) float64 {
-		for _, i := range mds {
-			if i < 0 {
-				return 1000000000000
-			}
-		}
-		for i, j := range models {
-			j.SetRateMatrix(mds[0:5])
-			cn := (i * 3) + 5
-			bf := mds[cn : cn+3]
-			bf = append(bf, 1-SumFloatVec(bf))
-			for _, k := range bf {
-				if k > 1 || k < 0 {
-					return 1000000000000
-				}
-			}
 			j.SetBaseFreqs(bf)
 			j.SetupQGTR()
 		}
@@ -320,8 +253,273 @@ func OptimizeGTRCompSharedRM(t *Tree, models []*DNAModel, nodemodels map[*Node]i
 	}
 	settings := optimize.Settings{}
 	FC := optimize.FunctionConverge{}
-	FC.Absolute = 10e-3
-	FC.Iterations = 75
+	FC.Absolute = 10e-8
+	FC.Relative = 10e-8
+	FC.Iterations = 100
+	settings.Converger = &FC
+	p := optimize.Problem{Func: fcn, Grad: nil, Hess: nil}
+	p0 := make([]float64, 0)
+	if usemodelvals == false {
+		for range models {
+			for j := 0; j < 5; j++ {
+				p0 = append(p0, 1.0)
+			}
+			for j := 0; j < 3; j++ {
+				p0 = append(p0, 0.25)
+			}
+		}
+	} else {
+		for i := range models {
+			p0 = append(p0, models[i].R.At(0, 1))
+			p0 = append(p0, models[i].R.At(0, 2))
+			p0 = append(p0, models[i].R.At(0, 3))
+			p0 = append(p0, models[i].R.At(1, 2))
+			p0 = append(p0, models[i].R.At(1, 3))
+			for j := 0; j < 3; j++ {
+				p0 = append(p0, models[i].BF[j])
+			}
+		}
+	}
+
+	fmt.Println(p0)
+	res, err := optimize.Minimize(p, p0, &settings, nil)
+	if err != nil {
+		//fmt.Println(err)
+	}
+	fmt.Println("   ", res.F)
+	cur := 0
+	for _, j := range models {
+		j.SetRateMatrix(res.X[cur : cur+5])
+		cur += 5
+		bf := []float64{res.X[cur], res.X[cur+1], res.X[cur+2]}
+		cur += 3
+		bf = append(bf, 1-SumFloatVec(bf))
+		j.SetBaseFreqs(bf)
+		j.SetupQGTR()
+	}
+}
+
+// OptimizeGTRCompSharedRM optimize GTR base composition but share rate matrix for the different parts
+func OptimizeGTRCompSharedRM(t *Tree, models []*DNAModel, nodemodels map[*Node]int,
+	usemodelvals bool, patternvals []float64, log bool, wks int) {
+	var lkfun func(*Tree, []*DNAModel, map[*Node]int, []float64, int) float64
+	if log {
+		lkfun = PCalcLogLikePatternsMul
+	} else {
+		lkfun = PCalcLikePatternsMul
+	}
+	count := 0
+	//start := time.Now()
+	fcn := func(mds []float64) float64 {
+		for _, i := range mds {
+			if i < 0 {
+				return 1000000000000
+			}
+		}
+		cur := 5
+		//fmt.Println(" ++", mds)
+		for _, j := range models {
+			j.SetRateMatrix(mds[0:5])
+			bf := []float64{mds[cur], mds[cur+1], mds[cur+2]}
+			cur += 3
+			bf = append(bf, 1-floats.Sum(bf))
+			for _, k := range bf {
+				if k > 1 || k < 0 {
+					return 1000000000000
+				}
+			}
+			j.SetBaseFreqs(bf)
+			j.SetupQGTR()
+		}
+		//lnl := PCalcLikePatternsMul(t, models, nodemodels, patternvals, wks)
+		lnl := lkfun(t, models, nodemodels, patternvals, wks)
+
+		if count%100 == 0 {
+			//curt := time.Now()
+			//fmt.Println(count, lnl, curt.Sub(start))
+			//start = time.Now()
+		}
+		count++
+		return -lnl
+	}
+	settings := optimize.Settings{}
+	FC := optimize.FunctionConverge{}
+	FC.Absolute = 10e-8 //10e-10
+	FC.Relative = 10e-10
+	FC.Iterations = 100
+	settings.Converger = &FC
+	/*grad := func(grad, x []float64) []float64 {
+		return fd.Gradient(grad, fcn, x, nil)
+	}*/
+	p := optimize.Problem{Func: fcn, Grad: nil, Hess: nil}
+	p0 := make([]float64, 0)
+	if usemodelvals == false {
+		for j := 0; j < 5; j++ {
+			p0 = append(p0, 1.0)
+		}
+		for range models {
+			for j := 0; j < 3; j++ {
+				p0 = append(p0, 0.25)
+			}
+		}
+	} else {
+		p0 = append(p0, models[0].R.At(0, 1))
+		p0 = append(p0, models[0].R.At(0, 2))
+		p0 = append(p0, models[0].R.At(0, 3))
+		p0 = append(p0, models[0].R.At(1, 2))
+		p0 = append(p0, models[0].R.At(1, 3))
+		cur := 5
+		for i := range models {
+			for j := 0; j < 3; j++ {
+				p0 = append(p0, models[i].BF[j])
+			}
+			cur += 3
+		}
+	}
+
+	res, err := optimize.Minimize(p, p0, &settings, nil)
+	if err != nil {
+		//fmt.Println(err)
+	}
+	//fmt.Println("   ", res.F)
+	cur := 5
+	for _, j := range models {
+		j.SetRateMatrix(res.X[0:5])
+		bf := []float64{res.X[cur], res.X[cur+1], res.X[cur+2]}
+		cur += 3
+		bf = append(bf, 1-floats.Sum(bf))
+		j.SetBaseFreqs(bf)
+		j.SetupQGTR()
+	}
+}
+
+// OptimizeGTRCompSharedRMSingleModel optimize GTR base composition but share rate matrix for the different parts
+//   you send an int that will identify which model can be adjusted and only that one will be
+func OptimizeGTRCompSharedRMSingleModel(t *Tree, models []*DNAModel,
+	nodemodels map[*Node]int, usemodelvals bool, whichmodel int,
+	patternvals []float64, log bool, wks int) {
+	var lkfun func(*Tree, []*DNAModel, map[*Node]int, []float64, int) float64
+	if log {
+		lkfun = PCalcLogLikePatternsMul
+	} else {
+		lkfun = PCalcLikePatternsMul
+	}
+	count := 0
+	//start := time.Now()
+	fcn := func(mds []float64) float64 {
+		for _, i := range mds {
+			if i < 0 {
+				return 1000000000000
+			}
+		}
+		cur := 5
+		//fmt.Println(" ++", mds)
+		j := models[whichmodel]
+		j.SetRateMatrix(mds[0:5])
+		bf := []float64{mds[cur], mds[cur+1], mds[cur+2]}
+		cur += 3
+		bf = append(bf, 1-floats.Sum(bf))
+		for _, k := range bf {
+			if k > 1 || k < 0 {
+				return 1000000000000
+			}
+		}
+		j.SetBaseFreqs(bf)
+		j.SetupQGTR()
+		//lnl := PCalcLikePatternsMul(t, models, nodemodels, patternvals, wks)
+		lnl := lkfun(t, models, nodemodels, patternvals, wks)
+		if count%100 == 0 {
+			//curt := time.Now()
+			//fmt.Println(count, lnl, curt.Sub(start))
+			//start = time.Now()
+		}
+		count++
+		return -lnl
+	}
+	settings := optimize.Settings{}
+	FC := optimize.FunctionConverge{}
+	FC.Absolute = 10e-8 //10e-10
+	FC.Relative = 10e-10
+	FC.Iterations = 100
+	settings.Converger = &FC
+	/*grad := func(grad, x []float64) []float64 {
+		return fd.Gradient(grad, fcn, x, nil)
+	}*/
+	p := optimize.Problem{Func: fcn, Grad: nil, Hess: nil}
+	p0 := make([]float64, 0)
+	if usemodelvals == false {
+		for j := 0; j < 5; j++ {
+			p0 = append(p0, 1.0)
+		}
+		for j := 0; j < 3; j++ {
+			p0 = append(p0, 0.25)
+		}
+	} else {
+		p0 = append(p0, models[0].R.At(0, 1))
+		p0 = append(p0, models[0].R.At(0, 2))
+		p0 = append(p0, models[0].R.At(0, 3))
+		p0 = append(p0, models[0].R.At(1, 2))
+		p0 = append(p0, models[0].R.At(1, 3))
+		cur := 5
+		for j := 0; j < 3; j++ {
+			p0 = append(p0, models[whichmodel].BF[j])
+		}
+		cur += 3
+	}
+
+	res, err := optimize.Minimize(p, p0, &settings, nil)
+	if err != nil {
+		//fmt.Println(err)
+	}
+	//fmt.Println("   ", res.F)
+	cur := 5
+	j := models[whichmodel]
+	j.SetRateMatrix(res.X[0:5])
+	bf := []float64{res.X[cur], res.X[cur+1], res.X[cur+2]}
+	cur += 3
+	bf = append(bf, 1-floats.Sum(bf))
+	j.SetBaseFreqs(bf)
+	j.SetupQGTR()
+}
+
+// OptimizeGTRCompSharedRMSubClade optimize GTR base composition but share rate matrix for the different parts
+func OptimizeGTRCompSharedRMSubClade(t *Tree, n *Node, excl bool, models []*DNAModel, nodemodels map[*Node]int,
+	usemodelvals bool, patternvals []float64, wks int) {
+	count := 0
+	//start := time.Now()
+	fcn := func(mds []float64) float64 {
+		for _, i := range mds {
+			if i < 0 {
+				return 1000000000000
+			}
+		}
+		cur := 5
+		for _, j := range models {
+			j.SetRateMatrix(mds[0:5])
+			bf := []float64{mds[cur], mds[cur+1], mds[cur+2]}
+			cur += 3
+			bf = append(bf, 1-SumFloatVec(bf))
+			for _, k := range bf {
+				if k > 1 || k < 0 {
+					return 1000000000000
+				}
+			}
+			j.SetBaseFreqs(bf)
+			j.SetupQGTR()
+		}
+		lnl := PCalcLikePatternsMulSubClade(t, n, excl, models, nodemodels, patternvals, wks)
+		if count%100 == 0 {
+			//curt := time.Now()
+			//fmt.Println(count, lnl, curt.Sub(start))
+			//start = time.Now()
+		}
+		count++
+		return -lnl
+	}
+	settings := optimize.Settings{}
+	FC := optimize.FunctionConverge{}
+	FC.Absolute = 10e-10
+	FC.Iterations = 100
 	settings.Converger = &FC
 	/*grad := func(grad, x []float64) []float64 {
 		return fd.Gradient(grad, fcn, x, nil)
@@ -349,17 +547,17 @@ func OptimizeGTRCompSharedRM(t *Tree, models []*DNAModel, nodemodels map[*Node]i
 			}
 		}
 	}
-	fmt.Println(p0)
 	res, err := optimize.Minimize(p, p0, &settings, nil)
 	if err != nil {
 		//fmt.Println(err)
 	}
 	//fmt.Println("   ", res.F)
-	for i, j := range models {
+	cur := 5
+	for _, j := range models {
 		j.SetRateMatrix(res.X[0:5])
-		cn := (i * 3) + 5
-		bf := res.X[cn : cn+3]
-		bf = append(bf, 1-SumFloatVec(bf))
+		bf := []float64{res.X[cur], res.X[cur+1], res.X[cur+2]}
+		cur += 3
+		bf = append(bf, 1-floats.Sum(bf))
 		j.SetBaseFreqs(bf)
 		j.SetupQGTR()
 	}

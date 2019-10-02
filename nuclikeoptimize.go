@@ -5,6 +5,7 @@ import (
 	"math"
 	"time"
 
+	"gonum.org/v1/gonum/floats"
 	"gonum.org/v1/gonum/optimize"
 )
 
@@ -228,7 +229,13 @@ func OptimizeBLS(t *Tree, x *DNAModel, patternvals []float64, wks int) {
 }
 
 // OptimizeGTR optimize GTR
-func OptimizeGTR(t *Tree, x *DNAModel, patternvals []float64, wks int) {
+func OptimizeGTR(t *Tree, x *DNAModel, patternvals []float64, sup bool, wks int) {
+	var lkfun func(*Tree, *DNAModel, []float64, int) float64
+	if sup {
+		lkfun = PCalcLogLikePatterns
+	} else {
+		lkfun = PCalcLikePatterns
+	}
 	fcn := func(mds []float64) float64 {
 		for _, i := range mds {
 			if i < 0 {
@@ -237,7 +244,8 @@ func OptimizeGTR(t *Tree, x *DNAModel, patternvals []float64, wks int) {
 		}
 		x.SetRateMatrix(mds)
 		x.SetupQGTR()
-		lnl := PCalcLikePatterns(t, x, patternvals, wks)
+		//lnl := PCalcLikePatterns(t, x, patternvals, wks)
+		lnl := lkfun(t, x, patternvals, wks)
 		return -lnl
 	}
 	settings := optimize.Settings{}
@@ -251,12 +259,18 @@ func OptimizeGTR(t *Tree, x *DNAModel, patternvals []float64, wks int) {
 	if err != nil {
 		fmt.Println(err)
 	}
-	fmt.Println(res.F)
+	//fmt.Println(res.F)
 	x.SetRateMatrix(res.X)
 }
 
 //OptimizeBF optimizing the basefreq model but for a clade
-func OptimizeBF(t *Tree, x *DNAModel, patternvals []float64, wks int) {
+func OptimizeBF(t *Tree, x *DNAModel, patternvals []float64, log bool, wks int) {
+	var lkfun func(*Tree, *DNAModel, []float64, int) float64
+	if log {
+		lkfun = PCalcLogLikePatterns
+	} else {
+		lkfun = PCalcLikePatterns
+	}
 	count := 0
 	fcn := func(mds []float64) float64 {
 		mds1 := make([]float64, 4)
@@ -274,7 +288,8 @@ func OptimizeBF(t *Tree, x *DNAModel, patternvals []float64, wks int) {
 		mds1[3] = 1. - tsum
 		x.SetBaseFreqs(mds1)
 		x.SetupQGTR()
-		lnl := PCalcLikePatterns(t, x, patternvals, wks)
+		//lnl := PCalcLikePatterns(t, x, patternvals, wks)
+		lnl := lkfun(t, x, patternvals, wks)
 		count++
 		return -lnl
 	}
@@ -339,7 +354,13 @@ func OptimizeGTRSubClade(t *Tree, n *Node, excl bool, x *DNAModel, patternvals [
 }
 
 //OptimizeBFSubClade optimizing the basefreq model but for a subclade
-func OptimizeBFSubClade(t *Tree, n *Node, excl bool, x *DNAModel, patternvals []float64, wks int) {
+func OptimizeBFSubClade(t *Tree, n *Node, excl bool, x *DNAModel, patternvals []float64, log bool, wks int) {
+	var lkfun func(*Tree, *Node, bool, *DNAModel, []float64, int) float64
+	if log {
+		lkfun = PCalcLogLikePatternsSubClade
+	} else {
+		lkfun = PCalcLikePatternsSubClade
+	}
 	count := 0
 	fcn := func(mds []float64) float64 {
 		mds1 := make([]float64, 4)
@@ -357,14 +378,16 @@ func OptimizeBFSubClade(t *Tree, n *Node, excl bool, x *DNAModel, patternvals []
 		mds1[3] = 1. - tsum
 		x.SetBaseFreqs(mds1)
 		x.SetupQGTR()
-		lnl := PCalcLikePatternsSubClade(t, n, excl, x, patternvals, wks)
+		//lnl := PCalcLikePatternsSubClade(t, n, excl, x, patternvals, wks)
+		lnl := lkfun(t, n, excl, x, patternvals, wks)
 		count++
 		return -lnl
 	}
 	settings := optimize.Settings{}
 	FC := optimize.FunctionConverge{}
-	FC.Absolute = 10e-3
-	FC.Iterations = 75
+	FC.Absolute = 10e-8
+	FC.Relative = 10e-10
+	FC.Iterations = 100
 	settings.Converger = &FC
 	p := optimize.Problem{Func: fcn, Grad: nil, Hess: nil}
 	p0 := []float64{0.25, 0.25, 0.25} // 4-1
@@ -380,5 +403,42 @@ func OptimizeBFSubClade(t *Tree, n *Node, excl bool, x *DNAModel, patternvals []
 	}
 	mds1[3] = 1. - tsum
 	x.SetBaseFreqs(mds1)
+	x.SetupQGTR()
+}
+
+//OptimizeBFRMSubClade optimizing the basefreq model but for a subclade
+func OptimizeBFRMSubClade(t *Tree, n *Node, excl bool, x *DNAModel, patternvals []float64, wks int) {
+	count := 0
+	fcn := func(mds []float64) float64 {
+		for _, i := range mds {
+			if i < 0 {
+				return 1000000000000
+			}
+		}
+		x.SetRateMatrix(mds[0:5])
+		bf := []float64{mds[5], mds[6], mds[7]}
+		bf = append(bf, 1.-floats.Sum(bf))
+		x.SetBaseFreqs(bf)
+		x.SetupQGTR()
+		lnl := PCalcLikePatternsSubClade(t, n, excl, x, patternvals, wks)
+		count++
+		return -lnl
+	}
+	settings := optimize.Settings{}
+	FC := optimize.FunctionConverge{}
+	FC.Absolute = 10e-8
+	FC.Relative = 10e-10
+	FC.Iterations = 100
+	settings.Converger = &FC
+	p := optimize.Problem{Func: fcn, Grad: nil, Hess: nil}
+	p0 := []float64{1.0, 1.0, 1.0, 1.0, 1.0, 0.25, 0.25, 0.25} // 4-1
+	res, err := optimize.Minimize(p, p0, &settings, nil)
+	if err != nil {
+		fmt.Println(err)
+	}
+	bf := []float64{res.X[5], res.X[6], res.X[7]}
+	bf = append(bf, 1.0-floats.Sum(bf))
+	x.SetRateMatrix(res.X[0:5])
+	x.SetBaseFreqs(bf)
 	x.SetupQGTR()
 }

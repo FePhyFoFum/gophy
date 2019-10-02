@@ -103,44 +103,28 @@ func CalcRootedLogLike(n *Node, nlikes *float64, startFresh bool) {
 		CalcRootedLogLike(chld, nlikes, startFresh)
 	}
 	nchld := len(n.Chs)
-	if n.Marked == true && startFresh == false {
-		if nchld != 0 {
-			for _, l := range n.LL {
-				*nlikes += l
-			}
+	n.PruneLen = n.BMLen
+	if nchld != 0 {
+		if nchld != 2 {
+			fmt.Println("This BM pruning algorithm should only be perfomed on fully bifurcating trees/subtrees! Check for multifurcations and singletons.")
 		}
-	} else if n.Marked == false || startFresh == true {
-		n.PruneLen = n.BMLen
-		if nchld != 0 {
-			if nchld != 2 {
-				fmt.Println("This BM pruning algorithm should only be perfomed on fully bifurcating trees/subtrees! Check for multifurcations and singletons.")
-			}
-			c0 := n.Chs[0]
-			c1 := n.Chs[1]
-			curlike := float64(0.0)
-			var tempChar float64
-			for i := range n.Chs[0].ContData {
-				curVar := c0.PruneLen + c1.PruneLen
-				contrast := c0.ContData[i] - c1.ContData[i]
-				curlike += ((-0.5) * ((math.Log(2 * math.Pi)) + (math.Log(curVar)) + (math.Pow(contrast, 2) / (curVar))))
-				n.LL[i] = curlike
-				tempChar = ((c0.PruneLen * c1.ContData[i]) + (c1.PruneLen * c0.ContData[i])) / (curVar)
-				n.ContData[i] = tempChar
-			}
-			*nlikes += curlike
-			tempBranchLength := n.BMLen + ((c0.PruneLen * c1.PruneLen) / (c0.PruneLen + c1.PruneLen)) // need to calculate the prune length by adding the averaged lengths of the daughter nodes to the length
-			n.PruneLen = tempBranchLength                                                             // need to calculate the "prune length" by adding the length to the uncertainty
-
-			n.Marked = true
+		c0 := n.Chs[0]
+		c1 := n.Chs[1]
+		curlike := float64(0.0)
+		var tempChar float64
+		for i := range n.Chs[0].ContData {
+			curVar := c0.PruneLen + c1.PruneLen
+			contrast := c0.ContData[i] - c1.ContData[i]
+			curlike += ((-0.5) * ((math.Log(2 * math.Pi)) + (math.Log(curVar)) + (math.Pow(contrast, 2) / (curVar))))
+			tempChar = ((c0.PruneLen * c1.ContData[i]) + (c1.PruneLen * c0.ContData[i])) / (curVar)
+			n.ContData[i] = tempChar
 		}
-	}
-}
+		*nlikes += curlike
+		tempBranchLength := n.BMLen + ((c0.PruneLen * c1.PruneLen) / (c0.PruneLen + c1.PruneLen)) // need to calculate the prune length by adding the averaged lengths of the daughter nodes to the length
+		n.PruneLen = tempBranchLength                                                             // need to calculate the "prune length" by adding the length to the uncertainty
 
-//MarkAll will mark all of the nodes in a tree ARRAY
-func MarkAll(nodes []*Node) {
-	for _, n := range nodes {
-		n.Marked = true
 	}
+
 }
 
 //calcUnrootedNodeLikes  will calculate the likelihood of an unrooted tree at each site (i) of the continuous character alignment
@@ -178,48 +162,34 @@ func calcRootedSiteLLParallel(n *Node, nlikes *float64, startFresh bool, site in
 		calcRootedSiteLLParallel(chld, nlikes, startFresh, site)
 	}
 	nchld := len(n.Chs)
-	if n.Marked == true {
-		if startFresh == false {
-			if nchld != 0 {
-				*nlikes += n.LL[site]
-			}
+	n.ConPruneLen[site] = n.BMLen
+	log2pi := 1.8378770664093453
+	if nchld != 0 {
+		if nchld != 2 {
+			fmt.Println("This BM pruning algorithm should only be perfomed on fully bifurcating trees/subtrees! Check for multifurcations and singletons.")
+			os.Exit(0)
 		}
-	}
-	if n.Marked == false || startFresh == true {
-		n.ConPruneLen[site] = n.BMLen
-		log2pi := 1.8378770664093453
-		if nchld != 0 {
-			if nchld != 2 {
-				fmt.Println("This BM pruning algorithm should only be perfomed on fully bifurcating trees/subtrees! Check for multifurcations and singletons.")
-				os.Exit(0)
-			}
-			c0 := n.Chs[0]
-			c1 := n.Chs[1]
-			if c0.Mis[site] == false && c1.Mis[site] == false {
-				curlike := float64(0.0)
-				var tempChar float64
-				curVar := (c0.ConPruneLen[site]) + (c1.ConPruneLen[site])
-				contrast := c0.ContData[site] - c1.ContData[site]
-				curlike += ((-0.5) * ((log2pi) + (math.Log(curVar)) + (math.Pow(contrast, 2) / (curVar))))
-				tempChar = (((c0.ConPruneLen[site]) * c1.ContData[site]) + ((c1.ConPruneLen[site]) * c0.ContData[site])) / (curVar)
-				n.ContData[site] = tempChar
-				*nlikes += curlike
-				tempBranchLength := n.ConPruneLen[site] + (((c0.ConPruneLen[site]) * (c1.ConPruneLen[site])) / ((c0.ConPruneLen[site]) + (c1.ConPruneLen[site]))) // need to calculate the prune length by adding the averaged lengths of the daughter nodes to the length
-				n.ConPruneLen[site] = tempBranchLength                                                                                                            // need to calculate the "prune length" by adding the length to the uncertainty
-				n.LL[site] = curlike
-				//n.Marked = true
-			} else if c0.Mis[site] == true && c1.Mis[site] == false {
-				n.ConPruneLen[site] += (c1.ConPruneLen[site])
-				n.ContData[site] = c1.ContData[site]
-				n.LL[site] = 0.0
-			} else if c1.Mis[site] == true && c0.Mis[site] == false {
-				n.ConPruneLen[site] += c0.ConPruneLen[site]
-				n.ContData[site] = c0.ContData[site]
-				n.LL[site] = 0.0
-			} else if c1.Mis[site] == true && c0.Mis[site] == true {
-				n.Mis[site] = true
-				n.LL[site] = 0.0
-			}
+		c0 := n.Chs[0]
+		c1 := n.Chs[1]
+		if c0.Mis[site] == false && c1.Mis[site] == false {
+			curlike := float64(0.0)
+			var tempChar float64
+			curVar := (c0.ConPruneLen[site]) + (c1.ConPruneLen[site])
+			contrast := c0.ContData[site] - c1.ContData[site]
+			curlike += ((-0.5) * ((log2pi) + (math.Log(curVar)) + (math.Pow(contrast, 2) / (curVar))))
+			tempChar = (((c0.ConPruneLen[site]) * c1.ContData[site]) + ((c1.ConPruneLen[site]) * c0.ContData[site])) / (curVar)
+			n.ContData[site] = tempChar
+			*nlikes += curlike
+			tempBranchLength := n.ConPruneLen[site] + (((c0.ConPruneLen[site]) * (c1.ConPruneLen[site])) / ((c0.ConPruneLen[site]) + (c1.ConPruneLen[site]))) // need to calculate the prune length by adding the averaged lengths of the daughter nodes to the length
+			n.ConPruneLen[site] = tempBranchLength                                                                                                            // need to calculate the "prune length" by adding the length to the uncertainty
+		} else if c0.Mis[site] == true && c1.Mis[site] == false {
+			n.ConPruneLen[site] += (c1.ConPruneLen[site])
+			n.ContData[site] = c1.ContData[site]
+		} else if c1.Mis[site] == true && c0.Mis[site] == false {
+			n.ConPruneLen[site] += c0.ConPruneLen[site]
+			n.ContData[site] = c0.ContData[site]
+		} else if c1.Mis[site] == true && c0.Mis[site] == true {
+			n.Mis[site] = true
 		}
 	}
 }
@@ -323,50 +293,37 @@ func rootedMissingSiteLL(n *Node, nlikes *float64, startFresh bool, site int) {
 		rootedMissingSiteLL(chld, nlikes, startFresh, site)
 	}
 	nchld := len(n.Chs)
-	if n.Marked == true {
-		if startFresh == false {
-			if nchld != 0 {
-				*nlikes += n.LL[site]
-			}
+	n.ConPruneLen[site] = n.BMLen
+	log2pi := 1.8378770664093453
+	if nchld != 0 {
+		if nchld != 2 {
+			fmt.Println("This BM pruning algorithm should only be perfomed on fully bifurcating trees/subtrees! Check for multifurcations and singletons.")
+			os.Exit(0)
+		}
+		c0 := n.Chs[0]
+		c1 := n.Chs[1]
+		if c0.Mis[site] == false && c1.Mis[site] == false {
+			curlike := float64(0.0)
+			var tempChar float64
+			curVar := (c0.ConPruneLen[site]) + (c1.ConPruneLen[site])
+			contrast := c0.ContData[site] - c1.ContData[site]
+			curlike += ((-0.5) * ((log2pi) + (math.Log(curVar)) + (math.Pow(contrast, 2) / (curVar))))
+			tempChar = (((c0.ConPruneLen[site]) * c1.ContData[site]) + ((c1.ConPruneLen[site]) * c0.ContData[site])) / (curVar)
+			n.ContData[site] = tempChar
+			*nlikes += curlike
+			tempBranchLength := n.ConPruneLen[site] + (((c0.ConPruneLen[site]) * (c1.ConPruneLen[site])) / ((c0.ConPruneLen[site]) + (c1.ConPruneLen[site]))) // need to calculate the prune length by adding the averaged lengths of the daughter nodes to the length
+			n.ConPruneLen[site] = tempBranchLength                                                                                                            // need to calculate the "prune length" by adding the length to the uncertainty
+		} else if c0.Mis[site] == true && c1.Mis[site] == false {
+			n.ConPruneLen[site] += (c1.ConPruneLen[site])
+			n.ContData[site] = c1.ContData[site]
+		} else if c1.Mis[site] == true && c0.Mis[site] == false {
+			n.ConPruneLen[site] += c0.ConPruneLen[site]
+			n.ContData[site] = c0.ContData[site]
+		} else if c1.Mis[site] == true && c0.Mis[site] == true {
+			n.Mis[site] = true
 		}
 	}
-	if n.Marked == false || startFresh == true {
-		n.ConPruneLen[site] = n.BMLen
-		log2pi := 1.8378770664093453
-		if nchld != 0 {
-			if nchld != 2 {
-				fmt.Println("This BM pruning algorithm should only be perfomed on fully bifurcating trees/subtrees! Check for multifurcations and singletons.")
-				os.Exit(0)
-			}
-			c0 := n.Chs[0]
-			c1 := n.Chs[1]
-			if c0.Mis[site] == false && c1.Mis[site] == false {
-				curlike := float64(0.0)
-				var tempChar float64
-				curVar := (c0.ConPruneLen[site]) + (c1.ConPruneLen[site])
-				contrast := c0.ContData[site] - c1.ContData[site]
-				curlike += ((-0.5) * ((log2pi) + (math.Log(curVar)) + (math.Pow(contrast, 2) / (curVar))))
-				tempChar = (((c0.ConPruneLen[site]) * c1.ContData[site]) + ((c1.ConPruneLen[site]) * c0.ContData[site])) / (curVar)
-				n.ContData[site] = tempChar
-				*nlikes += curlike
-				tempBranchLength := n.ConPruneLen[site] + (((c0.ConPruneLen[site]) * (c1.ConPruneLen[site])) / ((c0.ConPruneLen[site]) + (c1.ConPruneLen[site]))) // need to calculate the prune length by adding the averaged lengths of the daughter nodes to the length
-				n.ConPruneLen[site] = tempBranchLength                                                                                                            // need to calculate the "prune length" by adding the length to the uncertainty
-				n.LL[site] = curlike
-				//n.Marked = true
-			} else if c0.Mis[site] == true && c1.Mis[site] == false {
-				n.ConPruneLen[site] += (c1.ConPruneLen[site])
-				n.ContData[site] = c1.ContData[site]
-				n.LL[site] = 0.0
-			} else if c1.Mis[site] == true && c0.Mis[site] == false {
-				n.ConPruneLen[site] += c0.ConPruneLen[site]
-				n.ContData[site] = c0.ContData[site]
-				n.LL[site] = 0.0
-			} else if c1.Mis[site] == true && c0.Mis[site] == true {
-				n.Mis[site] = true
-				n.LL[site] = 0.0
-			}
-		}
-	}
+
 }
 
 func rootedTreeLike(tree *Node, startFresh bool, jobs <-chan int, results chan<- float64) {

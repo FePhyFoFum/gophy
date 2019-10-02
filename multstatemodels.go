@@ -478,3 +478,16 @@ func PrintMatrix(d *mat.Dense, diag bool) {
 		fmt.Print("\n")
 	}
 }
+
+//GetMap based on states without the MultStateModel struct
+func GetMap(numStates int) (charMap map[string][]int) {
+	charMap = make(map[string][]int)
+	charMap["-"] = make([]int, numStates)
+	charMap["N"] = make([]int, numStates)
+	for i := 0; i < numStates; i++ {
+		charMap[strconv.Itoa(i)] = []int{i}
+		charMap["-"][i] = i
+		charMap["N"][i] = i
+	}
+	return
+}
