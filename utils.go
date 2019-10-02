@@ -334,6 +334,12 @@ func CalcAICC(lnl float64, k float64, n int) (x float64) {
 	return
 }
 
+//CalcBIC k=numparams, n=samplesize
+func CalcBIC(ln float64, k float64, n int) (x float64) {
+	x = (math.Log(float64(n)) * k) - (2. * ln)
+	return
+}
+
 // NodeSlicePosition take a *[]Node slice and teh get the index of the element node
 func NodeSlicePosition(sl []*Node, nd *Node) (x int) {
 	x = -1

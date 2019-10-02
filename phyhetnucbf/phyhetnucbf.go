@@ -193,9 +193,9 @@ func main() {
 	nodemodels := make(map[*gophy.Node]int)
 	numbaseparams := ((2 * float64(len(t.Tips))) - 3.) + 5. + 3. //tree ones and GTR and one BF
 	nodevalues := make(map[*gophy.Node]float64)                  // key node, value aicc
-	saic := gophy.CalcAICC(l, numbaseparams, nsites)
+	saic := gophy.CalcBIC(l, numbaseparams, nsites)
 	//start with the sorted set
-	fmt.Fprintln(os.Stderr, "starting AICc:", saic)
+	fmt.Fprintln(os.Stderr, "starting BIC:", saic)
 	cur := 1
 	for _, i := range t.Post {
 		if i == t.Rt {
@@ -218,7 +218,7 @@ func main() {
 			} else {
 				lm = gophy.PCalcLikePatternsMul(t, models, nodemodels, patternval, *wks)
 			}
-			naic := gophy.CalcAICC(lm, numbaseparams+3., nsites)
+			naic := gophy.CalcBIC(lm, numbaseparams+3., nsites)
 			nodevalues[i] = naic
 			cur++
 		}
@@ -239,6 +239,12 @@ func main() {
 		fmt.Fprintln(os.Stderr, "On "+strconv.Itoa(cur)+"/"+strconv.Itoa(count))
 		if getVisible(k.Key) > minset {
 			//fmt.Println(k.Key, k.Value)
+			//shortcut, if k.Value is worse than the best by > 10 don't consider it
+			if k.Value-saic > 10 { // 10 is arbitrary. pick another measure
+				fmt.Println(k.Value)
+				cur++
+				continue
+			}
 			y := allmodels[modelmap[k.Key]]
 			testmodels, testnodemodels, modelint := getNodeModels(curmodels, curnodemodels, y, k.Key)
 			//need to be able to send better starting points so it doesn't take as long
@@ -250,7 +256,7 @@ func main() {
 				gophy.OptimizeGTRCompSharedRM(t, testmodels, testnodemodels, true, patternval, false, *wks)
 				lm = gophy.PCalcLikePatternsMul(t, testmodels, testnodemodels, patternval, *wks)
 			}
-			naic := gophy.CalcAICC(lm, curparams+3., nsites)
+			naic := gophy.CalcBIC(lm, curparams+3., nsites)
 			fmt.Fprintln(os.Stderr, " -- ", naic, lm, currentaic)
 			if naic < currentaic {
 				fmt.Fprintln(os.Stderr, naic, "<", currentaic, curparams+3)
@@ -299,7 +305,7 @@ func main() {
 					testnodemodels, true, 0, patternval, false, *wks)
 				tlm = gophy.PCalcLikePatternsMul(t, testmodels, testnodemodels, patternval, *wks)
 			}
-			taic := gophy.CalcAICC(tlm, curparams+3., nsites)
+			taic := gophy.CalcBIC(tlm, curparams+3., nsites)
 			tstat := math.Exp((currentaic - taic) / 2)
 			i.FData["uc1"] = mainaic / (mainaic + tstat)
 			fmt.Fprintln(os.Stderr, currentaic, taic, i.FData["uc1"])
@@ -361,7 +367,7 @@ func main() {
 						testnodemodels, true, i.IData["shift"], patternval, false, *wks)
 					tlm = gophy.PCalcLikePatternsMul(t, testmodels, testnodemodels, patternval, *wks)
 				}
-				taic := gophy.CalcAICC(tlm, curparams+3., nsites)
+				taic := gophy.CalcBIC(tlm, curparams+3., nsites)
 				tstat := math.Exp((currentaic - taic) / 2)
 				tevals = append(tevals, tstat)
 			}
