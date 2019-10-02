@@ -275,105 +275,11 @@ func main() {
 	//uncertainty
 	// existence, check with and without the
 	if *uc1 {
-		mainaic := 1.0 //same as math.Exp((currentaic - currentaic) / 2)
-		for _, i := range modelnodes {
-			fmt.Fprintln(os.Stderr, i, i.IData["shift"])
-			//unmark just the modelnodes
-			testnodemodels := make(map[*gophy.Node]int)
-			testmodels := []*gophy.DNAModel{}
-			for _, j := range curmodels {
-				testmodels = append(testmodels, j.DeepCopyDNAModel())
-			}
-			for k, j := range curnodemodels {
-				testnodemodels[k] = j
-			}
-			for _, k := range i.PreorderArray() {
-				if i.IData["shift"] == k.IData["shift"] {
-					testnodemodels[k] = 0
-				}
-			}
-			//get aic, could reestimate the model but not right now, if this happens it needs to be copied so that we can
-			//   just reestimate one model
-			//   go back to the original as well
-			tlm := 0.0
-			if useLog {
-				gophy.OptimizeGTRCompSharedRMSingleModel(t, testmodels,
-					testnodemodels, true, 0, patternval, true, *wks)
-				tlm = gophy.PCalcLogLikePatternsMul(t, testmodels, testnodemodels, patternval, *wks)
-			} else {
-				gophy.OptimizeGTRCompSharedRMSingleModel(t, testmodels,
-					testnodemodels, true, 0, patternval, false, *wks)
-				tlm = gophy.PCalcLikePatternsMul(t, testmodels, testnodemodels, patternval, *wks)
-			}
-			taic := gophy.CalcBIC(tlm, curparams-3., nsites)
-			tstat := math.Exp((currentaic - taic) / 2)
-			i.FData["uc1"] = mainaic / (mainaic + tstat)
-			fmt.Fprintln(os.Stderr, currentaic, taic, i.FData["uc1"])
-		}
+		uncertaintyExist(modelnodes, curmodels, curnodemodels, useLog, t, patternval, *wks, curparams, currentaic, nsites)
 	}
 	//uncertainty
-	// location
 	if *uc2 {
-		mainaic := 1.0 //same as math.Exp((currentaic - currentaic) / 2)
-		for _, i := range modelnodes {
-			fmt.Fprintln(os.Stderr, i, i.IData["shift"])
-			testnodes := []*gophy.Node{}
-			if _, ok := i.Par.IData["shift"]; !ok {
-				testnodes = append(testnodes, i.Par)
-			}
-			for _, j := range i.Chs {
-				if j.IData["shift"] == i.IData["shift"] {
-					testnodes = append(testnodes, j)
-				}
-			}
-			tevals := []float64{mainaic}
-			for _, ts := range testnodes {
-				//unmark just the modelnodes
-				testnodemodels := make(map[*gophy.Node]int)
-				testmodels := []*gophy.DNAModel{}
-				for _, j := range curmodels {
-					testmodels = append(testmodels, j.DeepCopyDNAModel())
-				}
-				for k, j := range curnodemodels {
-					testnodemodels[k] = j
-				}
-				if ts != i.Par {
-					if _, ok := i.Par.IData["shift"]; !ok {
-						testnodemodels[i] = 0
-					} else {
-						testnodemodels[i] = testnodemodels[i.Par]
-					}
-					//get other child
-					for _, k := range ts.GetSib().PreorderArray() {
-						testnodemodels[k] = 0
-					}
-				} else { // the node is the parent
-					testnodemodels[ts] = i.IData["shift"]
-					for _, k := range ts.PreorderArray() {
-						if _, ok := k.IData["shift"]; !ok {
-							testnodemodels[k] = i.IData["shift"]
-						}
-					}
-				}
-				//get aic, could reestimate the model but not right now, if this happens it needs to be copied so that we can
-				//   go back to the original as well
-				tlm := 0.0
-				if useLog {
-					gophy.OptimizeGTRCompSharedRMSingleModel(t, testmodels,
-						testnodemodels, true, i.IData["shift"], patternval, true, *wks)
-					tlm = gophy.PCalcLogLikePatternsMul(t, testmodels, testnodemodels, patternval, *wks)
-				} else {
-					gophy.OptimizeGTRCompSharedRMSingleModel(t, testmodels,
-						testnodemodels, true, i.IData["shift"], patternval, false, *wks)
-					tlm = gophy.PCalcLikePatternsMul(t, testmodels, testnodemodels, patternval, *wks)
-				}
-				taic := gophy.CalcBIC(tlm, curparams, nsites)
-				tstat := math.Exp((currentaic - taic) / 2)
-				tevals = append(tevals, tstat)
-			}
-			waic := mainaic / floats.Sum(tevals)
-			fmt.Fprintln(os.Stderr, currentaic, waic)
-		}
+		uncertaintyLoc(modelnodes, curmodels, curnodemodels, useLog, t, patternval, *wks, curparams, currentaic, nsites)
 	}
 	moveMarksToLabels(t.Rt)
 	fmt.Fprintln(os.Stderr, "Final models")
@@ -383,4 +289,109 @@ func main() {
 	}
 	//make a nexus so it is easier to read in the fig-tree
 	fmt.Println(t.Rt.Newick(true) + ";")
+}
+
+func uncertaintyLoc(modelnodes []*gophy.Node, curmodels []*gophy.DNAModel,
+	curnodemodels map[*gophy.Node]int, useLog bool, t *gophy.Tree, patternval []float64,
+	wks int, curparams float64, currentaic float64, nsites int) { // location
+	mainaic := 1.0 //same as math.Exp((currentaic - currentaic) / 2)
+	for _, i := range modelnodes {
+		fmt.Fprintln(os.Stderr, i, i.IData["shift"])
+		testnodes := []*gophy.Node{}
+		if _, ok := i.Par.IData["shift"]; !ok {
+			testnodes = append(testnodes, i.Par)
+		}
+		for _, j := range i.Chs {
+			if j.IData["shift"] == i.IData["shift"] {
+				testnodes = append(testnodes, j)
+			}
+		}
+		tevals := []float64{mainaic}
+		for _, ts := range testnodes {
+			//unmark just the modelnodes
+			testnodemodels := make(map[*gophy.Node]int)
+			testmodels := []*gophy.DNAModel{}
+			for _, j := range curmodels {
+				testmodels = append(testmodels, j.DeepCopyDNAModel())
+			}
+			for k, j := range curnodemodels {
+				testnodemodels[k] = j
+			}
+			if ts != i.Par {
+				if _, ok := i.Par.IData["shift"]; !ok {
+					testnodemodels[i] = 0
+				} else {
+					testnodemodels[i] = testnodemodels[i.Par]
+				}
+				//get other child
+				for _, k := range ts.GetSib().PreorderArray() {
+					testnodemodels[k] = 0
+				}
+			} else { // the node is the parent
+				testnodemodels[ts] = i.IData["shift"]
+				for _, k := range ts.PreorderArray() {
+					if _, ok := k.IData["shift"]; !ok {
+						testnodemodels[k] = i.IData["shift"]
+					}
+				}
+			}
+			//get aic, could reestimate the model but not right now, if this happens it needs to be copied so that we can
+			//   go back to the original as well
+			tlm := 0.0
+			if useLog {
+				gophy.OptimizeGTRCompSharedRMSingleModel(t, testmodels,
+					testnodemodels, true, i.IData["shift"], patternval, true, wks)
+				tlm = gophy.PCalcLogLikePatternsMul(t, testmodels, testnodemodels, patternval, wks)
+			} else {
+				gophy.OptimizeGTRCompSharedRMSingleModel(t, testmodels,
+					testnodemodels, true, i.IData["shift"], patternval, false, wks)
+				tlm = gophy.PCalcLikePatternsMul(t, testmodels, testnodemodels, patternval, wks)
+			}
+			taic := gophy.CalcBIC(tlm, curparams, nsites)
+			tstat := math.Exp((currentaic - taic) / 2)
+			tevals = append(tevals, tstat)
+		}
+		waic := mainaic / floats.Sum(tevals)
+		fmt.Fprintln(os.Stderr, currentaic, waic)
+	}
+}
+
+func uncertaintyExist(modelnodes []*gophy.Node, curmodels []*gophy.DNAModel,
+	curnodemodels map[*gophy.Node]int, useLog bool, t *gophy.Tree, patternval []float64,
+	wks int, curparams float64, currentaic float64, nsites int) {
+	mainaic := 1.0 //same as math.Exp((currentaic - currentaic) / 2)
+	for _, i := range modelnodes {
+		fmt.Fprintln(os.Stderr, i, i.IData["shift"])
+		//unmark just the modelnodes
+		testnodemodels := make(map[*gophy.Node]int)
+		testmodels := []*gophy.DNAModel{}
+		for _, j := range curmodels {
+			testmodels = append(testmodels, j.DeepCopyDNAModel())
+		}
+		for k, j := range curnodemodels {
+			testnodemodels[k] = j
+		}
+		for _, k := range i.PreorderArray() {
+			if i.IData["shift"] == k.IData["shift"] {
+				testnodemodels[k] = 0
+			}
+		}
+		//get aic, could reestimate the model but not right now, if this happens it needs to be copied so that we can
+		//   just reestimate one model
+		//   go back to the original as well
+		tlm := 0.0
+		if useLog {
+			gophy.OptimizeGTRCompSharedRMSingleModel(t, testmodels,
+				testnodemodels, true, 0, patternval, true, wks)
+			tlm = gophy.PCalcLogLikePatternsMul(t, testmodels, testnodemodels, patternval, wks)
+		} else {
+			gophy.OptimizeGTRCompSharedRMSingleModel(t, testmodels,
+				testnodemodels, true, 0, patternval, false, wks)
+			tlm = gophy.PCalcLikePatternsMul(t, testmodels, testnodemodels, patternval, wks)
+		}
+		taic := gophy.CalcBIC(tlm, curparams-3., nsites)
+		tstat := math.Exp((currentaic - taic) / 2)
+		i.FData["uc1"] = mainaic / (mainaic + tstat)
+		fmt.Fprintln(os.Stderr, currentaic, taic, i.FData["uc1"])
+	}
 }
