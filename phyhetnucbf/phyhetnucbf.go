@@ -194,6 +194,7 @@ func main() {
 	numbaseparams := ((2 * float64(len(t.Tips))) - 3.) + 5. + 3. //tree ones and GTR and one BF
 	nodevalues := make(map[*gophy.Node]float64)                  // key node, value aicc
 	saic := gophy.CalcBIC(l, numbaseparams, nsites)
+	currentaic := saic
 	//start with the sorted set
 	fmt.Fprintln(os.Stderr, "starting BIC:", saic)
 	cur := 1
@@ -224,7 +225,6 @@ func main() {
 		}
 	}
 	keys := sortAicMap(nodevalues)
-	currentaic := saic
 	curmodels := []*gophy.DNAModel{allmodels[0]}
 	curnodemodels := make(map[*gophy.Node]int)
 	//get the final model configuration
@@ -305,7 +305,7 @@ func main() {
 					testnodemodels, true, 0, patternval, false, *wks)
 				tlm = gophy.PCalcLikePatternsMul(t, testmodels, testnodemodels, patternval, *wks)
 			}
-			taic := gophy.CalcBIC(tlm, curparams+3., nsites)
+			taic := gophy.CalcBIC(tlm, curparams-3., nsites)
 			tstat := math.Exp((currentaic - taic) / 2)
 			i.FData["uc1"] = mainaic / (mainaic + tstat)
 			fmt.Fprintln(os.Stderr, currentaic, taic, i.FData["uc1"])
@@ -367,7 +367,7 @@ func main() {
 						testnodemodels, true, i.IData["shift"], patternval, false, *wks)
 					tlm = gophy.PCalcLikePatternsMul(t, testmodels, testnodemodels, patternval, *wks)
 				}
-				taic := gophy.CalcBIC(tlm, curparams+3., nsites)
+				taic := gophy.CalcBIC(tlm, curparams, nsites)
 				tstat := math.Exp((currentaic - taic) / 2)
 				tevals = append(tevals, tstat)
 			}
@@ -375,7 +375,6 @@ func main() {
 			fmt.Fprintln(os.Stderr, currentaic, waic)
 		}
 	}
-
 	moveMarksToLabels(t.Rt)
 	fmt.Fprintln(os.Stderr, "Final models")
 	fmt.Fprintln(os.Stderr, "-------")
