@@ -112,6 +112,7 @@ func main() {
 	afn := flag.String("s", "", "seq filename")
 	uc1 := flag.Bool("ue", false, "uncertainty existence")
 	uc2 := flag.Bool("ul", false, "uncertainty location")
+	aicc := flag.Bool("aicc", false, "use AICc instead of BIC (BIC is default)")
 	wks := flag.Int("w", 4, "number of threads")
 	cpuprofile := flag.String("cpuprofile", "", "write cpu profile to file")
 	flag.Parse()
@@ -131,6 +132,15 @@ func main() {
 		pprof.StartCPUProfile(f)
 		defer pprof.StopCPUProfile()
 	}
+	var icfun func(float64, float64, int) (x float64)
+	icfun = gophy.CalcBIC
+	if *aicc {
+		fmt.Fprintln(os.Stderr, "using AICc")
+		icfun = gophy.CalcAICC
+	} else {
+		fmt.Fprintln(os.Stderr, "using BIC")
+	}
+
 	minset := 10 // have to have at least 8 tips in there
 
 	//read tree
@@ -193,10 +203,10 @@ func main() {
 	nodemodels := make(map[*gophy.Node]int)
 	numbaseparams := ((2 * float64(len(t.Tips))) - 3.) + 5. + 3. //tree ones and GTR and one BF
 	nodevalues := make(map[*gophy.Node]float64)                  // key node, value aicc
-	saic := gophy.CalcBIC(l, numbaseparams, nsites)
+	saic := icfun(l, numbaseparams, nsites)
 	currentaic := saic
 	//start with the sorted set
-	fmt.Fprintln(os.Stderr, "starting BIC:", saic)
+	fmt.Fprintln(os.Stderr, "starting IC:", saic)
 	cur := 1
 	for _, i := range t.Post {
 		if i == t.Rt {
@@ -219,7 +229,7 @@ func main() {
 			} else {
 				lm = gophy.PCalcLikePatternsMul(t, models, nodemodels, patternval, *wks)
 			}
-			naic := gophy.CalcBIC(lm, numbaseparams+3., nsites)
+			naic := icfun(lm, numbaseparams+3., nsites)
 			nodevalues[i] = naic
 			cur++
 		}
@@ -256,7 +266,7 @@ func main() {
 				gophy.OptimizeGTRCompSharedRM(t, testmodels, testnodemodels, true, patternval, false, *wks)
 				lm = gophy.PCalcLikePatternsMul(t, testmodels, testnodemodels, patternval, *wks)
 			}
-			naic := gophy.CalcBIC(lm, curparams+3., nsites)
+			naic := icfun(lm, curparams+3., nsites)
 			fmt.Fprintln(os.Stderr, " -- ", naic, lm, currentaic)
 			if naic < currentaic {
 				fmt.Fprintln(os.Stderr, naic, "<", currentaic, curparams+3)
@@ -275,11 +285,13 @@ func main() {
 	//uncertainty
 	// existence, check with and without the
 	if *uc1 {
-		uncertaintyExist(modelnodes, curmodels, curnodemodels, useLog, t, patternval, *wks, curparams, currentaic, nsites)
+		uncertaintyExist(modelnodes, curmodels, curnodemodels, useLog, t,
+			patternval, *wks, curparams, currentaic, nsites, *aicc)
 	}
 	//uncertainty
 	if *uc2 {
-		uncertaintyLoc(modelnodes, curmodels, curnodemodels, useLog, t, patternval, *wks, curparams, currentaic, nsites)
+		uncertaintyLoc(modelnodes, curmodels, curnodemodels, useLog, t,
+			patternval, *wks, curparams, currentaic, nsites, *aicc)
 	}
 	moveMarksToLabels(t.Rt)
 	fmt.Fprintln(os.Stderr, "Final models")
@@ -293,7 +305,12 @@ func main() {
 
 func uncertaintyLoc(modelnodes []*gophy.Node, curmodels []*gophy.DNAModel,
 	curnodemodels map[*gophy.Node]int, useLog bool, t *gophy.Tree, patternval []float64,
-	wks int, curparams float64, currentaic float64, nsites int) { // location
+	wks int, curparams float64, currentaic float64, nsites int, useaicc bool) { // location
+	var icfun func(float64, float64, int) (x float64)
+	icfun = gophy.CalcBIC
+	if useaicc {
+		icfun = gophy.CalcAICC
+	}
 	mainaic := 1.0 //same as math.Exp((currentaic - currentaic) / 2)
 	for _, i := range modelnodes {
 		fmt.Fprintln(os.Stderr, i, i.IData["shift"])
@@ -347,7 +364,7 @@ func uncertaintyLoc(modelnodes []*gophy.Node, curmodels []*gophy.DNAModel,
 					testnodemodels, true, i.IData["shift"], patternval, false, wks)
 				tlm = gophy.PCalcLikePatternsMul(t, testmodels, testnodemodels, patternval, wks)
 			}
-			taic := gophy.CalcBIC(tlm, curparams, nsites)
+			taic := icfun(tlm, curparams, nsites)
 			tstat := math.Exp((currentaic - taic) / 2)
 			tevals = append(tevals, tstat)
 		}
@@ -358,7 +375,12 @@ func uncertaintyLoc(modelnodes []*gophy.Node, curmodels []*gophy.DNAModel,
 
 func uncertaintyExist(modelnodes []*gophy.Node, curmodels []*gophy.DNAModel,
 	curnodemodels map[*gophy.Node]int, useLog bool, t *gophy.Tree, patternval []float64,
-	wks int, curparams float64, currentaic float64, nsites int) {
+	wks int, curparams float64, currentaic float64, nsites int, useaicc bool) {
+	var icfun func(float64, float64, int) (x float64)
+	icfun = gophy.CalcBIC
+	if useaicc {
+		icfun = gophy.CalcAICC
+	}
 	mainaic := 1.0 //same as math.Exp((currentaic - currentaic) / 2)
 	for _, i := range modelnodes {
 		fmt.Fprintln(os.Stderr, i, i.IData["shift"])
@@ -389,7 +411,7 @@ func uncertaintyExist(modelnodes []*gophy.Node, curmodels []*gophy.DNAModel,
 				testnodemodels, true, 0, patternval, false, wks)
 			tlm = gophy.PCalcLikePatternsMul(t, testmodels, testnodemodels, patternval, wks)
 		}
-		taic := gophy.CalcBIC(tlm, curparams-3., nsites)
+		taic := icfun(tlm, curparams-3., nsites)
 		tstat := math.Exp((currentaic - taic) / 2)
 		i.FData["uc1"] = mainaic / (mainaic + tstat)
 		fmt.Fprintln(os.Stderr, currentaic, taic, i.FData["uc1"])
