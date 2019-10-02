@@ -213,7 +213,9 @@ func (d *DNAModel) DecomposeQ() {
 	var ES mat.Eigen
 	d.EigenVecs = mat.NewDense(4, 4, nil)
 	ES.Factorize(d.QS, mat.EigenBoth) //true, true)
-	TC := ES.VectorsTo(nil)
+	TC := mat.NewCDense(0, 0, nil)
+	//	TC := ES.VectorsTo(nil)
+	ES.VectorsTo(TC)
 	for i := 0; i < 4; i++ {
 		for j := 0; j < 4; j++ {
 			d.EigenVecs.Set(i, j, real(TC.At(i, j)))
