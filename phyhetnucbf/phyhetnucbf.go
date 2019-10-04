@@ -250,7 +250,7 @@ func main() {
 		if getVisible(k.Key) > minset {
 			//fmt.Println(k.Key, k.Value)
 			//shortcut, if k.Value is worse than the best by > 10 don't consider it
-			if k.Value-saic > 10 { // 10 is arbitrary. pick another measure
+			if k.Value-saic > 35 { // 10 is arbitrary. pick another measure
 				fmt.Fprintln(os.Stderr, "   ", k.Value)
 				cur++
 				continue
