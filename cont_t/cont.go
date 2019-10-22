@@ -27,10 +27,14 @@ func main() {
 	gophy.MapContinuous(t, *traitfn)
 	//gophy.IterateBMLengths(t, 100)
 	gophy.InitMissingValues(t.Pre)
+	var sites []int
+	for i := range t.Rt.ContData {
+		sites = append(sites, i)
+	}
 	start := time.Now()
-	for i := 0; i < 4; i++ {
+	for i := 0; i < 5; i++ {
 		gophy.CalcExpectedTraits(t.Rt)
-		gophy.BMCalcLensBackFront(t)
+		gophy.BMCalcLensBackFront(t, sites)
 	}
 	elapsed := time.Since(start)
 	fmt.Println(elapsed)

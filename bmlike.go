@@ -22,14 +22,19 @@ func BMPruneRooted(n *Node) {
 		c0 := n.Chs[0]
 		c1 := n.Chs[1]
 		bot := ((1.0 / c0.PruneLen) + (1.0 / c1.PruneLen))
+		//fmt.Println(n.Nam, n.BMLen, n.PruneLen)
 		n.PruneLen += 1.0 / bot
+		if n.PruneLen == 0 {
+			fmt.Println("BMPruneRooted()", n.Nam, n.BMLen, n.PruneLen)
+			os.Exit(0)
+		}
 		if math.IsNaN(n.PruneLen) {
 			fmt.Println(c0.Nam, c0.BMLen, c1.Nam, c1.BMLen)
 			os.Exit(0)
 		}
 		for i := range n.Chs[0].ContData {
 			if math.IsNaN(c1.ContData[i]) || math.IsNaN(c0.ContData[i]) {
-				fmt.Println("NaN encoutnered in BMPruneRooted()")
+				fmt.Println("NaN encountered in BMPruneRooted()")
 				fmt.Println(c0.Nam, c0.ContData[i], c0.Mis[i], c0.PruneLen, c1.Nam, c1.ContData[i], c1.Mis[i], c1.PruneLen)
 				os.Exit(0)
 			}

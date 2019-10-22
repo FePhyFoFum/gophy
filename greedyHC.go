@@ -146,7 +146,16 @@ func (s *HCSearch) PerturbedRun() {
 		if clcount == s.MinK {
 			quit = true
 		} else {
-			//fmt.Println(len(s.Clusters), s.CurrentAIC)
+			/*/fmt.Println(len(s.Clusters), s.CurrentAIC)
+			params := 0.
+			blCount := float64(len(s.PreorderNodes)) - 1. //subtract 1 because you don't estimate the root node length
+			ll := 0.
+			for _, c := range s.Clusters {
+				params += blCount
+				ll += c.LogLike
+			}
+			//aic := (2. * params) - (2. * ll)
+			//fmt.Println(len(s.Clusters), params, ll, aic)*/
 			quit = s.bestClusterJoin()
 		}
 		if quit == true {
@@ -532,7 +541,8 @@ func (s *HCSearch) calcAIC() (aic float64) {
 	if s.Criterion == 0 {
 		aic = (2. * params) - (2. * ll)
 	} else if s.Criterion == 1 {
-		aic = (s.NumTraits * params) - (2. * ll)
+		aic = (math.Log(s.NumPoints) * params) - (2. * ll)
+		//fmt.Println(math.Log(s.NumPoints)*params, params, ll)
 	} else if s.Criterion == 2 {
 		aic = (2. * params) - (2. * ll)
 		aic -= ((2. * params) * (params + 1.)) / (s.NumTraits - params - 2.)
@@ -601,7 +611,7 @@ func (s *HCSearch) bestClusterJoin() (quit bool) {
 				if clen <= 15 {
 					GreedyIterateLengthsMissing(s.Tree, proposedSites, 20)
 				} else if clen <= 25 && clen > 15 {
-					GreedyIterateLengthsMissing(s.Tree, proposedSites, 20)
+					GreedyIterateLengthsMissing(s.Tree, proposedSites, 10)
 				} else if clen > 25 {
 					GreedyIterateLengthsMissing(s.Tree, proposedSites, 10)
 				}
@@ -614,11 +624,11 @@ func (s *HCSearch) bestClusterJoin() (quit bool) {
 			if s.Criterion == 0 {
 				aic = (2. * params) - (2. * ll)
 			} else if s.Criterion == 1 {
-				aic = (s.NumTraits * params) - (2. * ll)
+				aic = (math.Log(s.NumPoints) * params) - (2. * ll)
 				//fmt.Println(aic)
 			} else if s.Criterion == 2 {
 				aic = (2. * params) - (2. * ll)
-				aic -= ((2. * params) * (params + 1.)) / (s.NumTraits - params - 2.)
+				aic -= ((2. * params) * (params + 1.)) / (s.NumPoints - params - 2.)
 			}
 			if aic < bestAIC {
 				bestAIC = aic
@@ -662,6 +672,7 @@ func InitGreedyHC(tree *Tree, gen int, pr int, crit int, rstart bool, k int, run
 	s.PreorderNodes = tree.Pre
 	s.Gen = gen
 	s.Criterion = crit
+	s.NumPoints = float64(len(s.Tree.Rt.ContData))
 	s.K = k
 	if rstart == false {
 		s.startingClustersAllSeparate()
@@ -673,7 +684,6 @@ func InitGreedyHC(tree *Tree, gen int, pr int, crit int, rstart bool, k int, run
 	s.PrintFreq = pr
 	s.JoinLikes = make(map[int]map[int]float64)
 	s.SplitGen = splitgen
-	s.NumPoints = float64(len(s.Tree.Rt.ContData))
 	s.Alpha = alpha
 	s.ExpandPenalty = math.Log(s.Alpha / (s.Alpha + s.NumPoints))
 	s.MinK = minK

@@ -3,7 +3,6 @@ package gophy
 import (
 	"fmt"
 	"math"
-	"math/rand"
 	"os"
 )
 
@@ -11,11 +10,11 @@ import (
 func ClusterMissingTraitsEM(t *Tree, cluster *Cluster, niter int) {
 	best := -1000000000.0
 	var newlen []float64
-	for it := 0; it < 4; it++ {
-		for _, n := range t.Pre[1:] {
+	for it := 0; it < 1; it++ {
+		/*for _, n := range t.Pre[1:] {
 			r := rand.Float64()
 			n.BMLen = r
-		}
+		}*/
 		for i := 0; i < niter; i++ {
 			CalcExpectedTraits(t.Rt)
 			BMCalcLensBackFront(t, cluster.Sites)
@@ -43,11 +42,11 @@ func ClusterMissingTraitsEM(t *Tree, cluster *Cluster, niter int) {
 func GreedyIterateLengthsMissing(t *Tree, sites []int, niter int) {
 	best := -1000000000.0
 	var newlen []float64
-	for it := 0; it < 4; it++ {
-		for _, n := range t.Pre[1:] {
+	for it := 0; it < 1; it++ {
+		/*for _, n := range t.Pre[1:] {
 			r := rand.Float64()
 			n.BMLen = r
-		}
+		}*/
 		for i := 0; i < niter; i++ {
 			CalcExpectedTraits(t.Rt)
 			BMCalcLensBackFront(t, sites)
@@ -85,12 +84,12 @@ func BMOptimBLEM(t *Tree, niter int) {
 	}
 	best := -1000000000.0
 	var newlen []float64
-	for it := 0; it < niter; it++ {
-		for _, n := range t.Pre[1:] {
+	for it := 0; it < 1; it++ {
+		/*for _, n := range t.Pre[1:] {
 			r := rand.Float64()
 			n.BMLen = r
-		}
-		for i := 0; i < 10; i++ {
+		}*/
+		for i := 0; i < niter; i++ {
 			CalcExpectedTraits(t.Rt)
 			BMCalcLensBackFront(t, sites)
 		}
@@ -118,6 +117,7 @@ func BMOptimBLEM(t *Tree, niter int) {
 				//fmt.Println(t.Rt.BMPhylogram())
 			}
 		}
+
 	}
 	for i, n := range t.Pre {
 		n.BMLen = newlen[i]
@@ -136,16 +136,15 @@ func BMCalcLensBackFront(t *Tree, sites []int) {
 			BMPruneRooted(c)
 		}
 		AncTritomyML(t.Rt, sites)
-
 		for _, c := range t.Rt.Chs {
 			BMPruneRooted(c)
 		}
-
 	} else {
 		BMPruneRooted(t.Rt)
 	}
 	for _, c := range t.Rt.Chs {
 		for _, nd := range c.PreorderArray() {
+			//fmt.Println(nd.BMLen, nd.PruneLen, nd.Nam)
 			if len(nd.Chs) == 0 { //don't do this at tips
 				continue
 			}
@@ -181,15 +180,22 @@ func BMCalcLensBackFront(t *Tree, sites []int) {
 			} else if nd.Par != t.Rt {
 				c0 = nd.GetSib()
 				c1 = nd.Par
+				/*if c0.PruneLen == 0 {
+					c0.PruneLen = 0.00001
+				}*/
 			}
 			bot = ((1.0 / c0.PruneLen) + (1.0 / c1.PruneLen))
+			//fmt.Println("HERE", c0.PruneLen, c1.PruneLen, bot)
+			if c0.PruneLen == 0 {
+				fmt.Println(c0.BMLen, c0.PruneLen, c0.Nam)
+			}
 			nd.PruneLen = nd.BMLen + 1.0/bot
 			//parSubtreePruneLen[nd] = 1.0 / bot
 			for i := range sites {
 				nd.ContData[i] = (((1 / c0.PruneLen) * c1.ContData[i]) + ((1 / c1.PruneLen) * c0.ContData[i])) / bot
 			}
 			virtualTritomyML(nd, sites)
-			nd.PruneLen = nd.BMLen + (1.0 / bot)
+			//nd.PruneLen = nd.BMLen + (1.0 / bot)
 		}
 		BMPruneRooted(c)
 	}
@@ -253,17 +259,26 @@ func virtualTritomyML(tree *Node, sites []int) {
 			sumV2 += (x3 - x2) * (x3 - x2)
 		}
 	}
+	pruneDiff := tree.Chs[0].PruneLen - tree.Chs[0].BMLen
 	tree.Chs[0].BMLen = (sumV1 / fntraits) - (tree.Chs[0].PruneLen - tree.Chs[0].BMLen)
+	tree.Chs[0].PruneLen = tree.Chs[0].BMLen + pruneDiff
+	pruneDiff = tree.Chs[1].PruneLen - tree.Chs[1].BMLen
 	tree.Chs[1].BMLen = (sumV2 / fntraits) - (tree.Chs[1].PruneLen - tree.Chs[1].BMLen)
-	tree.BMLen = (sumV3 / fntraits) - (tree.PruneLen - tree.BMLen)
+	tree.Chs[1].PruneLen = tree.Chs[1].BMLen + pruneDiff
+	pruneDiff = (tree.PruneLen - tree.BMLen)
+	tree.BMLen = (sumV3 / fntraits) - pruneDiff
+	tree.PruneLen = tree.BMLen + pruneDiff
 	if tree.Chs[0].BMLen <= 0. {
 		tree.Chs[0].BMLen = 0.0001
+		tree.Chs[0].PruneLen = tree.Chs[0].BMLen + pruneDiff
 	}
 	if tree.Chs[1].BMLen <= 0. {
 		tree.Chs[1].BMLen = 0.0001
+		tree.Chs[1].PruneLen = tree.Chs[1].BMLen + pruneDiff
 	}
 	if tree.BMLen <= 0. {
 		tree.BMLen = 0.0001
+		tree.PruneLen = tree.BMLen + pruneDiff
 	}
 }
 
@@ -342,6 +357,7 @@ func AncTritomyML(tree *Node, sites []int) {
 	tree.Chs[1].BMLen = sumV2
 	tree.Chs[2].BMLen = sumV3
 	if math.IsNaN(sumV1) || math.IsNaN(sumV2) || math.IsNaN(sumV3) {
+		fmt.Println("Error in AncTritomyML() in bmoptim.go")
 		fmt.Println(tree.Chs[0].Nam, sumV1, tree.Chs[1].Nam, sumV2, tree.Chs[2].Nam, sumV3)
 		os.Exit(0)
 	}
@@ -507,7 +523,10 @@ func virtualTritomyMLWeights(tree *Node, weights map[int]float64) {
 	}
 	tree.Chs[0].BMLen = (sumV1) - (tree.Chs[0].PruneLen - tree.Chs[0].BMLen)
 	tree.Chs[1].BMLen = (sumV2) - (tree.Chs[1].PruneLen - tree.Chs[1].BMLen)
-	tree.BMLen = (sumV3) - (tree.PruneLen - tree.BMLen)
+	parPruneDiff := (tree.PruneLen - tree.BMLen)
+	tree.BMLen = (sumV3) - parPruneDiff
+	tree.PruneLen = tree.BMLen + parPruneDiff
+
 	if tree.Chs[0].BMLen <= 0. {
 		tree.Chs[0].BMLen = 0.0001
 	}
@@ -518,6 +537,7 @@ func virtualTritomyMLWeights(tree *Node, weights map[int]float64) {
 		tree.BMLen = 0.0001
 	}
 	if math.IsNaN(sumV1) || math.IsNaN(sumV2) || math.IsNaN(sumV3) {
+		fmt.Println("error in virtualTritomyMLWeights() in bmoptim.go")
 		fmt.Println(tree.Nam, sumV1, tree.Chs[0].Nam, sumV2, tree.Chs[1].Nam, sumV3)
 		os.Exit(0)
 	}
@@ -615,6 +635,7 @@ func tritomyWeightedML(tree *Node, weights map[int]float64) {
 	}
 	//fmt.Println(tree.Chs[0].Nam, sumV1, tree.Chs[1].Nam, sumV2, tree.Chs[2].Nam, sumV3)
 	if math.IsNaN(sumV1) || math.IsNaN(sumV2) || math.IsNaN(sumV3) {
+		fmt.Println("error in virtualTritomyML() in bmoptim.go")
 		fmt.Println(tree.Chs[0].Nam, sumV1, tree.Chs[1].Nam, sumV2, tree.Chs[2].Nam, sumV3)
 		os.Exit(0)
 	}

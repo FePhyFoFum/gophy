@@ -182,6 +182,7 @@ func ClusterCalcExpectedTraits(tree *Node, sites []int) {
 						//fmt.Println(sib.Nam, sib.PruneLen, nd.Par.Nam, nd.Par.PruneLen)
 
 						if math.IsNaN(bot) || math.IsInf(bot, 0) {
+							fmt.Println("HERE")
 							fmt.Println(sib.Nam, sib.PruneLen, nd.Par.Nam, nd.Par.PruneLen)
 							os.Exit(0)
 						}
