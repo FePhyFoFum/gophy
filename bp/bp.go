@@ -568,38 +568,38 @@ func runCompare(rp RunParams, ignore []string, compfile string, workers int, map
 				n.Nam = n.SData["conf"]
 			}
 		}
-		fmt.Println(t.Rt.Newick(false) + ";")
+		fmt.Println(t.Rt.Newick(true) + ";")
 		for _, n := range t.Post {
 			if len(n.Chs) > 1 && n != t.Rt {
 				n.Nam = n.SData["conc"]
 			}
 		}
-		fmt.Println(t.Rt.Newick(false) + ";")
+		fmt.Println(t.Rt.Newick(true) + ";")
 		for _, n := range t.Post {
 			if len(n.Chs) > 1 && n != t.Rt {
 				n.Nam = strconv.Itoa(numtrees - (int(n.FData["conc"]) + int(n.FData["conf"])))
 			}
 		}
-		fmt.Println(t.Rt.Newick(false) + ";")
+		fmt.Println(t.Rt.Newick(true) + ";")
 		//
 		for _, n := range t.Post {
 			if len(n.Chs) > 1 && n != t.Rt {
 				n.Nam = strconv.FormatFloat(n.FData["conf"]/float64(numtrees), 'f', 3, 64)
 			}
 		}
-		fmt.Println(t.Rt.Newick(false) + ";")
+		fmt.Println(t.Rt.Newick(true) + ";")
 		for _, n := range t.Post {
 			if len(n.Chs) > 1 && n != t.Rt {
 				n.Nam = strconv.FormatFloat(n.FData["conc"]/float64(numtrees), 'f', 3, 64)
 			}
 		}
-		fmt.Println(t.Rt.Newick(false) + ";")
+		fmt.Println(t.Rt.Newick(true) + ";")
 		for _, n := range t.Post {
 			if len(n.Chs) > 1 && n != t.Rt {
 				n.Nam = strconv.FormatFloat(float64(numtrees-(int(n.FData["conc"])+int(n.FData["conf"])))/float64(numtrees), 'f', 3, 64)
 			}
 		}
-		fmt.Println(t.Rt.Newick(false) + ";")
+		fmt.Println(t.Rt.Newick(true) + ";")
 
 	}
 	fmt.Fprintln(os.Stderr, "comp done:", end.Sub(start))

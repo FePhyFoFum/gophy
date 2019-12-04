@@ -14,14 +14,6 @@ import (
 	"gonum.org/v1/gonum/stat"
 )
 
-func LogFactorial(val int) (x float64) {
-	x = 0.
-	for i := 1; i <= val; i++ {
-		x += math.Log(float64(i))
-	}
-	return
-}
-
 // CalcSliceIntDifferenceInt calculate the size of the difference (set) between two int slices
 func CalcSliceIntDifferenceInt(a, b []int) int {
 	mb := map[int]bool{}
@@ -307,10 +299,11 @@ func SumFloatVec(x []float64) (s float64) {
 
 // SumLogExp sum log of exps
 func SumLogExp(a, b float64) float64 {
-	return a + log1exp(b-a)
+	return a + Log1exp(b-a)
 }
 
-func log1exp(x float64) float64 {
+// Log1exp returns log(0+e^x) when e^x is in range
+func Log1exp(x float64) float64 {
 	if x > 35 {
 		return x
 	}
@@ -405,8 +398,18 @@ func NewSortedIdxSlice(n []int) *SortedIntIdxSlice {
 	return s
 }
 
-// LogFact calculate the log factorial
+// LogFactorial slow method to calculate log factorial log(1) + log(2) + ... + log(n)
+func LogFactorial(val int) (x float64) {
+	x = 0.
+	for i := 1; i <= val; i++ {
+		x += math.Log(float64(i))
+	}
+	return
+}
+
+// LogFact calculate the log factorial - this is based on Stirling's approx and is faster than LogFactorial
 func LogFact(k float64) float64 {
+	// form assumes n  > 0, is good for large n
 	return k*(math.Log(k)-1) + math.Log(math.Sqrt(6.28318*k))
 }
 
