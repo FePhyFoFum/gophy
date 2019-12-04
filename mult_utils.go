@@ -99,7 +99,7 @@ func PreparePatternVecsMS(t *Tree, patternsint map[int]float64, seqs map[string]
 			for _, i := range patternvec {
 				if _, ok := charMap[string(seqs[n.Nam][i])]; !ok {
 					if string(seqs[n.Nam][i]) != "-" || string(seqs[n.Nam][i]) != "N" {
-						fmt.Println(string(seqs[n.Nam][i]))
+						fmt.Println(n.Nam, string(seqs[n.Nam][i]))
 						os.Exit(0)
 					}
 				}

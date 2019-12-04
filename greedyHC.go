@@ -680,7 +680,6 @@ func InitGreedyHC(tree *Tree, gen int, pr int, crit int, rstart bool, k int, run
 		s.singleStartingCluster()
 		//s.randomStartingClusters()
 	}
-
 	s.PrintFreq = pr
 	s.JoinLikes = make(map[int]map[int]float64)
 	s.SplitGen = splitgen
@@ -788,7 +787,7 @@ func (search *HCSearch) singleStartingCluster() {
 		cur.Sites = append(cur.Sites, k)
 		siteClust[k] = 0
 	}
-	if len(cur.Sites) != 0 {
+	/*if len(cur.Sites) != 0 {
 		ClusterMissingTraitsEM(search.Tree, cur, 10)
 		clustll := 0.0
 		for _, site := range cur.Sites {
@@ -796,6 +795,11 @@ func (search *HCSearch) singleStartingCluster() {
 			clustll += curll
 		}
 		cur.LogLike = clustll
+	}*/
+	BMOptimBLEM(search.Tree, 100)
+	cur.LogLike = SubUnrootedLogLikeParallel(search.Tree.Rt, cur.Sites, 4)
+	for _, n := range search.Tree.Pre {
+		cur.BranchLengths = append(cur.BranchLengths, n.BMLen)
 	}
 	search.Clusters = clus
 	search.SiteAssignments = siteClust

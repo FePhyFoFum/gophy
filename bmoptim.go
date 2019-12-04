@@ -3,6 +3,7 @@ package gophy
 import (
 	"fmt"
 	"math"
+	"math/rand"
 	"os"
 )
 
@@ -84,11 +85,11 @@ func BMOptimBLEM(t *Tree, niter int) {
 	}
 	best := -1000000000.0
 	var newlen []float64
-	for it := 0; it < 1; it++ {
-		/*for _, n := range t.Pre[1:] {
+	for it := 0; it < 10; it++ {
+		for _, n := range t.Pre[1:] {
 			r := rand.Float64()
 			n.BMLen = r
-		}*/
+		}
 		for i := 0; i < niter; i++ {
 			CalcExpectedTraits(t.Rt)
 			BMCalcLensBackFront(t, sites)

@@ -3,9 +3,10 @@ package main
 import (
 	"flag"
 	"fmt"
-	"gophy"
 	"math/rand"
 	"time"
+
+	"github.com/FePhyFoFum/gophy"
 )
 
 func main() {
@@ -23,7 +24,6 @@ func main() {
 			nd.BMLen = rand.Float64()
 		}
 	}
-	fmt.Println(t)
 	gophy.MapContinuous(t, *traitfn)
 	//gophy.IterateBMLengths(t, 100)
 	gophy.InitMissingValues(t.Pre)
@@ -32,10 +32,8 @@ func main() {
 		sites = append(sites, i)
 	}
 	start := time.Now()
-	for i := 0; i < 5; i++ {
-		gophy.CalcExpectedTraits(t.Rt)
-		gophy.BMCalcLensBackFront(t, sites)
-	}
+	gophy.BMOptimBLEM(t, 100)
+	fmt.Println(gophy.SubUnrootedLogLikeParallel(t.Rt, sites, 3))
 	elapsed := time.Since(start)
 	fmt.Println(elapsed)
 	fmt.Println(t.Rt.BMPhylogram())

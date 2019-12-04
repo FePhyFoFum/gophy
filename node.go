@@ -104,6 +104,30 @@ func (n Node) Newick(bl bool) (ret string) {
 	return
 }
 
+// NewickFData returns a string newick
+func (n Node) NewickFData(bl bool, FD string) (ret string) {
+	var buffer bytes.Buffer
+	for in, cn := range n.Chs {
+		if in == 0 {
+			buffer.WriteString("(")
+		}
+		buffer.WriteString(cn.NewickFData(bl, FD))
+		if bl == true {
+			s := strconv.FormatFloat(cn.Len, 'f', -1, 64)
+			buffer.WriteString(":")
+			buffer.WriteString(s)
+		}
+		if in == len(n.Chs)-1 {
+			buffer.WriteString(")")
+		} else {
+			buffer.WriteString(",")
+		}
+	}
+	buffer.WriteString(n.Nam + "[&" + FD + "=" + strconv.FormatFloat(n.FData[FD], 'f', -1, 64) + "]")
+	ret = buffer.String()
+	return
+}
+
 // BMPhylogram returns a string newick with brownian motion branch lengths
 func (n Node) BMPhylogram() (ret string) {
 	bl := true

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -163,7 +164,7 @@ func assignHeights(node *Node) {
 		}
 	} else {
 		oldestChildHeight := OldestChildAge(node)
-		node.Height = oldestChildHeight + 0.001
+		node.Height = oldestChildHeight + 0.1
 		node.FData["FAD"] = node.Height
 	}
 
@@ -182,6 +183,39 @@ func MakeStratHeights(tree *Tree) {
 	}
 }
 
+//TimeTraverse will visit all descendant nodes in order of their heights (earliest -> latest)
+func TimeTraverse(preNodes []*Node, internalOnly bool) (ret []*Node) {
+	var unsortNodes []*Node
+	if internalOnly == true {
+		for _, n := range preNodes {
+			if len(n.Chs) != 0 {
+				unsortNodes = append(unsortNodes, n)
+			}
+		}
+	} else {
+		unsortNodes = preNodes
+	}
+	ss := unsortNodes
+	sort.Slice(ss, func(i, j int) bool {
+		return ss[i].Height > ss[j].Height
+	})
+	ret = ss
+	return
+}
+
+/*	var orderedChs []*Node
+	added := make(map[*Node]bool)
+	for _, cn := range unsortNodes {
+		if cn.Height > unsortNodes[0].Height {
+			orderedChs = append(orderedChs, cn) //put all Chs with height >  the first element in the new array first
+			added[cn] = true
+		}
+	}
+	for _, cn := range
+	ret = orderedChs
+	return
+}
+*/
 // OldestChildAge returns the oldest Child
 func OldestChildAge(node *Node) float64 {
 	oldestChildHeight := 0.0
