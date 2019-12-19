@@ -511,8 +511,10 @@ func timeSortNodes(t *gophy.Tree) []*gophy.Node {
 
 func optimizeThings(t *gophy.Tree, x *gophy.MultStateModel, patternval []float64, wks int) {
 	x.SetupQJC()
-	l := gophy.PCalcLikePatternsMS(t, x, patternval, wks)
+	//l := gophy.PCalcLikePatternsMS(t, x, patternval, wks)
+	l := gophy.PCalcLogLikePatternsMS(t, x, patternval, wks)
 	fmt.Println("starting lnL:", l)
+	//os.Exit(0)
 	gophy.OptimizeMS1R(t, x, patternval, wks)
 	gophy.OptimizeMKMS(t, x, x.Q.At(0, 1), patternval, false, wks)
 	gophy.PrintMatrix(x.Q, false)
