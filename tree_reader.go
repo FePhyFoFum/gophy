@@ -114,6 +114,21 @@ func ReadNewickString(ts string) (root *Node) {
 			}
 			cn.Len = b
 			x--
+		} else if nc == "[" {
+			x++
+			nc = ts[x : x+1]
+			var nm bytes.Buffer
+			for {
+				nm.WriteString(nc)
+				x++
+				nc = ts[x : x+1]
+				if nc == "]" {
+					break
+				}
+			}
+			cn.SData["comment"] = nm.String()
+		} else if nc == ";" {
+			break
 		} else {
 			nn := Node{Par: cn, Nam: "", Len: 0.0, IData: map[string]int{},
 				FData: map[string]float64{}, SData: map[string]string{}}

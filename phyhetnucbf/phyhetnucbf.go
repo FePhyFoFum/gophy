@@ -112,6 +112,7 @@ func main() {
 	afn := flag.String("s", "", "seq filename")
 	uc1 := flag.Bool("ue", false, "uncertainty existence")
 	uc2 := flag.Bool("ul", false, "uncertainty location")
+	mintest := flag.Int("min", 10, "minimum number of tips required")
 	aicc := flag.Bool("aicc", false, "use AICc instead of BIC (BIC is default)")
 	wks := flag.Int("w", 4, "number of threads")
 	cpuprofile := flag.String("cpuprofile", "", "write cpu profile to file")
@@ -141,7 +142,7 @@ func main() {
 		fmt.Fprintln(os.Stderr, "using BIC")
 	}
 
-	minset := 10 // have to have at least 8 tips in there
+	minset := *mintest // have to have at least 8 tips in there
 
 	//read tree
 	t := gophy.ReadTreeFromFile(*tfn)
