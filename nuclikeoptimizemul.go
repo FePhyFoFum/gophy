@@ -217,7 +217,13 @@ func OptimizeGTRMul(t *Tree, models []*DNAModel, nodemodels map[*Node]int, patte
 
 // OptimizeGTRBPMul optimize GTR and base composition for the different parts
 func OptimizeGTRBPMul(t *Tree, models []*DNAModel, nodemodels map[*Node]int, usemodelvals bool,
-	patternvals []float64, wks int) {
+	patternvals []float64, log bool, wks int) {
+	var lkfun func(*Tree, []*DNAModel, map[*Node]int, []float64, int) float64
+	if log {
+		lkfun = PCalcLogLikePatternsMul
+	} else {
+		lkfun = PCalcLikePatternsMul
+	}
 	count := 0
 	//start := time.Now()
 	fcn := func(mds []float64) float64 {
@@ -242,7 +248,7 @@ func OptimizeGTRBPMul(t *Tree, models []*DNAModel, nodemodels map[*Node]int, use
 			j.SetBaseFreqs(bf)
 			j.SetupQGTR()
 		}
-		lnl := PCalcLikePatternsMul(t, models, nodemodels, patternvals, wks)
+		lnl := lkfun(t, models, nodemodels, patternvals, wks)
 		if count%100 == 0 {
 			//curt := time.Now()
 			//fmt.Println(count, lnl, curt.Sub(start))
