@@ -1,3 +1,10 @@
+// Lentil is a tool for adding branch lengths from a tree file to a map file.
+// Typically, you would run this with a command like
+//
+//         lentil -m map.tre -t trees.tre
+//
+// The -w flag allows you to use multiple cores.
+//
 package main
 
 import (
