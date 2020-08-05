@@ -81,14 +81,14 @@ func NodeNamesSliceIntersects(a, b []*Node) (rb bool) {
 	return
 }
 
-// StochasticNNI
+// StochasticNNI should make NNI moves
 func StochasticNNI() {
 
 }
 
+// SwapBranch will
 // to get the branches that would be NNIs, use the function and
 // then send the relevant nodes here
-// SwapBranch
 func SwapBranch(nd1 *Node, nd2 *Node) bool {
 	if nd1.Par == nil || nd2.Par == nil {
 		return false
@@ -104,6 +104,7 @@ func SwapBranch(nd1 *Node, nd2 *Node) bool {
 	return true
 }
 
+// TritomyRoot makes the root a tritomy
 func TritomyRoot(tr *Tree) {
 	curroot := tr.Rt
 	if len(curroot.Chs) > 2 {
@@ -130,6 +131,7 @@ func TritomyRoot(tr *Tree) {
 	}
 }
 
+// Reroot basic reroot function
 func Reroot(inroot *Node, tr *Tree) {
 	tempParent := inroot.Par
 	newRoot := new(Node)
@@ -174,7 +176,7 @@ func exchangeInfo(node1 *Node, node2 *Node) {
 //NNIMoves looks at the root and returns the NNIs
 func NNIMoves(tr *Tree) [][]*Node {
 	if len(tr.Rt.Chs) > 3 {
-		fmt.Errorf("needs to be a tritomy root.")
+		fmt.Println("needs to be a tritomy root")
 		return nil
 	}
 	x0 := len(tr.Rt.Chs[0].Chs)

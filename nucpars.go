@@ -4,7 +4,7 @@ import (
 	"math"
 )
 
-//PCalcFitchParsPatterns parallel caclulation of fitch parsimony costs with patterns
+// PCalcSankParsPatterns parallel caclulation of fitch parsimony costs with patterns
 func PCalcSankParsPatterns(t *Tree, patternval []float64, wks int) (fl float64) {
 	fl = 0.0
 	nsites := len(patternval)
@@ -26,7 +26,7 @@ func PCalcSankParsPatterns(t *Tree, patternval []float64, wks int) (fl float64) 
 	return
 }
 
-//CalcSankhParsWork ...
+// CalcSankParsWork ...
 func CalcSankParsWork(t *Tree, jobs <-chan int, results chan<- ParsResult) { //results chan<- float64) {
 	for j := range jobs {
 		sl := 0.0
@@ -47,7 +47,7 @@ func CalcSankParsWork(t *Tree, jobs <-chan int, results chan<- ParsResult) { //r
 	}
 }
 
-//CalcSankParsNode ...
+// CalcSankParsNode ...
 func CalcSankParsNode(nd *Node, site int) {
 	for i := 0; i < 4; i++ {
 		nd.Data[site][i] = 0.
@@ -93,6 +93,7 @@ func CalcSankParsNode(nd *Node, site int) {
 	}
 }
 
+// EstParsBL estimate the parsimony branch lengths
 func EstParsBL(t *Tree, patternval []float64, totalsites int) {
 	nsites := len(patternval)
 	for _, n := range t.Post {

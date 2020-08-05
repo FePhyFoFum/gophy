@@ -36,6 +36,7 @@ func pointGamma(p float64, a float64, b float64) float64 {
 	return ((c.Quantile(p)) / (2 * b))
 }
 
+// GetGammaCats for likelihood calculators
 func GetGammaCats(alpha float64, cats int, median bool) []float64 {
 	K := float64(cats)
 	a, b := alpha, alpha

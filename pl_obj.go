@@ -9,6 +9,7 @@ import (
 	"gonum.org/v1/gonum/optimize"
 )
 
+// PLObj things for PL
 type PLObj struct {
 	Rates                []float64
 	Durations            []float64
@@ -27,6 +28,7 @@ type PLObj struct {
 	Smoothing            float64
 }
 
+// OptimizePL PL optimization
 func (p *PLObj) OptimizePL(params []float64) {
 	count := 0
 	start := time.Now()
@@ -73,6 +75,7 @@ func (p *PLObj) OptimizePL(params []float64) {
 	fmt.Println(res)
 }
 
+// CalcPL ...
 func (p *PLObj) CalcPL(params []float64) float64 {
 	for _, i := range params {
 		if i < 0 {
@@ -84,13 +87,13 @@ func (p *PLObj) CalcPL(params []float64) float64 {
 	fcount := 0
 	for i := range p.Rates {
 		p.Rates[i] = params[pcount]
-		pcount += 1
-		fcount += 1
+		pcount++
+		fcount++
 	}
 	for i := range p.Dates {
 		p.Dates[i] = params[pcount]
-		pcount += 1
-		fcount += 1
+		pcount++
+		fcount++
 	}
 	ret := p.SetDurations()
 	if ret == false {
@@ -103,12 +106,13 @@ func (p *PLObj) CalcPL(params []float64) float64 {
 	return pl
 }
 
+// SetValues ...
 func (p *PLObj) SetValues(t Tree, numsites float64, minmap map[*Node]float64,
 	maxmap map[*Node]float64) {
 	p.NumNodes = 0
 	for i, n := range t.Pre {
 		n.Num = i
-		p.NumNodes += 1
+		p.NumNodes++
 	}
 	p.CharDurations = make([]float64, p.NumNodes)
 	p.Durations = make([]float64, p.NumNodes)
@@ -189,11 +193,11 @@ func (p *PLObj) SetValues(t Tree, numsites float64, minmap map[*Node]float64,
 	c := 0
 	for i := range p.Rates {
 		params[i] = 1.0
-		c += 1
+		c++
 	}
 	for i := range p.Dates {
 		params[c] = p.Dates[i]
-		c += 1
+		c++
 	}
 	fmt.Println(p.CalcPL(params))
 	p.OptimizePL(params)
@@ -215,6 +219,7 @@ func (p *PLObj) feasibleTimes(nd *Node, timeAnc float64) {
 	}
 }
 
+// CalcPenalty ...
 func (p *PLObj) CalcPenalty() (rkt float64) {
 	tpen := 0.0
 	for i := 0; i < p.NumNodes; i++ {
@@ -235,6 +240,7 @@ func (p *PLObj) CalcPenalty() (rkt float64) {
 	return
 }
 
+// CalcRateLike ...
 func (p *PLObj) CalcRateLike() (ll float64) {
 	ll = 0.0
 	for i := 1; i < p.NumNodes; i++ {
@@ -255,6 +261,7 @@ func (p *PLObj) CalcRateLike() (ll float64) {
 	return
 }
 
+// CalcRoughnessPenalty ...
 func (p *PLObj) CalcRoughnessPenalty() (su float64) {
 	su = 0
 	tomy := 0.0
@@ -269,7 +276,7 @@ func (p *PLObj) CalcRoughnessPenalty() (su float64) {
 				}
 				s += r
 				ss += r * r
-				tomy += 1
+				tomy++
 			}
 		} else {
 			if p.ParentsNdsInts[i] != 0 {
@@ -282,6 +289,7 @@ func (p *PLObj) CalcRoughnessPenalty() (su float64) {
 	return
 }
 
+// SetDurations for nodes
 func (p *PLObj) SetDurations() (success bool) {
 	success = true
 	for i := 0; i < p.NumNodes; i++ {

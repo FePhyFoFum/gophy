@@ -118,6 +118,7 @@ func PreparePatternVecs(t *Tree, patternsint map[int]float64, seqs map[string]st
 	return
 }
 
+// GetNucMap get the int map for DNA with ambiguities
 func GetNucMap() (charMap map[string][]int) {
 	charMap = make(map[string][]int)
 	charMap["A"] = []int{0}

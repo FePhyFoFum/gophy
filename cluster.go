@@ -5,6 +5,7 @@ import (
 	"strings"
 )
 
+// Cluster structure for sealiontomo stuff
 type Cluster struct {
 	Sites         []int // this stores all of the sites with a preference for this cluster
 	BranchLengths []float64
@@ -12,10 +13,12 @@ type Cluster struct {
 	SiteWeights   map[int]float64 // this will store the probability that each site in the MATRIX belongs here.
 }
 
+// CalcLL calculate the ll
 func (c *Cluster) CalcLL(tree *Node) {
 	c.LogLike = SubUnrootedLogLikeParallel(tree, c.Sites, 6)
 }
 
+// WriteClusterPhylip write the cluster file
 func (c *Cluster) WriteClusterPhylip(nodes []*Node) string {
 	seqs := make(map[string][]string)
 	for _, n := range nodes {

@@ -230,8 +230,7 @@ func (n Node) String() string {
 	return n.Newick(false)
 }
 
-//TODO: COMMENT THSE EDIT THESE
-//RerootLS reroots all the nodes represented in a graph on n
+//RerootBM reroots and moves the BMLen
 func (n *Node) RerootBM(oldroot *Node) *Node {
 	if n == oldroot {
 		fmt.Println("you are trying to reroot on the current root!")

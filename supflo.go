@@ -279,10 +279,9 @@ func (s *SupFlo) Abs() *SupFlo {
 	if s.mant < 0 {
 		result := NewSupFlo(-s.mant, s.exp)
 		return result
-	} else {
-		result := NewSupFlo(s.mant, s.exp)
-		return result
 	}
+	result := NewSupFlo(s.mant, s.exp)
+	return result
 }
 
 //SwitchSign change the sign
