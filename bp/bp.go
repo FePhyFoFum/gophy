@@ -1,3 +1,6 @@
+// bp is a tool for analyzing bipartitions from trees. There are several
+// options and several analyses that you can run.
+//
 package main
 
 import (
