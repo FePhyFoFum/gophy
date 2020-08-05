@@ -83,10 +83,10 @@ func constructBiparts(s SitePart) (bps []gophy.Bipart) {
 //TODO: need to add the functionality for gaps
 func combineBiparts(bps []gophy.Bipart, namesmap map[int]string) {
 	//need to add the support from the smaller ones to the larger ones and go from there
-	rt := gophy.Node{nil, nil, "root", map[string]string{}, map[string]float64{}, map[string]int{}, 0, 0., nil, false, 0., map[float64]bool{}, nil, nil, nil, nil}
+	rt := gophy.Node{Nam: "root"}
 	nodesmap := make(map[int]*gophy.Node)
 	for i := range namesmap {
-		nd := gophy.Node{&rt, nil, strconv.Itoa(i), map[string]string{}, map[string]float64{}, map[string]int{}, 0, 0., nil, false, 0., map[float64]bool{}, nil, nil, nil, nil}
+		nd := gophy.Node{Par: &rt, Nam: strconv.Itoa(i)}
 		nodesmap[i] = &nd
 		rt.Chs = append(rt.Chs, &nd)
 	}
@@ -113,7 +113,7 @@ func combineBiparts(bps []gophy.Bipart, namesmap map[int]string) {
 					ochs = append(ochs, j)
 				}
 			}
-			nd := gophy.Node{m, chs, "c" + strconv.Itoa(c), map[string]string{}, map[string]float64{}, map[string]int{}, 0, 0., nil, false, 0., map[float64]bool{}, nil, nil, nil, nil}
+			nd := gophy.Node{Par: m, Chs: chs, Nam: "c" + strconv.Itoa(c)}
 			nd.Chs = chs
 			for _, j := range chs {
 				j.Par = &nd
