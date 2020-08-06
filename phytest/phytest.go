@@ -1,3 +1,5 @@
+// phytest is just for testing different functions in the phylogenetics stuff
+//
 package main
 
 import (
