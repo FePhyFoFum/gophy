@@ -1,4 +1,4 @@
-package gophy
+package clustering
 
 // Calculate stratigraphic likelihoods with trees
 
