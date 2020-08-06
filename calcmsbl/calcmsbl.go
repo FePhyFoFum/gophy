@@ -1,3 +1,5 @@
+// calcmsbl will calculate the branch lengths for multistate characters
+//
 package main
 
 import (
