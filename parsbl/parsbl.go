@@ -45,6 +45,38 @@ func createMultiStateFile(infile string) {
 	lg.Flush()
 }
 
+func calcPBL(nsites int, numstates int, mseqs []gophy.MSeq, seqs map[string][]string,
+	trees []*gophy.Tree) {
+	x := gophy.NewMultStateModel()
+	x.NumStates = numstates
+	fmt.Println(x.NumStates)
+	x.SetMap()
+	bf := gophy.GetEmpiricalBaseFreqsMS(mseqs, x.NumStates)
+	x.SetBaseFreqs(bf)
+	x.EBF = x.BF
+
+	// get the site patternas
+	patterns, patternsint, gapsites, constant, uninformative, _ :=
+		gophy.GetSitePatternsMS(mseqs, x.GetCharMap(), x.GetNumStates())
+	for _, t := range trees {
+		patternval, _ := gophy.PreparePatternVecsMS(t, patternsint, seqs, x.GetCharMap(),
+			x.GetNumStates())
+		//this is necessary to get order of the patters in the patternvec since they have no order
+		// this will be used with fullpattern to reconstruct the sequences
+		//list of sites
+		fmt.Fprintln(os.Stderr, "nsites:", nsites)
+		fmt.Fprintln(os.Stderr, "patterns:", len(patterns), len(patternsint))
+		fmt.Fprintln(os.Stderr, "onlygaps:", len(gapsites))
+		fmt.Fprintln(os.Stderr, "constant:", len(constant))
+		fmt.Fprintln(os.Stderr, "uninformative:", len(uninformative))
+		// model things
+		gophy.PCalcSankParsPatternsMultState(t, x.GetNumStates(), patternval, 1)
+		gophy.EstParsBLMultState(t, x.GetNumStates(), patternval, nsites)
+		fmt.Println(t.Rt.Newick(true) + ";")
+	}
+
+}
+
 func main() {
 	tfn := flag.String("t", "", "tree filename")
 	afn := flag.String("s", "", "seq filename")
@@ -78,28 +110,7 @@ func main() {
 		seqnames = append(seqnames, i.NM)
 		nsites = len(i.SQs)
 	}
-	x := gophy.NewMultStateModel()
-	x.NumStates = numstates
-	fmt.Println(x.NumStates)
-	x.SetMap()
-	bf := gophy.GetEmpiricalBaseFreqsMS(mseqs, x.NumStates)
-	x.SetBaseFreqs(bf)
-	x.EBF = x.BF
-	// get the site patternas
-	patterns, patternsint, gapsites, constant, uninformative, _ := gophy.GetSitePatternsMS(mseqs, x.GetCharMap(), x.GetNumStates())
-	for _, t := range trees {
-		patternval, _ := gophy.PreparePatternVecsMS(t, patternsint, seqs, x.GetCharMap(), x.GetNumStates())
-		//this is necessary to get order of the patters in the patternvec since they have no order
-		// this will be used with fullpattern to reconstruct the sequences
-		//list of sites
-		fmt.Fprintln(os.Stderr, "nsites:", nsites)
-		fmt.Fprintln(os.Stderr, "patterns:", len(patterns), len(patternsint))
-		fmt.Fprintln(os.Stderr, "onlygaps:", len(gapsites))
-		fmt.Fprintln(os.Stderr, "constant:", len(constant))
-		fmt.Fprintln(os.Stderr, "uninformative:", len(uninformative))
-		// model things
-		gophy.PCalcSankParsPatternsMultState(t, x.GetNumStates(), patternval, 1)
-		gophy.EstParsBLMultState(t, x.GetNumStates(), patternval, nsites)
-		fmt.Println(t.Rt.Newick(true) + ";")
-	}
+
+	//conduct analysis
+	calcPBL(nsites, numstates, mseqs, seqs, trees)
 }

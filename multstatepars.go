@@ -4,7 +4,7 @@ import (
 	"math"
 )
 
-// ParsResult ...
+// ParsResult gives the parsimony score (value) for a site
 type ParsResult struct {
 	value float64
 	site  int
@@ -32,7 +32,7 @@ func PCalcSankParsPatternsMultState(t *Tree, numstates int, patternval []float64
 	return
 }
 
-//CalcSankParsWorkMultState ...
+//CalcSankParsWorkMultState the worker for parallel jobs sent to CalcSankParsNodeMultState
 func CalcSankParsWorkMultState(t *Tree, numstates int, jobs <-chan int, results chan<- ParsResult) { //results chan<- float64) {
 	for j := range jobs {
 		sl := 0.0
@@ -53,7 +53,7 @@ func CalcSankParsWorkMultState(t *Tree, numstates int, jobs <-chan int, results 
 	}
 }
 
-//CalcSankParsNodeMultState ...
+// CalcSankParsNodeMultState calculates Sank parsimony for a node
 func CalcSankParsNodeMultState(nd *Node, numstates int, site int) {
 	for i := 0; i < numstates; i++ {
 		nd.Data[site][i] = 0.
@@ -99,7 +99,7 @@ func CalcSankParsNodeMultState(nd *Node, numstates int, site int) {
 	}
 }
 
-//EstParsBLMultState ....
+// EstParsBLMultState estimates the parsimony branch lengths for multistates
 //  this will just pick one when there are equivalent
 func EstParsBLMultState(t *Tree, numstates int, patternval []float64, totalsites int) {
 	nsites := len(patternval)
