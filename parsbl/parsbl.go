@@ -1,3 +1,7 @@
+// parsbl is a tool to apply parsimony branch lengths to a tree. It reads
+// multistate files and so if you have a nucleotide file, you need to give
+// it the -n flag and it will output a multistate file.
+//
 package main
 
 import (
@@ -10,6 +14,36 @@ import (
 
 	"github.com/FePhyFoFum/gophy"
 )
+
+func createMultiStateFile(infile string) {
+	f, err := os.Create(infile + ".gophy.ms")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer f.Close()
+	lg := bufio.NewWriter(f)
+	tseqs := gophy.ReadSeqsFromFile(infile)
+	for _, i := range tseqs {
+		lg.WriteString(">" + i.NM + "\n")
+		vals := make([]string, len(i.SQ))
+		for j := range i.SQ {
+			if string(i.SQ[j]) == "A" {
+				vals[j] = "0"
+			} else if string(i.SQ[j]) == "C" {
+				vals[j] = "1"
+			} else if string(i.SQ[j]) == "G" {
+				vals[j] = "2"
+			} else if string(i.SQ[j]) == "T" {
+				vals[j] = "3"
+			} else {
+				vals[j] = "-"
+			}
+
+		}
+		lg.WriteString(strings.Join(vals, " ") + "\n")
+	}
+	lg.Flush()
+}
 
 func main() {
 	tfn := flag.String("t", "", "tree filename")
@@ -26,33 +60,7 @@ func main() {
 	}
 	if *nuc {
 		fmt.Fprintln(os.Stderr, "nucleotide data. will write multistate file")
-		f, err := os.Create(*afn + ".gophy.ms")
-		if err != nil {
-			log.Fatal(err)
-		}
-		defer f.Close()
-		lg := bufio.NewWriter(f)
-		tseqs := gophy.ReadSeqsFromFile(*afn)
-		for _, i := range tseqs {
-			lg.WriteString(">" + i.NM + "\n")
-			vals := make([]string, len(i.SQ))
-			for j := range i.SQ {
-				if string(i.SQ[j]) == "A" {
-					vals[j] = "0"
-				} else if string(i.SQ[j]) == "C" {
-					vals[j] = "1"
-				} else if string(i.SQ[j]) == "G" {
-					vals[j] = "2"
-				} else if string(i.SQ[j]) == "T" {
-					vals[j] = "3"
-				} else {
-					vals[j] = "-"
-				}
-
-			}
-			lg.WriteString(strings.Join(vals, " ") + "\n")
-		}
-		lg.Flush()
+		createMultiStateFile(*afn)
 		*afn = *afn + ".gophy.ms"
 	}
 
@@ -78,9 +86,9 @@ func main() {
 	x.SetBaseFreqs(bf)
 	x.EBF = x.BF
 	// get the site patternas
-	patterns, patternsint, gapsites, constant, uninformative, _ := gophy.GetSitePatternsMS(mseqs, x)
+	patterns, patternsint, gapsites, constant, uninformative, _ := gophy.GetSitePatternsMS(mseqs, x.GetCharMap(), x.GetNumStates())
 	for _, t := range trees {
-		patternval, _ := gophy.PreparePatternVecsMS(t, patternsint, seqs, x)
+		patternval, _ := gophy.PreparePatternVecsMS(t, patternsint, seqs, x.GetCharMap(), x.GetNumStates())
 		//this is necessary to get order of the patters in the patternvec since they have no order
 		// this will be used with fullpattern to reconstruct the sequences
 		//list of sites
@@ -90,8 +98,8 @@ func main() {
 		fmt.Fprintln(os.Stderr, "constant:", len(constant))
 		fmt.Fprintln(os.Stderr, "uninformative:", len(uninformative))
 		// model things
-		gophy.PCalcSankParsPatternsMultState(t, x, patternval, 1)
-		gophy.EstParsBLMultState(t, x, patternval, nsites)
+		gophy.PCalcSankParsPatternsMultState(t, x.GetNumStates(), patternval, 1)
+		gophy.EstParsBLMultState(t, x.GetNumStates(), patternval, nsites)
 		fmt.Println(t.Rt.Newick(true) + ";")
 	}
 }
