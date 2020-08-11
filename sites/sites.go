@@ -1,3 +1,5 @@
+// sites is a simple utility to describe things about a dataset
+//
 package main
 
 import (
@@ -157,28 +159,31 @@ func main() {
 	}
 
 	//read a seq file
-	nsites := 0
-	seqs := map[string]string{}
+	seqs := map[string][]string{}
 	seqnames := make([]string, 0)
 	namesmap := make(map[int]string)
 	namesrevmap := make(map[string]int)
 	count := 0
-	for _, i := range gophy.ReadSeqsFromFile(*afn) {
-		seqs[i.NM] = i.SQ
+	mseqs, numstates := gophy.ReadMSeqsFromFile(*afn)
+	for _, i := range mseqs {
+		seqs[i.NM] = i.SQs
 		seqnames = append(seqnames, i.NM)
-		nsites = len(i.SQ)
 		namesmap[count] = i.NM
 		namesrevmap[i.NM] = count
 		count++
 	}
-	bf := gophy.GetEmpiricalBaseFreqs(seqs)
+	x := gophy.NewMultStateModel()
+	x.NumStates = numstates
+	x.SetMap()
+	bf := gophy.GetEmpiricalBaseFreqsMS(mseqs, x.NumStates)
 	//end read a seq file
 
 	start := time.Now()
 
 	fmt.Println("BF", bf)
 	// get the site patternas
-	patterns, patternsint, gapsites, constant, uninformative, _ := gophy.GetSitePatterns(seqs, nsites, seqnames)
+	patterns, patternsint, gapsites, constant, uninformative, _ :=
+		gophy.GetSitePatternsMS(mseqs, x.GetCharMap(), x.GetNumStates())
 
 	fmt.Println(" patterns:", len(patternsint), " gaps:", len(gapsites),
 		" constant:", len(constant), " uninformative:", len(uninformative))
@@ -326,9 +331,9 @@ func main() {
 			fmt.Println(" ", bc0, bc1, len(bc0v), len(bc1v))
 			n.Nam = strconv.Itoa(bc0) + "/" + strconv.Itoa(bc1) + "/" +
 				strconv.Itoa(len(bc0v)) + "/" + strconv.Itoa(len(bc1v))
-			/*for x := range bc0v {
+			for x := range bc0v {
 				fmt.Println(siteparts[colmap[x]].PatternStr, siteparts[colmap[x]].Columns)
-			}*/
+			}
 		}
 		fmt.Println("\n--newick--\n" + t.Rt.Newick(false) + ";")
 	}
