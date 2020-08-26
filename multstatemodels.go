@@ -226,7 +226,7 @@ func (d *MultStateModel) DecomposeQ() {
 	var ES mat.Eigen
 	d.EigenVecs = mat.NewDense(d.NumStates, d.NumStates, nil)
 	ES.Factorize(d.QS, mat.EigenBoth) //true, true)
-	TC := mat.NewCDense(0, 0, nil)
+	TC := mat.NewCDense(d.NumStates, d.NumStates, nil)
 	//TC := ES.VectorsTo(nil)
 	ES.VectorsTo(TC)
 	for i := 0; i < d.NumStates; i++ {
