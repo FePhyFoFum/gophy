@@ -19,6 +19,7 @@ type ProteinModel struct {
 	EBF       []float64 // empirical res freqs, but we'll call state freqs 'base frequencies' for consistency
 	R         *mat.Dense
 	Q         *mat.Dense // common use
+	Ex        string     // PAML-formatted exchangeabilities
 	CharMap   map[string][]int
 	NumStates int
 	//sync.RWMutex
@@ -58,7 +59,7 @@ func (d *ProteinModel) SetModelBF() {
 
 // SetRateMatrixJTT set up JTT exchangeabilities
 func (d *ProteinModel) SetRateMatrixJTT() {
-	ex := `58
+	d.Ex = `58
 	54  45
 	81  16 528
 	56 113  34  10
@@ -81,7 +82,7 @@ func (d *ProteinModel) SetRateMatrixJTT() {
 	0.076748 0.051691 0.042645 0.051544 0.019803 0.040752 0.061830 0.073152 0.022944 0.053761 0.091904 0.058676 0.023826 0.040126 0.050901 0.068765 0.058565 0.014261 0.032102 0.066005`
 	// from paml jones.dat
 
-	scanner := bufio.NewScanner(strings.NewReader(ex))
+	scanner := bufio.NewScanner(strings.NewReader(d.Ex))
 	res := [][]float64{}
 	for scanner.Scan() {
 		tmp := []float64{}
@@ -112,7 +113,7 @@ func (d *ProteinModel) SetRateMatrixJTT() {
 
 // SetRateMatrixWAG set up WAG exchangeabilities
 func (d *ProteinModel) SetRateMatrixWAG() {
-	ex := `0.551571
+	d.Ex = `0.551571
 	0.509848  0.635346
 	0.738998  0.147304  5.429420
 	1.027040  0.528191  0.265256  0.0302949
@@ -135,7 +136,7 @@ func (d *ProteinModel) SetRateMatrixWAG() {
 	0.0866279 0.043972  0.0390894 0.0570451 0.0193078 0.0367281 0.0580589 0.0832518 0.0244313 0.048466  0.086209  0.0620286 0.0195027 0.0384319 0.0457631 0.0695179 0.0610127 0.0143859 0.0352742 0.0708956`
 	// from PAML wag.dat
 
-	scanner := bufio.NewScanner(strings.NewReader(ex))
+	scanner := bufio.NewScanner(strings.NewReader(d.Ex))
 	res := [][]float64{}
 	for scanner.Scan() {
 		tmp := []float64{}
@@ -166,7 +167,7 @@ func (d *ProteinModel) SetRateMatrixWAG() {
 
 // SetRateMatrixLG set up LG exchangeabilities
 func (d *ProteinModel) SetRateMatrixLG() {
-	ex := `0.425093
+	d.Ex = `0.425093
 	0.276818 0.751878
 	0.395144 0.123954 5.076149
 	2.489084 0.534551 0.528768 0.062556
@@ -189,7 +190,7 @@ func (d *ProteinModel) SetRateMatrixLG() {
 	0.079066 0.055941 0.041977 0.053052 0.012937 0.040767 0.071586 0.057337 0.022355 0.062157 0.099081 0.064600 0.022951 0.042302 0.044040 0.061197 0.053287 0.012066 0.034155 0.069147`
 	// lg.dat from paml
 
-	scanner := bufio.NewScanner(strings.NewReader(ex))
+	scanner := bufio.NewScanner(strings.NewReader(d.Ex))
 	res := [][]float64{}
 	for scanner.Scan() {
 		tmp := []float64{}
