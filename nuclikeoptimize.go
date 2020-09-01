@@ -10,7 +10,7 @@ import (
 )
 
 // OptimizeBL This uses the standard gonum optimizers. Not great.
-func OptimizeBL(nd *Node, t *Tree, x *DNAModel, patternvals []float64, wks int) {
+func OptimizeBL(nd *Node, t *Tree, x *Model, patternvals []float64, wks int) {
 	count := 0
 	start := time.Now()
 	fcn := func(bl []float64) float64 {
@@ -67,7 +67,7 @@ func OptimizeBL(nd *Node, t *Tree, x *DNAModel, patternvals []float64, wks int) 
 }
 
 //AdjustBLNR This is a single edge NR
-func AdjustBLNR(node *Node, x *DNAModel, patternvals []float64, t *Tree, wks int, threshold float64) {
+func AdjustBLNR(node *Node, x *Model, patternvals []float64, t *Tree, wks int, threshold float64) {
 	xmin := 10e-8
 	xmax := 2.0
 	guess := node.Len
@@ -128,7 +128,7 @@ func AdjustBLNR(node *Node, x *DNAModel, patternvals []float64, t *Tree, wks int
 }
 
 // OptimizeBLNR Newton-Raphson for each branch. Does 4 passes
-func OptimizeBLNR(t *Tree, x *DNAModel, patternvals []float64, wks int) {
+func OptimizeBLNR(t *Tree, x *Model, patternvals []float64, wks int) {
 	for _, c := range t.Pre {
 		if c == t.Rt {
 			continue
@@ -160,12 +160,12 @@ func OptimizeBLNR(t *Tree, x *DNAModel, patternvals []float64, wks int) {
 	}
 }
 
-func OptimizeBLNRGN(t *Tree, x *DNAModel, patternvals []float64, wks int) {
+func OptimizeBLNRGN(t *Tree, x *Model, patternvals []float64, wks int) {
 	return
 }
 
 // OptimizeBLS optimize all branch lengths
-func OptimizeBLS(t *Tree, x *DNAModel, patternvals []float64, wks int) {
+func OptimizeBLS(t *Tree, x *Model, patternvals []float64, wks int) {
 	count := 0
 	start := time.Now()
 	fcn := func(bl []float64) float64 {
@@ -229,8 +229,8 @@ func OptimizeBLS(t *Tree, x *DNAModel, patternvals []float64, wks int) {
 }
 
 // OptimizeGTR optimize GTR
-func OptimizeGTR(t *Tree, x *DNAModel, patternvals []float64, sup bool, wks int) {
-	var lkfun func(*Tree, *DNAModel, []float64, int) float64
+func OptimizeGTR(t *Tree, x *Model, patternvals []float64, sup bool, wks int) {
+	var lkfun func(*Tree, *Model, []float64, int) float64
 	if sup {
 		lkfun = PCalcLogLikePatterns
 	} else {
@@ -242,7 +242,7 @@ func OptimizeGTR(t *Tree, x *DNAModel, patternvals []float64, sup bool, wks int)
 				return 1000000000000
 			}
 		}
-		x.SetRateMatrix(mds)
+		x.SetRateMatrixDNA(mds)
 		x.SetupQGTR()
 		//lnl := PCalcLikePatterns(t, x, patternvals, wks)
 		lnl := lkfun(t, x, patternvals, wks)
@@ -260,12 +260,12 @@ func OptimizeGTR(t *Tree, x *DNAModel, patternvals []float64, sup bool, wks int)
 		fmt.Println(err)
 	}
 	//fmt.Println(res.F)
-	x.SetRateMatrix(res.X)
+	x.SetRateMatrixDNA(res.X)
 }
 
 //OptimizeBF optimizing the basefreq model but for a clade
-func OptimizeBF(t *Tree, x *DNAModel, patternvals []float64, log bool, wks int) {
-	var lkfun func(*Tree, *DNAModel, []float64, int) float64
+func OptimizeBF(t *Tree, x *Model, patternvals []float64, log bool, wks int) {
+	var lkfun func(*Tree, *Model, []float64, int) float64
 	if log {
 		lkfun = PCalcLogLikePatterns
 	} else {
@@ -316,7 +316,7 @@ func OptimizeBF(t *Tree, x *DNAModel, patternvals []float64, log bool, wks int) 
 }
 
 //OptimizeGTRSubClade optimizing the GTR model but for a subclade
-func OptimizeGTRSubClade(t *Tree, n *Node, excl bool, x *DNAModel, patternvals []float64, wks int) {
+func OptimizeGTRSubClade(t *Tree, n *Node, excl bool, x *Model, patternvals []float64, wks int) {
 	count := 0
 	start := time.Now()
 	fcn := func(mds []float64) float64 {
@@ -325,7 +325,7 @@ func OptimizeGTRSubClade(t *Tree, n *Node, excl bool, x *DNAModel, patternvals [
 				return 1000000000000
 			}
 		}
-		x.SetRateMatrix(mds)
+		x.SetRateMatrixDNA(mds)
 		x.SetupQGTR()
 		lnl := PCalcLogLikePatternsSubClade(t, n, excl, x, patternvals, wks)
 		if count%100 == 0 {
@@ -350,12 +350,12 @@ func OptimizeGTRSubClade(t *Tree, n *Node, excl bool, x *DNAModel, patternvals [
 		fmt.Println(err)
 	}
 	fmt.Println(res.F)
-	x.SetRateMatrix(res.X)
+	x.SetRateMatrixDNA(res.X)
 }
 
 //OptimizeBFSubClade optimizing the basefreq model but for a subclade
-func OptimizeBFSubClade(t *Tree, n *Node, excl bool, x *DNAModel, patternvals []float64, log bool, wks int) {
-	var lkfun func(*Tree, *Node, bool, *DNAModel, []float64, int) float64
+func OptimizeBFSubClade(t *Tree, n *Node, excl bool, x *Model, patternvals []float64, log bool, wks int) {
+	var lkfun func(*Tree, *Node, bool, *Model, []float64, int) float64
 	if log {
 		lkfun = PCalcLogLikePatternsSubClade
 	} else {
@@ -407,7 +407,7 @@ func OptimizeBFSubClade(t *Tree, n *Node, excl bool, x *DNAModel, patternvals []
 }
 
 //OptimizeBFRMSubClade optimizing the basefreq model but for a subclade
-func OptimizeBFRMSubClade(t *Tree, n *Node, excl bool, x *DNAModel, patternvals []float64, wks int) {
+func OptimizeBFRMSubClade(t *Tree, n *Node, excl bool, x *Model, patternvals []float64, wks int) {
 	count := 0
 	fcn := func(mds []float64) float64 {
 		for _, i := range mds {
@@ -415,7 +415,7 @@ func OptimizeBFRMSubClade(t *Tree, n *Node, excl bool, x *DNAModel, patternvals 
 				return 1000000000000
 			}
 		}
-		x.SetRateMatrix(mds[0:5])
+		x.SetRateMatrixDNA(mds[0:5])
 		bf := []float64{mds[5], mds[6], mds[7]}
 		bf = append(bf, 1.-floats.Sum(bf))
 		x.SetBaseFreqs(bf)
@@ -438,7 +438,7 @@ func OptimizeBFRMSubClade(t *Tree, n *Node, excl bool, x *DNAModel, patternvals 
 	}
 	bf := []float64{res.X[5], res.X[6], res.X[7]}
 	bf = append(bf, 1.0-floats.Sum(bf))
-	x.SetRateMatrix(res.X[0:5])
+	x.SetRateMatrixDNA(res.X[0:5])
 	x.SetBaseFreqs(bf)
 	x.SetupQGTR()
 }

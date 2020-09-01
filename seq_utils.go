@@ -3,6 +3,7 @@ package gophy
 import (
 	"fmt"
 	"os"
+	"strconv"
 )
 
 //GetSitePatterns return site pattens when the datatype for the alignment is a map[string]string
@@ -361,6 +362,19 @@ func GetProtMap() (charMap map[string][]int) {
 	charMap["X"] = []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19}
 	charMap["B"] = []int{2, 3}
 	charMap["Z"] = []int{5, 6}
+	return
+}
+
+//GetMultMap based on states without the MultStateModel struct
+func GetMultMap(numStates int) (charMap map[string][]int) {
+	charMap = make(map[string][]int)
+	charMap["-"] = make([]int, numStates)
+	charMap["N"] = make([]int, numStates)
+	for i := 0; i < numStates; i++ {
+		charMap[strconv.Itoa(i)] = []int{i}
+		charMap["-"][i] = i
+		charMap["N"][i] = i
+	}
 	return
 }
 

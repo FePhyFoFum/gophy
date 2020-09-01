@@ -248,7 +248,7 @@ func ReadSeqsFromFile(filen string) (seqs []Seq) {
 }
 
 // ReadPatternsSeqsFromFile return the seqs and patternsint
-func ReadPatternsSeqsFromFile(sfn string, seqtype string) (seqs map[string]string, patternsint map[int]float64, nsites int, bf []float64) {
+func ReadPatternsSeqsFromFile(sfn string) (seqs map[string]string, patternsint map[int]float64, nsites int, bf []float64) {
 	nsites = 0
 	seqs = map[string]string{}
 	seqnames := make([]string, 0)
