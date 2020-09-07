@@ -11,7 +11,7 @@ import (
 */
 
 // PCalcLogLike this will calculate log like in parallel
-func PCalcLogLike(t *Tree, x *DNAModel, nsites int, wks int) (fl float64) {
+func PCalcLogLike(t *Tree, x *Model, nsites int, wks int) (fl float64) {
 	fl = 0.0
 	jobs := make(chan int, nsites)
 	//results := make(chan float64, nsites)
@@ -37,7 +37,7 @@ func PCalcLogLike(t *Tree, x *DNAModel, nsites int, wks int) (fl float64) {
 }
 
 //PCalcLike parallel calculate likelihood
-func PCalcLike(t *Tree, x *DNAModel, nsites int, wks int) (fl float64) {
+func PCalcLike(t *Tree, x *Model, nsites int, wks int) (fl float64) {
 	fl = 0.0
 	jobs := make(chan int, nsites)
 	//results := make(chan float64, nsites)
@@ -63,7 +63,7 @@ func PCalcLike(t *Tree, x *DNAModel, nsites int, wks int) (fl float64) {
 }
 
 //PCalcLikePatterns parallel caclulation of likelihood with patterns
-func PCalcLikePatterns(t *Tree, x *DNAModel, patternval []float64, wks int) (fl float64) {
+func PCalcLikePatterns(t *Tree, x *Model, patternval []float64, wks int) (fl float64) {
 	fl = 0.0
 	nsites := len(patternval)
 	jobs := make(chan int, nsites)
@@ -90,7 +90,7 @@ func PCalcLikePatterns(t *Tree, x *DNAModel, patternval []float64, wks int) (fl 
 }
 
 //PCalcLikePatternsMarked parallel likelihood caclulation with patterns and just update the values
-func PCalcLikePatternsMarked(t *Tree, x *DNAModel, patternval []float64, wks int) (fl float64) {
+func PCalcLikePatternsMarked(t *Tree, x *Model, patternval []float64, wks int) (fl float64) {
 	fl = 0.0
 	nsites := len(patternval)
 	jobs := make(chan int, nsites)
@@ -117,7 +117,7 @@ func PCalcLikePatternsMarked(t *Tree, x *DNAModel, patternval []float64, wks int
 }
 
 //PCalcLogLikePatterns parallel log likeliohood calculation including patterns
-func PCalcLogLikePatterns(t *Tree, x *DNAModel, patternval []float64, wks int) (fl float64) {
+func PCalcLogLikePatterns(t *Tree, x *Model, patternval []float64, wks int) (fl float64) {
 	fl = 0.0
 	nsites := len(patternval)
 	jobs := make(chan int, nsites)
@@ -144,7 +144,7 @@ func PCalcLogLikePatterns(t *Tree, x *DNAModel, patternval []float64, wks int) (
 }
 
 // PCalcLogLikeBack a bit of a shortcut. Could do better, but walks back from the n node to the root
-func PCalcLogLikeBack(t *Tree, n *Node, x *DNAModel, nsites int, wks int) (fl float64) {
+func PCalcLogLikeBack(t *Tree, n *Node, x *Model, nsites int, wks int) (fl float64) {
 	fl = 0.0
 	jobs := make(chan int, nsites)
 	results := make(chan float64, nsites)
@@ -166,7 +166,7 @@ func PCalcLogLikeBack(t *Tree, n *Node, x *DNAModel, nsites int, wks int) (fl fl
 }
 
 //PCalcLogLikeMarked parallel calculation of loglike with just updating
-func PCalcLogLikeMarked(t *Tree, x *DNAModel, nsites int, wks int) (fl float64) {
+func PCalcLogLikeMarked(t *Tree, x *Model, nsites int, wks int) (fl float64) {
 	fl = 0.0
 	jobs := make(chan int, nsites)
 	results := make(chan float64, nsites)
@@ -189,7 +189,7 @@ func PCalcLogLikeMarked(t *Tree, x *DNAModel, nsites int, wks int) (fl float64) 
 
 // CalcLogLikeOneSite just calculate the likelihood of one site
 // probably used to populate the PDict in the DNA Model so that we can reuse the calculations
-func CalcLogLikeOneSite(t *Tree, x *DNAModel, site int) float64 {
+func CalcLogLikeOneSite(t *Tree, x *Model, site int) float64 {
 	sl := 0.0
 	for _, n := range t.Post {
 		if len(n.Chs) > 0 {
@@ -206,7 +206,7 @@ func CalcLogLikeOneSite(t *Tree, x *DNAModel, site int) float64 {
 }
 
 //CalcLikeOneSite just one site
-func CalcLikeOneSite(t *Tree, x *DNAModel, site int) float64 {
+func CalcLikeOneSite(t *Tree, x *Model, site int) float64 {
 	sl := 0.0
 	for _, n := range t.Post {
 		if len(n.Chs) > 0 {
@@ -223,7 +223,7 @@ func CalcLikeOneSite(t *Tree, x *DNAModel, site int) float64 {
 }
 
 // CalcLogLikeOneSiteBack like the one above but from nb to the root only
-func CalcLogLikeOneSiteBack(t *Tree, nb *Node, x *DNAModel, site int) float64 {
+func CalcLogLikeOneSiteBack(t *Tree, nb *Node, x *Model, site int) float64 {
 	sl := 0.0
 	going := true
 	cur := nb
@@ -245,7 +245,7 @@ func CalcLogLikeOneSiteBack(t *Tree, nb *Node, x *DNAModel, site int) float64 {
 }
 
 // CalcLogLikeOneSiteMarked this uses the marked machinery to recalculate
-func CalcLogLikeOneSiteMarked(t *Tree, x *DNAModel, site int) float64 {
+func CalcLogLikeOneSiteMarked(t *Tree, x *Model, site int) float64 {
 	sl := 0.0
 	for _, n := range t.Post {
 		if len(n.Chs) > 0 {
@@ -269,7 +269,7 @@ func CalcLogLikeOneSiteMarked(t *Tree, x *DNAModel, site int) float64 {
 }
 
 // CalcLikeOneSiteMarked this uses the marked machinery to recalculate
-func CalcLikeOneSiteMarked(t *Tree, x *DNAModel, site int) float64 {
+func CalcLikeOneSiteMarked(t *Tree, x *Model, site int) float64 {
 	sl := 0.0
 	for _, n := range t.Post {
 		if len(n.Chs) > 0 {
@@ -293,7 +293,7 @@ func CalcLikeOneSiteMarked(t *Tree, x *DNAModel, site int) float64 {
 }
 
 // CalcLogLikeWork this is intended for a worker that will be executing this per site
-func CalcLogLikeWork(t *Tree, x *DNAModel, jobs <-chan int, results chan<- LikeResult) { //results chan<- float64) {
+func CalcLogLikeWork(t *Tree, x *Model, jobs <-chan int, results chan<- LikeResult) { //results chan<- float64) {
 	for j := range jobs {
 		sl := 0.0
 		for _, n := range t.Post {
@@ -312,7 +312,7 @@ func CalcLogLikeWork(t *Tree, x *DNAModel, jobs <-chan int, results chan<- LikeR
 }
 
 //CalcLikeWork this is the worker
-func CalcLikeWork(t *Tree, x *DNAModel, jobs <-chan int, results chan<- LikeResult) { //results chan<- float64) {
+func CalcLikeWork(t *Tree, x *Model, jobs <-chan int, results chan<- LikeResult) { //results chan<- float64) {
 	for j := range jobs {
 		sl := 0.0
 		for _, n := range t.Post {
@@ -331,7 +331,7 @@ func CalcLikeWork(t *Tree, x *DNAModel, jobs <-chan int, results chan<- LikeResu
 }
 
 // CalcLogLikeWorkBack this is intended for a worker that will be executing this per site
-func CalcLogLikeWorkBack(t *Tree, nb *Node, x *DNAModel, jobs <-chan int, results chan<- float64) {
+func CalcLogLikeWorkBack(t *Tree, nb *Node, x *Model, jobs <-chan int, results chan<- float64) {
 	for j := range jobs {
 		sl := 0.0
 		going := true
@@ -355,7 +355,7 @@ func CalcLogLikeWorkBack(t *Tree, nb *Node, x *DNAModel, jobs <-chan int, result
 }
 
 // CalcLikeWorkMarked this is intended to calculate only on the marked nodes back to teh root
-func CalcLikeWorkMarked(t *Tree, x *DNAModel, jobs <-chan int, results chan<- LikeResult) {
+func CalcLikeWorkMarked(t *Tree, x *Model, jobs <-chan int, results chan<- LikeResult) {
 	for j := range jobs {
 		sl := 0.0
 		for _, n := range t.Post {
@@ -378,7 +378,7 @@ func CalcLikeWorkMarked(t *Tree, x *DNAModel, jobs <-chan int, results chan<- Li
 }
 
 // CalcLogLikeWorkMarked this is intended to calculate only on the marked nodes back to teh root
-func CalcLogLikeWorkMarked(t *Tree, x *DNAModel, jobs <-chan int, results chan<- float64) {
+func CalcLogLikeWorkMarked(t *Tree, x *Model, jobs <-chan int, results chan<- float64) {
 	for j := range jobs {
 		sl := 0.0
 		for _, n := range t.Post {
@@ -401,7 +401,7 @@ func CalcLogLikeWorkMarked(t *Tree, x *DNAModel, jobs <-chan int, results chan<-
 }
 
 // CalcLogLikeNode calculates likelihood for node
-func CalcLogLikeNode(nd *Node, model *DNAModel, site int) {
+func CalcLogLikeNode(nd *Node, model *Model, site int) {
 	for i := 0; i < 4; i++ {
 		nd.Data[site][i] = 0.
 	}
@@ -434,7 +434,7 @@ func CalcLogLikeNode(nd *Node, model *DNAModel, site int) {
 }
 
 // CalcLikeNode calculate the likelihood of a node
-func CalcLikeNode(nd *Node, model *DNAModel, site int) {
+func CalcLikeNode(nd *Node, model *Model, site int) {
 	for i := 0; i < 4; i++ {
 		nd.Data[site][i] = 1.
 	}
@@ -475,6 +475,7 @@ tpcond  X
 rtcond  x
  toward root
 */
+
 // TPconditionals regular tip conditionals
 func TPconditionals(node *Node, patternval []float64) {
 	if len(node.Chs) > 0 {
@@ -490,7 +491,7 @@ func TPconditionals(node *Node, patternval []float64) {
 }
 
 // RTconditionals tipconds calculated to the rt (including BL)
-func RTconditionals(x *DNAModel, node *Node, patternval []float64) {
+func RTconditionals(x *Model, node *Node, patternval []float64) {
 	p := x.GetPCalc(node.Len)
 	for s := range patternval {
 		for j := 0; j < 4; j++ {
@@ -504,7 +505,7 @@ func RTconditionals(x *DNAModel, node *Node, patternval []float64) {
 }
 
 // RVconditionals take par RvTpConds and put get bl
-func RVconditionals(x *DNAModel, node *Node, patternval []float64) {
+func RVconditionals(x *Model, node *Node, patternval []float64) {
 	p := x.GetPCalc(node.Par.Len)
 	for s := range patternval {
 		for j := 0; j < 4; j++ {
@@ -516,7 +517,7 @@ func RVconditionals(x *DNAModel, node *Node, patternval []float64) {
 	}
 }
 
-// RVTPconditionals
+// RVTPconditionals ...
 func RVTPconditionals(node *Node, patternval []float64) {
 	for s := range patternval {
 		for j := 0; j < 4; j++ {
@@ -534,7 +535,7 @@ func RVTPconditionals(node *Node, patternval []float64) {
 }
 
 // CalcLikeFrontBack ...
-func CalcLikeFrontBack(x *DNAModel, tree *Tree, patternval []float64) {
+func CalcLikeFrontBack(x *Model, tree *Tree, patternval []float64) {
 	for _, n := range tree.Post {
 		if len(n.Chs) != 0 {
 			n.TpConds = make([][]float64, len(patternval))
@@ -579,7 +580,7 @@ func CalcLikeFrontBack(x *DNAModel, tree *Tree, patternval []float64) {
 }
 
 // CalcAncStates for each node based on the calculations above
-func CalcAncStates(x *DNAModel, tree *Tree, patternval []float64) (retstates map[*Node][][]float64) {
+func CalcAncStates(x *Model, tree *Tree, patternval []float64) (retstates map[*Node][][]float64) {
 	CalcLikeFrontBack(x, tree, patternval)
 	retstates = make(map[*Node][][]float64)
 	// initialize the data storage for return
@@ -644,7 +645,7 @@ func CalcAncStates(x *DNAModel, tree *Tree, patternval []float64) (retstates map
 // these are for just calculating for one clade
 
 // calcLogLikeOneSiteSubClade calc for just a clade, starting at a node
-func calcLogLikeOneSiteSubClade(t *Tree, inn *Node, excl bool, x *DNAModel, site int) float64 {
+func calcLogLikeOneSiteSubClade(t *Tree, inn *Node, excl bool, x *Model, site int) float64 {
 	sl := 0.0
 	arr := []*Node{}
 	if excl == true {
@@ -687,7 +688,7 @@ func calcLogLikeOneSiteSubClade(t *Tree, inn *Node, excl bool, x *DNAModel, site
 }
 
 // calcLogLikeOneSiteSubClade calc for just a clade, starting at a node
-func calcLikeOneSiteSubClade(t *Tree, inn *Node, excl bool, x *DNAModel, site int) float64 {
+func calcLikeOneSiteSubClade(t *Tree, inn *Node, excl bool, x *Model, site int) float64 {
 	sl := 0.0
 	arr := []*Node{}
 	if excl == true {
@@ -730,7 +731,7 @@ func calcLikeOneSiteSubClade(t *Tree, inn *Node, excl bool, x *DNAModel, site in
 }
 
 //PCalcLogLikePatternsSubClade parallel log likeliohood calculation including patterns
-func PCalcLogLikePatternsSubClade(t *Tree, n *Node, excl bool, x *DNAModel, patternval []float64, wks int) (fl float64) {
+func PCalcLogLikePatternsSubClade(t *Tree, n *Node, excl bool, x *Model, patternval []float64, wks int) (fl float64) {
 	fl = 0.0
 	nsites := len(patternval)
 	jobs := make(chan int, nsites)
@@ -757,7 +758,7 @@ func PCalcLogLikePatternsSubClade(t *Tree, n *Node, excl bool, x *DNAModel, patt
 }
 
 //PCalcLikePatternsSubClade parallel log likeliohood calculation including patterns
-func PCalcLikePatternsSubClade(t *Tree, n *Node, excl bool, x *DNAModel, patternval []float64, wks int) (fl float64) {
+func PCalcLikePatternsSubClade(t *Tree, n *Node, excl bool, x *Model, patternval []float64, wks int) (fl float64) {
 	fl = 0.0
 	nsites := len(patternval)
 	jobs := make(chan int, nsites)
@@ -783,7 +784,7 @@ func PCalcLikePatternsSubClade(t *Tree, n *Node, excl bool, x *DNAModel, pattern
 }
 
 // calcLikeSubCladeWork this is intended for a worker that will be executing this per site
-func calcLikeSubCladeWork(t *Tree, inn *Node, excl bool, x *DNAModel, jobs <-chan int, results chan<- LikeResult) { //results chan<- float64) {
+func calcLikeSubCladeWork(t *Tree, inn *Node, excl bool, x *Model, jobs <-chan int, results chan<- LikeResult) { //results chan<- float64) {
 	arr := []*Node{}
 	if excl == true {
 		arr = t.Rt.PostorderArrayExcl(inn)
@@ -827,7 +828,7 @@ func calcLikeSubCladeWork(t *Tree, inn *Node, excl bool, x *DNAModel, jobs <-cha
 }
 
 // CalcLogLikeSubCladeWork this is intended for a worker that will be executing this per site
-func calcLogLikeSubCladeWork(t *Tree, inn *Node, excl bool, x *DNAModel, jobs <-chan int, results chan<- LikeResult) { //results chan<- float64) {
+func calcLogLikeSubCladeWork(t *Tree, inn *Node, excl bool, x *Model, jobs <-chan int, results chan<- LikeResult) { //results chan<- float64) {
 	arr := []*Node{}
 	if excl == true {
 		arr = t.Rt.PostorderArrayExcl(inn)

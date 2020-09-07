@@ -9,7 +9,7 @@ import (
 )
 
 // OptimizeBLSMul optimize all branch lengths
-func OptimizeBLSMul(t *Tree, models []*DNAModel, nodemodels map[*Node]int, patternvals []float64, wks int) float64 {
+func OptimizeBLSMul(t *Tree, models []*Model, nodemodels map[*Node]int, patternvals []float64, wks int) float64 {
 	count := 0
 	//start := time.Now()
 	fcn := func(bl []float64) float64 {
@@ -66,7 +66,7 @@ func OptimizeBLSMul(t *Tree, models []*DNAModel, nodemodels map[*Node]int, patte
 }
 
 //AdjustBLNRMult This is a single edge NR
-func AdjustBLNRMult(node *Node, models []*DNAModel, nodemodels map[*Node]int, patternvals []float64, t *Tree, wks int, threshold float64) {
+func AdjustBLNRMult(node *Node, models []*Model, nodemodels map[*Node]int, patternvals []float64, t *Tree, wks int, threshold float64) {
 	xmin := 10e-8
 	xmax := 2.0
 	guess := node.Len
@@ -128,7 +128,7 @@ func AdjustBLNRMult(node *Node, models []*DNAModel, nodemodels map[*Node]int, pa
 }
 
 // OptimizeBLNRMult Newton-Raphson for each branch. Does 4 passes
-func OptimizeBLNRMult(t *Tree, models []*DNAModel, nodemodels map[*Node]int, patternvals []float64, wks int) {
+func OptimizeBLNRMult(t *Tree, models []*Model, nodemodels map[*Node]int, patternvals []float64, wks int) {
 	for _, c := range t.Pre {
 		if c == t.Rt {
 			continue
@@ -160,7 +160,7 @@ func OptimizeBLNRMult(t *Tree, models []*DNAModel, nodemodels map[*Node]int, pat
 }
 
 // OptimizeGTRMul optimize GTR
-func OptimizeGTRMul(t *Tree, models []*DNAModel, nodemodels map[*Node]int, patternvals []float64, wks int) {
+func OptimizeGTRMul(t *Tree, models []*Model, nodemodels map[*Node]int, patternvals []float64, wks int) {
 	count := 0
 	//start := time.Now()
 	fcn := func(mds []float64) float64 {
@@ -172,7 +172,7 @@ func OptimizeGTRMul(t *Tree, models []*DNAModel, nodemodels map[*Node]int, patte
 		for i, j := range models {
 			cn := i * 5
 			//fmt.Println(mds[cn:cn+5])
-			j.SetRateMatrix(mds[cn : cn+5])
+			j.SetRateMatrixDNA(mds[cn : cn+5])
 			j.SetupQGTR()
 		}
 		lnl := PCalcLikePatternsMul(t, models, nodemodels, patternvals, wks)
@@ -210,15 +210,15 @@ func OptimizeGTRMul(t *Tree, models []*DNAModel, nodemodels map[*Node]int, patte
 	for i, j := range models {
 		cn := i * 5
 		fmt.Println(res.X[cn : cn+5])
-		j.SetRateMatrix(res.X[cn : cn+5])
+		j.SetRateMatrixDNA(res.X[cn : cn+5])
 		j.SetupQGTR()
 	}
 }
 
 // OptimizeGTRBPMul optimize GTR and base composition for the different parts
-func OptimizeGTRBPMul(t *Tree, models []*DNAModel, nodemodels map[*Node]int, usemodelvals bool,
+func OptimizeGTRBPMul(t *Tree, models []*Model, nodemodels map[*Node]int, usemodelvals bool,
 	patternvals []float64, log bool, wks int) {
-	var lkfun func(*Tree, []*DNAModel, map[*Node]int, []float64, int) float64
+	var lkfun func(*Tree, []*Model, map[*Node]int, []float64, int) float64
 	if log {
 		lkfun = PCalcLogLikePatternsMul
 	} else {
@@ -234,7 +234,7 @@ func OptimizeGTRBPMul(t *Tree, models []*DNAModel, nodemodels map[*Node]int, use
 		}
 		cur := 0
 		for _, j := range models {
-			j.SetRateMatrix(mds[cur : cur+5])
+			j.SetRateMatrixDNA(mds[cur : cur+5])
 			cur += 5
 			bf := []float64{mds[cur], mds[cur+1], mds[cur+2]}
 			cur += 3
@@ -295,7 +295,7 @@ func OptimizeGTRBPMul(t *Tree, models []*DNAModel, nodemodels map[*Node]int, use
 	fmt.Println("   ", res.F)
 	cur := 0
 	for _, j := range models {
-		j.SetRateMatrix(res.X[cur : cur+5])
+		j.SetRateMatrixDNA(res.X[cur : cur+5])
 		cur += 5
 		bf := []float64{res.X[cur], res.X[cur+1], res.X[cur+2]}
 		cur += 3
@@ -306,9 +306,9 @@ func OptimizeGTRBPMul(t *Tree, models []*DNAModel, nodemodels map[*Node]int, use
 }
 
 // OptimizeGTRCompSharedRM optimize GTR base composition but share rate matrix for the different parts
-func OptimizeGTRCompSharedRM(t *Tree, models []*DNAModel, nodemodels map[*Node]int,
+func OptimizeGTRCompSharedRM(t *Tree, models []*Model, nodemodels map[*Node]int,
 	usemodelvals bool, patternvals []float64, log bool, wks int) {
-	var lkfun func(*Tree, []*DNAModel, map[*Node]int, []float64, int) float64
+	var lkfun func(*Tree, []*Model, map[*Node]int, []float64, int) float64
 	if log {
 		lkfun = PCalcLogLikePatternsMul
 	} else {
@@ -325,7 +325,7 @@ func OptimizeGTRCompSharedRM(t *Tree, models []*DNAModel, nodemodels map[*Node]i
 		cur := 5
 		//fmt.Println(" ++", mds)
 		for _, j := range models {
-			j.SetRateMatrix(mds[0:5])
+			j.SetRateMatrixDNA(mds[0:5])
 			bf := []float64{mds[cur], mds[cur+1], mds[cur+2]}
 			cur += 3
 			bf = append(bf, 1-floats.Sum(bf))
@@ -390,7 +390,7 @@ func OptimizeGTRCompSharedRM(t *Tree, models []*DNAModel, nodemodels map[*Node]i
 	//fmt.Println("   ", res.F)
 	cur := 5
 	for _, j := range models {
-		j.SetRateMatrix(res.X[0:5])
+		j.SetRateMatrixDNA(res.X[0:5])
 		bf := []float64{res.X[cur], res.X[cur+1], res.X[cur+2]}
 		cur += 3
 		bf = append(bf, 1-floats.Sum(bf))
@@ -401,10 +401,10 @@ func OptimizeGTRCompSharedRM(t *Tree, models []*DNAModel, nodemodels map[*Node]i
 
 // OptimizeGTRCompSharedRMSingleModel optimize GTR base composition but share rate matrix for the different parts
 //   you send an int that will identify which model can be adjusted and only that one will be
-func OptimizeGTRCompSharedRMSingleModel(t *Tree, models []*DNAModel,
+func OptimizeGTRCompSharedRMSingleModel(t *Tree, models []*Model,
 	nodemodels map[*Node]int, usemodelvals bool, whichmodel int,
 	patternvals []float64, log bool, wks int) {
-	var lkfun func(*Tree, []*DNAModel, map[*Node]int, []float64, int) float64
+	var lkfun func(*Tree, []*Model, map[*Node]int, []float64, int) float64
 	if log {
 		lkfun = PCalcLogLikePatternsMul
 	} else {
@@ -421,7 +421,7 @@ func OptimizeGTRCompSharedRMSingleModel(t *Tree, models []*DNAModel,
 		cur := 5
 		//fmt.Println(" ++", mds)
 		j := models[whichmodel]
-		j.SetRateMatrix(mds[0:5])
+		j.SetRateMatrixDNA(mds[0:5])
 		bf := []float64{mds[cur], mds[cur+1], mds[cur+2]}
 		cur += 3
 		bf = append(bf, 1-floats.Sum(bf))
@@ -480,7 +480,7 @@ func OptimizeGTRCompSharedRMSingleModel(t *Tree, models []*DNAModel,
 	//fmt.Println("   ", res.F)
 	cur := 5
 	j := models[whichmodel]
-	j.SetRateMatrix(res.X[0:5])
+	j.SetRateMatrixDNA(res.X[0:5])
 	bf := []float64{res.X[cur], res.X[cur+1], res.X[cur+2]}
 	cur += 3
 	bf = append(bf, 1-floats.Sum(bf))
@@ -489,7 +489,7 @@ func OptimizeGTRCompSharedRMSingleModel(t *Tree, models []*DNAModel,
 }
 
 // OptimizeGTRCompSharedRMSubClade optimize GTR base composition but share rate matrix for the different parts
-func OptimizeGTRCompSharedRMSubClade(t *Tree, n *Node, excl bool, models []*DNAModel, nodemodels map[*Node]int,
+func OptimizeGTRCompSharedRMSubClade(t *Tree, n *Node, excl bool, models []*Model, nodemodels map[*Node]int,
 	usemodelvals bool, patternvals []float64, wks int) {
 	count := 0
 	//start := time.Now()
@@ -501,7 +501,7 @@ func OptimizeGTRCompSharedRMSubClade(t *Tree, n *Node, excl bool, models []*DNAM
 		}
 		cur := 5
 		for _, j := range models {
-			j.SetRateMatrix(mds[0:5])
+			j.SetRateMatrixDNA(mds[0:5])
 			bf := []float64{mds[cur], mds[cur+1], mds[cur+2]}
 			cur += 3
 			bf = append(bf, 1-SumFloatVec(bf))
@@ -560,7 +560,7 @@ func OptimizeGTRCompSharedRMSubClade(t *Tree, n *Node, excl bool, models []*DNAM
 	//fmt.Println("   ", res.F)
 	cur := 5
 	for _, j := range models {
-		j.SetRateMatrix(res.X[0:5])
+		j.SetRateMatrixDNA(res.X[0:5])
 		bf := []float64{res.X[cur], res.X[cur+1], res.X[cur+2]}
 		cur += 3
 		bf = append(bf, 1-floats.Sum(bf))

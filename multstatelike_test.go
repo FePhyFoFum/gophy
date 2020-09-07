@@ -18,10 +18,11 @@ func TestPCalcLikePatternsMS(t *testing.T) {
 	for i := range modelparams {
 		modelparams[i] = 1.0
 	}
-	x := gophy.NewMultStateModel()
+	x := gophy.NewModel()
+	x.Alph = "mult"
 	x.NumStates = numstates
 	x.SetScaledRateMatrix(modelparams, true)
-	x.SetMap()
+	x.SetMapMult()
 	x.SetBaseFreqs(bf)
 	x.SetupQGTR()
 	lnl := gophy.PCalcLogLikePatternsMS(tr, x, patternval, 2)
@@ -41,10 +42,11 @@ func TestPCalcLogLikePatternsMS(t *testing.T) {
 	for i := range modelparams {
 		modelparams[i] = 1.0
 	}
-	x := gophy.NewMultStateModel()
+	x := gophy.NewModel()
+	x.Alph = "mult"
 	x.NumStates = numstates
 	x.SetScaledRateMatrix(modelparams, true)
-	x.SetMap()
+	x.SetMapMult()
 	x.SetBaseFreqs(bf)
 	x.EBF = bf
 	x.SetupQGTR()

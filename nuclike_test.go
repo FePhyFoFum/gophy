@@ -14,8 +14,10 @@ func TestPCalcLikePatterns(t *testing.T) {
 	afn := "test_files/10tips.nuc.fa"
 	seqs, patternsint, _, bf := gophy.ReadPatternsSeqsFromFile(afn)
 	patternval, _ := gophy.PreparePatternVecs(tr, patternsint, seqs)
-	x := gophy.NewDNAModel()
-	x.SetMap()
+	x := gophy.NewModel()
+	x.Alph = "nuc"
+	x.NumStates = 4
+	x.SetMapDNA()
 	x.SetBaseFreqs(bf)
 	modelparams := make([]float64, 5)
 	for i := range modelparams {
@@ -36,8 +38,10 @@ func TestPCalcLogLikePatterns(t *testing.T) {
 	afn := "test_files/10tips.nuc.fa"
 	seqs, patternsint, _, bf := gophy.ReadPatternsSeqsFromFile(afn)
 	patternval, _ := gophy.PreparePatternVecs(tr, patternsint, seqs)
-	x := gophy.NewDNAModel()
-	x.SetMap()
+	x := gophy.NewModel()
+	x.Alph = "nuc"
+	x.NumStates = 4
+	x.SetMapDNA()
 	x.SetBaseFreqs(bf)
 	modelparams := make([]float64, 5)
 	for i := range modelparams {
