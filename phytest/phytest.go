@@ -126,6 +126,7 @@ func main() {
 	wks := flag.Int("w", 4, "number of threads")
 	cpuprofile := flag.String("cpuprofile", "", "write cpu profile to file")
 	flag.Parse()
+	var dt gophy.DataType
 	if len(*tfn) == 0 {
 		flag.PrintDefaults()
 		os.Exit(1)
@@ -133,6 +134,21 @@ func main() {
 	if len(*afn) == 0 {
 		flag.PrintDefaults()
 		os.Exit(1)
+	}
+	if len(*st) == 0 {
+		flag.PrintDefaults()
+		os.Exit(1)
+	} else {
+		if *st == "nuc" {
+			dt = gophy.Nucleotide
+		} else if *st == "aa" {
+			dt = gophy.AminoAcid
+		} else if *st == "mult" {
+			dt = gophy.MultiState
+		} else {
+			fmt.Fprintln(os.Stderr, "sequence type string is not a recognised datatype, please use [nuc/aa/mult]")
+			os.Exit(1)
+		}
 	}
 	if *cpuprofile != "" {
 		f, err := os.Create(*cpuprofile)
@@ -143,16 +159,15 @@ func main() {
 		defer pprof.StopCPUProfile()
 	}
 	x := gophy.NewModel()
-	if *st == "nuc" {
-		x.Alph = "nuc"
+	x.Alph = dt
+	if x.Alph == gophy.Nucleotide {
 		x.NumStates = 4
 		x.SetMapDNA()
-	} else if *st == "aa" {
-		x.Alph = "aa"
+	} else if x.Alph == gophy.AminoAcid {
 		x.NumStates = 20
 		x.SetMapProt()
 	} else {
-		x.Alph = "mult"
+		x.SetMapMult()
 	}
 	// x.SetupQJC()
 
