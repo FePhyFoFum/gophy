@@ -22,8 +22,8 @@ const (
 	MultiState          = "mult"
 )
 
-// Model overall model struct
-type Model struct {
+// DiscreteModel overall model struct
+type DiscreteModel struct {
 	Alph      DataType  // nuc, prot or multstate model
 	BF        []float64 // base frequencies, order is A,C,G,T or A,R,N,D,C,Q,E,G,H,I,L,K,M,F,P,S,T,W,Y,V
 	MBF       []float64 // model base frequencies
@@ -48,8 +48,8 @@ type Model struct {
 }
 
 // DeepCopyDNAModel ...
-func (d *Model) DeepCopyDNAModel() *Model {
-	outm := NewModel()
+func (d *DiscreteModel) DeepCopyDNAModel() *DiscreteModel {
+	outm := NewDiscreteModel()
 	outm.Alph = "nuc"
 	outm.BF = []float64{0.25, 0.25, 0.25, 0.25}
 	copy(outm.BF, d.BF)
@@ -61,37 +61,37 @@ func (d *Model) DeepCopyDNAModel() *Model {
 	return outm
 }
 
-// NewModel get new model pointer
-func NewModel() *Model {
-	return &Model{}
+// NewDiscreteModel get new model pointer
+func NewDiscreteModel() *DiscreteModel {
+	return &DiscreteModel{}
 }
 
 // SetEqualBF set all state frequencies equal
-func (d *Model) SetEqualBF() {
+func (d *DiscreteModel) SetEqualBF() {
 	for i := range d.BF {
 		d.BF[i] = 1. / float64(d.NumStates)
 	}
 }
 
 //SetEmpiricalBF set all to empirical
-func (d *Model) SetEmpiricalBF() {
+func (d *DiscreteModel) SetEmpiricalBF() {
 	d.BF = d.EBF
 }
 
 // SetModelBF set all to frequencies from empirical model
-func (d *Model) SetModelBF() {
+func (d *DiscreteModel) SetModelBF() {
 	d.BF = d.MBF
 }
 
 // SetBaseFreqs needs to be done before doing SetupQGTR
-func (d *Model) SetBaseFreqs(basefreq []float64) {
+func (d *DiscreteModel) SetBaseFreqs(basefreq []float64) {
 	d.BF = basefreq
 }
 
 // SetupQJC setup Q matrix
 //    This is scaled so that change is reflected in the branch lengths
 //    You don't need to use the SetScaledRateMatrix
-func (d *Model) SetupQJC() {
+func (d *DiscreteModel) SetupQJC() {
 	bf := []float64{}
 	for i := 0; i < d.NumStates; i++ {
 		bf[i] = 1. / float64(d.NumStates)
@@ -115,7 +115,7 @@ func (d *Model) SetupQJC() {
 //     These are unscaled so the branch lengths are going to be time or something else
 //     and not relative to these rates
 //     Will take BF from something else
-func (d *Model) SetupQJC1Rate(rt float64) {
+func (d *DiscreteModel) SetupQJC1Rate(rt float64) {
 	d.Ps = make(map[float64]*mat.Dense)
 	d.Q = mat.NewDense(d.NumStates, d.NumStates, nil)
 
@@ -132,7 +132,7 @@ func (d *Model) SetupQJC1Rate(rt float64) {
 
 // SetupQGTR sets up scaled GTR for (mainly) nucleotide models
 // Could also be used to estimate PROTGTR but that's a bad idea
-func (d *Model) SetupQGTR() {
+func (d *DiscreteModel) SetupQGTR() {
 	// NWH code, Foster-style scaling
 	bigpi := mat.NewDiagDense(d.NumStates, d.BF)
 	dQ := mat.NewDense(d.NumStates, d.NumStates, nil)
@@ -166,7 +166,7 @@ func (d *Model) SetupQGTR() {
 //    This is unscaled (so the branch lengths are going to be proportion to some other change
 //    and not to these branch lengths)
 //    Will take the BF from something else
-func (d *Model) SetupQMk(rt []float64, sym bool) {
+func (d *DiscreteModel) SetupQMk(rt []float64, sym bool) {
 	d.Ps = make(map[float64]*mat.Dense)
 	d.Q = mat.NewDense(d.NumStates, d.NumStates, nil)
 	cc := 0
@@ -196,7 +196,7 @@ func (d *Model) SetupQMk(rt []float64, sym bool) {
 }
 
 // DecomposeQ this is just for NR optimization for branch lengths
-func (d *Model) DecomposeQ() {
+func (d *DiscreteModel) DecomposeQ() {
 	d.QS = mat.NewDense(d.NumStates, d.NumStates, nil)
 	d.EigenVecsI = mat.NewDense(d.NumStates, d.NumStates, nil)
 	for i := 0; i < d.NumStates; i++ {
@@ -234,7 +234,7 @@ func (d *Model) DecomposeQ() {
 //SetRateMatrixDNA needs to be done before doing SetupQGTR
 // just send along the 5 rates and this will make them the whole matrix
 // NWH TO DO version of this for AA rates
-func (d *Model) SetRateMatrixDNA(params []float64) {
+func (d *DiscreteModel) SetRateMatrixDNA(params []float64) {
 	d.R = mat.NewDense(4, 4, nil)
 	d.R.Set(0, 0, 0)
 	d.R.Set(1, 1, 0)
@@ -255,7 +255,7 @@ func (d *Model) SetRateMatrixDNA(params []float64) {
 }
 
 // SetRateMatrixJTT set up JTT exchangeabilities
-func (d *Model) SetRateMatrixJTT() {
+func (d *DiscreteModel) SetRateMatrixJTT() {
 	d.Ex = `58
 	54  45
 	81  16 528
@@ -309,7 +309,7 @@ func (d *Model) SetRateMatrixJTT() {
 }
 
 // SetRateMatrixWAG set up WAG exchangeabilities
-func (d *Model) SetRateMatrixWAG() {
+func (d *DiscreteModel) SetRateMatrixWAG() {
 	d.Ex = `0.551571
 	0.509848  0.635346
 	0.738998  0.147304  5.429420
@@ -363,7 +363,7 @@ func (d *Model) SetRateMatrixWAG() {
 }
 
 // SetRateMatrixLG set up LG exchangeabilities
-func (d *Model) SetRateMatrixLG() {
+func (d *DiscreteModel) SetRateMatrixLG() {
 	d.Ex = `0.425093
 	0.276818 0.751878
 	0.395144 0.123954 5.076149
@@ -420,7 +420,7 @@ func (d *Model) SetRateMatrixLG() {
 // or (numstates * numstates) - numstates
 // this is for scaled branch lengths and matrices
 // CHANGE THIS TO UNSCALED
-func (d *Model) SetRateMatrix(params []float64) {
+func (d *DiscreteModel) SetRateMatrix(params []float64) {
 	d.R = mat.NewDense(d.NumStates, d.NumStates, nil)
 	if len(params) == (((d.NumStates*d.NumStates)-d.NumStates)/2)-1 {
 		//symm
@@ -467,7 +467,7 @@ func (d *Model) SetRateMatrix(params []float64) {
 // just send along the rates and this will make them the whole matrix
 // the scaled is that this is assuming that the last rate is 1
 //THIS IS THE SAME? AS SETRATEMATRIX?
-func (d *Model) SetScaledRateMatrix(params []float64, sym bool) {
+func (d *DiscreteModel) SetScaledRateMatrix(params []float64, sym bool) {
 	d.R = mat.NewDense(d.NumStates, d.NumStates, nil)
 	cc := 0
 	lasti := 0
@@ -507,7 +507,7 @@ func (d *Model) SetScaledRateMatrix(params []float64, sym bool) {
 }
 
 // ExpValue used for the matrix exponential
-func (d *Model) ExpValue(iv []float64, blen float64) {
+func (d *DiscreteModel) ExpValue(iv []float64, blen float64) {
 	for i, j := range iv {
 		d.X.Set(i, i, math.Exp(j*blen))
 	}
@@ -515,7 +515,7 @@ func (d *Model) ExpValue(iv []float64, blen float64) {
 }
 
 // ExpValueFirstD get the first derivaite for NR
-func (d *Model) ExpValueFirstD(blen float64) (x *mat.Dense) {
+func (d *DiscreteModel) ExpValueFirstD(blen float64) (x *mat.Dense) {
 	x = mat.NewDense(d.NumStates, d.NumStates, nil)
 	for i := 0; i < d.NumStates; i++ {
 		d.X1.Set(i, i, d.EigenVals[i]*math.Exp(d.EigenVals[i]*blen))
@@ -526,7 +526,7 @@ func (d *Model) ExpValueFirstD(blen float64) (x *mat.Dense) {
 }
 
 // ExpValueSecondD get the second derivaite for NR
-func (d *Model) ExpValueSecondD(blen float64) (x *mat.Dense) {
+func (d *DiscreteModel) ExpValueSecondD(blen float64) (x *mat.Dense) {
 	x = mat.NewDense(d.NumStates, d.NumStates, nil)
 	for i := 0; i < d.NumStates; i++ {
 		d.X1.Set(i, i, (d.EigenVals[i]*d.EigenVals[i])*math.Exp(d.EigenVals[i]*blen))
@@ -537,7 +537,7 @@ func (d *Model) ExpValueSecondD(blen float64) (x *mat.Dense) {
 }
 
 // SetP use the standard spectral decom
-func (d *Model) SetP(blen float64) {
+func (d *DiscreteModel) SetP(blen float64) {
 	P := mat.NewDense(d.NumStates, d.NumStates, nil)
 	d.ExpValue(d.EigenVals, blen)
 	P.Mul(d.EigenVecs, d.X)
@@ -549,7 +549,7 @@ func (d *Model) SetP(blen float64) {
 }
 
 // SetPSimple use the gonum matrixexp (seems faster)
-func (d *Model) SetPSimple(blen float64) {
+func (d *DiscreteModel) SetPSimple(blen float64) {
 	P := mat.NewDense(d.NumStates, d.NumStates, nil)
 	P.Scale(blen, d.Q)
 	P.Exp(P)
@@ -559,19 +559,19 @@ func (d *Model) SetPSimple(blen float64) {
 }
 
 // EmptyPDict save memory perhaps?
-func (d *Model) EmptyPDict() {
+func (d *DiscreteModel) EmptyPDict() {
 	d.Ps = nil
 	d.Ps = make(map[float64]*mat.Dense)
 }
 
 // EmptyPLDict the logged one
-func (d *Model) EmptyPLDict() {
+func (d *DiscreteModel) EmptyPLDict() {
 	d.PsL = nil
 	d.PsL = make(map[float64]*mat.Dense)
 }
 
 // GetPMap get the Ps from the dictionary
-func (d *Model) GetPMap(blen float64) *mat.Dense {
+func (d *DiscreteModel) GetPMap(blen float64) *mat.Dense {
 	//d.RLock()
 	if _, ok := d.Ps[blen]; ok {
 		//d.RLock()
@@ -589,7 +589,7 @@ func (d *Model) GetPMap(blen float64) *mat.Dense {
 }
 
 // GetPMapLogged get the Ps from the dictionary
-func (d *Model) GetPMapLogged(blen float64) *mat.Dense {
+func (d *DiscreteModel) GetPMapLogged(blen float64) *mat.Dense {
 	if _, ok := d.PsL[blen]; ok {
 		return d.PsL[blen]
 	}
@@ -606,7 +606,7 @@ func (d *Model) GetPMapLogged(blen float64) *mat.Dense {
 }
 
 // GetPCalc calculate P matrix
-func (d *Model) GetPCalc(blen float64) *mat.Dense {
+func (d *DiscreteModel) GetPCalc(blen float64) *mat.Dense {
 	var P mat.Dense
 	P.Scale(blen, d.Q)
 	P.Exp(&P)
@@ -617,7 +617,7 @@ func (d *Model) GetPCalc(blen float64) *mat.Dense {
 }
 
 //SetMapDNA for getting the position in the array
-func (d *Model) SetMapDNA() {
+func (d *DiscreteModel) SetMapDNA() {
 	d.CharMap = make(map[string][]int)
 	d.CharMap["A"] = []int{0}
 	d.CharMap["C"] = []int{1}
@@ -638,7 +638,7 @@ func (d *Model) SetMapDNA() {
 }
 
 // SetMapProt for getting the position in the array
-func (d *Model) SetMapProt() {
+func (d *DiscreteModel) SetMapProt() {
 	d.CharMap = make(map[string][]int)
 	d.CharMap["A"] = []int{0}
 	d.CharMap["R"] = []int{1}
@@ -667,7 +667,7 @@ func (d *Model) SetMapProt() {
 }
 
 //SetMapMult for getting the position in the array
-func (d *Model) SetMapMult() {
+func (d *DiscreteModel) SetMapMult() {
 	d.CharMap = make(map[string][]int)
 	d.CharMap["-"] = make([]int, d.NumStates)
 	d.CharMap["N"] = make([]int, d.NumStates)
@@ -679,22 +679,22 @@ func (d *Model) SetMapMult() {
 }
 
 // GetCharMap get the int map for states with ambiguities
-func (d *Model) GetCharMap() map[string][]int {
+func (d *DiscreteModel) GetCharMap() map[string][]int {
 	return d.CharMap
 }
 
 // GetNumStates return the number of states
-func (d *Model) GetNumStates() int {
+func (d *DiscreteModel) GetNumStates() int {
 	return d.NumStates
 }
 
 // GetBF return the base frequencies
-func (d *Model) GetBF() []float64 {
+func (d *DiscreteModel) GetBF() []float64 {
 	return d.BF
 }
 
 // GetStochMapMatrices return matrices for stochastic mapping
-func (d *Model) GetStochMapMatrices(dur float64, from int, to int) (summed *mat.Dense, summedR *mat.Dense) {
+func (d *DiscreteModel) GetStochMapMatrices(dur float64, from int, to int) (summed *mat.Dense, summedR *mat.Dense) {
 	nstates := d.NumStates
 	d.DecomposeQ()
 	Ql := mat.NewDense(nstates, nstates, nil)

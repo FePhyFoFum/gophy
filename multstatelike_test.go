@@ -18,7 +18,7 @@ func TestPCalcLikePatternsMS(t *testing.T) {
 	for i := range modelparams {
 		modelparams[i] = 1.0
 	}
-	x := gophy.NewModel()
+	x := gophy.NewDiscreteModel()
 	x.Alph = "mult"
 	x.NumStates = numstates
 	x.SetScaledRateMatrix(modelparams, true)
@@ -42,7 +42,7 @@ func TestPCalcLogLikePatternsMS(t *testing.T) {
 	for i := range modelparams {
 		modelparams[i] = 1.0
 	}
-	x := gophy.NewModel()
+	x := gophy.NewDiscreteModel()
 	x.Alph = "mult"
 	x.NumStates = numstates
 	x.SetScaledRateMatrix(modelparams, true)

@@ -9,7 +9,7 @@ import (
 )
 
 // OptimizeBLSMul optimize all branch lengths
-func OptimizeBLSMul(t *Tree, models []*Model, nodemodels map[*Node]int, patternvals []float64, wks int) float64 {
+func OptimizeBLSMul(t *Tree, models []*DiscreteModel, nodemodels map[*Node]int, patternvals []float64, wks int) float64 {
 	count := 0
 	//start := time.Now()
 	fcn := func(bl []float64) float64 {
@@ -66,7 +66,7 @@ func OptimizeBLSMul(t *Tree, models []*Model, nodemodels map[*Node]int, patternv
 }
 
 //AdjustBLNRMult This is a single edge NR
-func AdjustBLNRMult(node *Node, models []*Model, nodemodels map[*Node]int, patternvals []float64, t *Tree, wks int, threshold float64) {
+func AdjustBLNRMult(node *Node, models []*DiscreteModel, nodemodels map[*Node]int, patternvals []float64, t *Tree, wks int, threshold float64) {
 	xmin := 10e-8
 	xmax := 2.0
 	guess := node.Len
@@ -128,7 +128,7 @@ func AdjustBLNRMult(node *Node, models []*Model, nodemodels map[*Node]int, patte
 }
 
 // OptimizeBLNRMult Newton-Raphson for each branch. Does 4 passes
-func OptimizeBLNRMult(t *Tree, models []*Model, nodemodels map[*Node]int, patternvals []float64, wks int) {
+func OptimizeBLNRMult(t *Tree, models []*DiscreteModel, nodemodels map[*Node]int, patternvals []float64, wks int) {
 	for _, c := range t.Pre {
 		if c == t.Rt {
 			continue
@@ -160,7 +160,7 @@ func OptimizeBLNRMult(t *Tree, models []*Model, nodemodels map[*Node]int, patter
 }
 
 // OptimizeGTRMul optimize GTR
-func OptimizeGTRMul(t *Tree, models []*Model, nodemodels map[*Node]int, patternvals []float64, wks int) {
+func OptimizeGTRMul(t *Tree, models []*DiscreteModel, nodemodels map[*Node]int, patternvals []float64, wks int) {
 	count := 0
 	//start := time.Now()
 	fcn := func(mds []float64) float64 {
@@ -216,9 +216,9 @@ func OptimizeGTRMul(t *Tree, models []*Model, nodemodels map[*Node]int, patternv
 }
 
 // OptimizeGTRBPMul optimize GTR and base composition for the different parts
-func OptimizeGTRBPMul(t *Tree, models []*Model, nodemodels map[*Node]int, usemodelvals bool,
+func OptimizeGTRBPMul(t *Tree, models []*DiscreteModel, nodemodels map[*Node]int, usemodelvals bool,
 	patternvals []float64, log bool, wks int) {
-	var lkfun func(*Tree, []*Model, map[*Node]int, []float64, int) float64
+	var lkfun func(*Tree, []*DiscreteModel, map[*Node]int, []float64, int) float64
 	if log {
 		lkfun = PCalcLogLikePatternsMul
 	} else {
@@ -306,9 +306,9 @@ func OptimizeGTRBPMul(t *Tree, models []*Model, nodemodels map[*Node]int, usemod
 }
 
 // OptimizeGTRCompSharedRM optimize GTR base composition but share rate matrix for the different parts
-func OptimizeGTRCompSharedRM(t *Tree, models []*Model, nodemodels map[*Node]int,
+func OptimizeGTRCompSharedRM(t *Tree, models []*DiscreteModel, nodemodels map[*Node]int,
 	usemodelvals bool, patternvals []float64, log bool, wks int) {
-	var lkfun func(*Tree, []*Model, map[*Node]int, []float64, int) float64
+	var lkfun func(*Tree, []*DiscreteModel, map[*Node]int, []float64, int) float64
 	if log {
 		lkfun = PCalcLogLikePatternsMul
 	} else {
@@ -401,10 +401,10 @@ func OptimizeGTRCompSharedRM(t *Tree, models []*Model, nodemodels map[*Node]int,
 
 // OptimizeGTRCompSharedRMSingleModel optimize GTR base composition but share rate matrix for the different parts
 //   you send an int that will identify which model can be adjusted and only that one will be
-func OptimizeGTRCompSharedRMSingleModel(t *Tree, models []*Model,
+func OptimizeGTRCompSharedRMSingleModel(t *Tree, models []*DiscreteModel,
 	nodemodels map[*Node]int, usemodelvals bool, whichmodel int,
 	patternvals []float64, log bool, wks int) {
-	var lkfun func(*Tree, []*Model, map[*Node]int, []float64, int) float64
+	var lkfun func(*Tree, []*DiscreteModel, map[*Node]int, []float64, int) float64
 	if log {
 		lkfun = PCalcLogLikePatternsMul
 	} else {
@@ -489,7 +489,7 @@ func OptimizeGTRCompSharedRMSingleModel(t *Tree, models []*Model,
 }
 
 // OptimizeGTRCompSharedRMSubClade optimize GTR base composition but share rate matrix for the different parts
-func OptimizeGTRCompSharedRMSubClade(t *Tree, n *Node, excl bool, models []*Model, nodemodels map[*Node]int,
+func OptimizeGTRCompSharedRMSubClade(t *Tree, n *Node, excl bool, models []*DiscreteModel, nodemodels map[*Node]int,
 	usemodelvals bool, patternvals []float64, wks int) {
 	count := 0
 	//start := time.Now()

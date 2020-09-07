@@ -10,7 +10,7 @@ import (
 )
 
 // OptimizeBL This uses the standard gonum optimizers. Not great.
-func OptimizeBL(nd *Node, t *Tree, x *Model, patternvals []float64, wks int) {
+func OptimizeBL(nd *Node, t *Tree, x *DiscreteModel, patternvals []float64, wks int) {
 	count := 0
 	start := time.Now()
 	fcn := func(bl []float64) float64 {
@@ -67,7 +67,7 @@ func OptimizeBL(nd *Node, t *Tree, x *Model, patternvals []float64, wks int) {
 }
 
 //AdjustBLNR This is a single edge NR
-func AdjustBLNR(node *Node, x *Model, patternvals []float64, t *Tree, wks int, threshold float64) {
+func AdjustBLNR(node *Node, x *DiscreteModel, patternvals []float64, t *Tree, wks int, threshold float64) {
 	xmin := 10e-8
 	xmax := 2.0
 	guess := node.Len
@@ -128,7 +128,7 @@ func AdjustBLNR(node *Node, x *Model, patternvals []float64, t *Tree, wks int, t
 }
 
 // OptimizeBLNR Newton-Raphson for each branch. Does 4 passes
-func OptimizeBLNR(t *Tree, x *Model, patternvals []float64, wks int) {
+func OptimizeBLNR(t *Tree, x *DiscreteModel, patternvals []float64, wks int) {
 	for _, c := range t.Pre {
 		if c == t.Rt {
 			continue
@@ -160,12 +160,12 @@ func OptimizeBLNR(t *Tree, x *Model, patternvals []float64, wks int) {
 	}
 }
 
-func OptimizeBLNRGN(t *Tree, x *Model, patternvals []float64, wks int) {
+func OptimizeBLNRGN(t *Tree, x *DiscreteModel, patternvals []float64, wks int) {
 	return
 }
 
 // OptimizeBLS optimize all branch lengths
-func OptimizeBLS(t *Tree, x *Model, patternvals []float64, wks int) {
+func OptimizeBLS(t *Tree, x *DiscreteModel, patternvals []float64, wks int) {
 	count := 0
 	start := time.Now()
 	fcn := func(bl []float64) float64 {
@@ -229,8 +229,8 @@ func OptimizeBLS(t *Tree, x *Model, patternvals []float64, wks int) {
 }
 
 // OptimizeGTR optimize GTR
-func OptimizeGTR(t *Tree, x *Model, patternvals []float64, sup bool, wks int) {
-	var lkfun func(*Tree, *Model, []float64, int) float64
+func OptimizeGTR(t *Tree, x *DiscreteModel, patternvals []float64, sup bool, wks int) {
+	var lkfun func(*Tree, *DiscreteModel, []float64, int) float64
 	if sup {
 		lkfun = PCalcLogLikePatterns
 	} else {
@@ -264,8 +264,8 @@ func OptimizeGTR(t *Tree, x *Model, patternvals []float64, sup bool, wks int) {
 }
 
 //OptimizeBF optimizing the basefreq model but for a clade
-func OptimizeBF(t *Tree, x *Model, patternvals []float64, log bool, wks int) {
-	var lkfun func(*Tree, *Model, []float64, int) float64
+func OptimizeBF(t *Tree, x *DiscreteModel, patternvals []float64, log bool, wks int) {
+	var lkfun func(*Tree, *DiscreteModel, []float64, int) float64
 	if log {
 		lkfun = PCalcLogLikePatterns
 	} else {
@@ -316,7 +316,7 @@ func OptimizeBF(t *Tree, x *Model, patternvals []float64, log bool, wks int) {
 }
 
 //OptimizeGTRSubClade optimizing the GTR model but for a subclade
-func OptimizeGTRSubClade(t *Tree, n *Node, excl bool, x *Model, patternvals []float64, wks int) {
+func OptimizeGTRSubClade(t *Tree, n *Node, excl bool, x *DiscreteModel, patternvals []float64, wks int) {
 	count := 0
 	start := time.Now()
 	fcn := func(mds []float64) float64 {
@@ -354,8 +354,8 @@ func OptimizeGTRSubClade(t *Tree, n *Node, excl bool, x *Model, patternvals []fl
 }
 
 //OptimizeBFSubClade optimizing the basefreq model but for a subclade
-func OptimizeBFSubClade(t *Tree, n *Node, excl bool, x *Model, patternvals []float64, log bool, wks int) {
-	var lkfun func(*Tree, *Node, bool, *Model, []float64, int) float64
+func OptimizeBFSubClade(t *Tree, n *Node, excl bool, x *DiscreteModel, patternvals []float64, log bool, wks int) {
+	var lkfun func(*Tree, *Node, bool, *DiscreteModel, []float64, int) float64
 	if log {
 		lkfun = PCalcLogLikePatternsSubClade
 	} else {
@@ -407,7 +407,7 @@ func OptimizeBFSubClade(t *Tree, n *Node, excl bool, x *Model, patternvals []flo
 }
 
 //OptimizeBFRMSubClade optimizing the basefreq model but for a subclade
-func OptimizeBFRMSubClade(t *Tree, n *Node, excl bool, x *Model, patternvals []float64, wks int) {
+func OptimizeBFRMSubClade(t *Tree, n *Node, excl bool, x *DiscreteModel, patternvals []float64, wks int) {
 	count := 0
 	fcn := func(mds []float64) float64 {
 		for _, i := range mds {
