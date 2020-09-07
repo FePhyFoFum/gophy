@@ -159,14 +159,15 @@ func main() {
 		defer pprof.StopCPUProfile()
 	}
 	x := gophy.NewModel()
-	x.Alph = dt
-	if x.Alph == gophy.Nucleotide {
+	if dt == gophy.Nucleotide {
+		x.Alph = dt
 		x.NumStates = 4
 		x.SetMapDNA()
-	} else if x.Alph == gophy.AminoAcid {
+	} else if dt == gophy.AminoAcid {
+		x.Alph = dt
 		x.NumStates = 20
 		x.SetMapProt()
-	} else {
+	} else if dt == gophy.MultiState {
 		x.SetMapMult()
 	}
 	// x.SetupQJC()
@@ -195,7 +196,7 @@ func main() {
 	nsites := 0
 	seqs := map[string]string{}
 	seqnames := make([]string, 0)
-	if *st == "nuc" || *st == "aa" {
+	if dt == gophy.Nucleotide || dt == gophy.AminoAcid {
 		for _, i := range gophy.ReadSeqsFromFile(*afn) {
 			seqs[i.NM] = i.SQ
 			seqnames = append(seqnames, i.NM)
@@ -223,7 +224,7 @@ func main() {
 		patternval    []float64
 	)
 
-	if *st == "nuc" {
+	if dt == gophy.Nucleotide {
 		bf := gophy.GetEmpiricalBaseFreqs(seqs)
 		mds := strings.Split(*mdr, ",")
 		modelparams := make([]float64, 5)
@@ -246,19 +247,25 @@ func main() {
 		// get the site patterns
 		patterns, patternsint, gapsites, constant, uninformative, _ = gophy.GetSitePatterns(seqs, nsites, seqnames)
 		patternval, _ = gophy.PreparePatternVecs(t, patternsint, seqs)
-	} else if *st == "aa" {
+	} else if dt == gophy.AminoAcid {
 		bf := gophy.GetEmpiricalBaseFreqsProt(seqs)
 		if *m == "JTT" {
 			x.SetRateMatrixJTT()
 		} else if *m == "WAG" {
 			x.SetRateMatrixWAG()
-		} else {
+		} else if *m == "LG" {
 			x.SetRateMatrixLG()
+		} else {
+			fmt.Fprintln(os.Stderr, "amino acid model string not recognized, please use [JTT/WAG/LG]")
+			os.Exit(1)
 		}
 		if *mbf == "mod" {
 			x.SetModelBF()
-		} else {
+		} else if *mbf == "emp" {
 			x.SetBaseFreqs(bf)
+		} else {
+			fmt.Fprintln(os.Stderr, "amino acid frequency string not recognized, please use [mod/emp]")
+			os.Exit(1)
 		}
 		x.SetupQGTR()
 		// get the site patterns
@@ -294,7 +301,7 @@ func main() {
 	fmt.Fprintln(os.Stderr, "constant:", len(constant))
 	fmt.Fprintln(os.Stderr, "uninformative:", len(uninformative))
 
-	if *st == "nuc" {
+	if dt == gophy.Nucleotide {
 		l := gophy.PCalcLikePatterns(t, x, patternval, *wks)
 		fmt.Println("starting lnL:", l)
 		fmt.Println("getting starting branch lengths (parsimony)")
