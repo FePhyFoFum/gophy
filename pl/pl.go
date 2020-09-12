@@ -53,7 +53,7 @@ func main() {
 			break
 		}
 		if err != nil {
-			log.Printf("read %d bytes: %v", ln, err)
+			log.Printf("error: %v", err)
 			break
 		}
 	}
@@ -65,7 +65,8 @@ func main() {
 		minmap[t.Rt] = 10.0
 		maxmap[t.Rt] = 10.0
 		p := gophy.PLObj{}
-		p.SetValues(t, 100., minmap, maxmap)
-		p.Smoothing = 1
+		p.Smoothing = 0.1
+		p.SetValues(t, 1000., minmap, maxmap)
+		fmt.Println(p.PrintNewickDurations(t) + ";")
 	}
 }

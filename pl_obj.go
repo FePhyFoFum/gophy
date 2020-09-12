@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
-	"time"
+	"os"
 
 	"gonum.org/v1/gonum/optimize"
 )
@@ -22,30 +22,32 @@ type PLObj struct {
 	LogFactCharDurations []float64
 	ParentsNdsInts       []int
 	ChildrenVec          [][]int
+	FreeNodes            []int
 	NumNodes             int
 	LogPen               bool
 	PenaltyBoundary      float64
 	Smoothing            float64
 }
 
-// OptimizePL PL optimization
-func (p *PLObj) OptimizePL(params []float64) {
+// OptimizeLF optimization
+func (p *PLObj) OptimizeLF(params []float64) *optimize.Result {
 	count := 0
-	start := time.Now()
+	//start := time.Now()
 	fcn := func(pa []float64) float64 {
 		for _, i := range pa {
 			if i < 0 {
 				return 1000000000000
 			}
 		}
-		pl := p.CalcPL(pa)
+		pl := p.CalcLF(pa, true)
 		if pl == -1 {
 			return 100000000000
 		}
-		if count%10 == 0 {
-			curt := time.Now()
-			fmt.Println(count, pl, curt.Sub(start))
-			start = time.Now()
+		if (count+1)%1000 == 0 {
+			//os.Exit(0)
+			//curt := time.Now()
+			//fmt.Println(count, pl, curt.Sub(start))
+			//start = time.Now()
 		}
 		count++
 		return pl
@@ -54,16 +56,12 @@ func (p *PLObj) OptimizePL(params []float64) {
 		fd.Gradient(grad, fcn, x, nil)
 	}*/
 	settings := optimize.Settings{}
-	//settings.UseInitialData = false
-	//settings.FunctionThreshold = 1e-12
-	//settings.GradientThreshold = 0.01
-	settings.Concurrent = 0
-	//settings.Recorder = nil
 	FC := optimize.FunctionConverge{}
-	FC.Absolute = 1
-	FC.Relative = 1
+	FC.Absolute = 10e-3
+
+	//FC.Relative = 1
 	FC.Iterations = 100
-	//settings.FunctionConverge = &FC
+	settings.Converger = &FC
 	ps := optimize.Problem{Func: fcn, Grad: nil, Hess: nil}
 	var p0 []float64
 	p0 = params
@@ -71,12 +69,55 @@ func (p *PLObj) OptimizePL(params []float64) {
 	if err != nil {
 		fmt.Println(err)
 	}
-	fmt.Println(res.F)
-	fmt.Println(res)
+	return res
+	//fmt.Println(res.F)
+	//fmt.Println(res)
+}
+
+// OptimizePL PL optimization
+func (p *PLObj) OptimizePL(params []float64) *optimize.Result {
+	count := 0
+	//start := time.Now()
+	fcn := func(pa []float64) float64 {
+		for _, i := range pa {
+			if i < 0 {
+				return 1000000000000
+			}
+		}
+		pl := p.CalcPL(pa, true)
+		if pl == -1 {
+			return 100000000000
+		}
+		if (count+1)%10 == 0 {
+			//curt := time.Now()
+			//fmt.Println(count, pl, curt.Sub(start))
+			//start = time.Now()
+		}
+		count++
+		return pl
+	}
+	/*grad := func(grad, x []float64) {
+		fd.Gradient(grad, fcn, x, nil)
+	}*/
+	settings := optimize.Settings{}
+	FC := optimize.FunctionConverge{}
+	FC.Absolute = 10e-3
+
+	//FC.Relative = 1
+	FC.Iterations = 100
+	settings.Converger = &FC
+	ps := optimize.Problem{Func: fcn, Grad: nil, Hess: nil}
+	var p0 []float64
+	p0 = params
+	res, err := optimize.Minimize(ps, p0, &settings, nil)
+	if err != nil {
+		fmt.Println(err)
+	}
+	return res
 }
 
 // CalcPL ...
-func (p *PLObj) CalcPL(params []float64) float64 {
+func (p *PLObj) CalcPL(params []float64, free bool) float64 {
 	for _, i := range params {
 		if i < 0 {
 			return -1.
@@ -90,29 +131,77 @@ func (p *PLObj) CalcPL(params []float64) float64 {
 		pcount++
 		fcount++
 	}
-	for i := range p.Dates {
-		p.Dates[i] = params[pcount]
-		pcount++
-		fcount++
+	if free { // only set the free nodes
+		for _, i := range p.FreeNodes {
+			p.Dates[i] = params[pcount]
+			pcount++
+			fcount++
+		}
+	} else {
+		for i := range p.Dates {
+			p.Dates[i] = params[pcount]
+			pcount++
+			fcount++
+		}
 	}
 	ret := p.SetDurations()
 	if ret == false {
 		return -1.
 	}
-	ll := p.CalcRateLike()
+	ll := p.CalcRateLogLike()
 	tp := p.CalcPenalty()
 	rp := p.CalcRoughnessPenalty()
 	pl := (ll + tp) + p.Smoothing*rp
 	return pl
+}			   
+
+//CalcLF ...
+func (p *PLObj) CalcLF(params []float64, free bool) float64 {
+	for _, i := range params {
+		if i < 0 {
+			return -1.
+		}
+	}
+
+	pcount := 0
+	fcount := 0
+	for i := range p.Rates {
+		p.Rates[i] = params[pcount]
+		fcount++
+	}
+	pcount++
+	if free { // only set the free nodes
+		for _, i := range p.FreeNodes {
+			p.Dates[i] = params[pcount]
+			pcount++
+			fcount++
+		}
+	} else {
+		for i := range p.Dates {
+			p.Dates[i] = params[pcount]
+			pcount++
+			fcount++
+		}
+	}
+	ret := p.SetDurations()
+	if ret == false {
+		return -1.
+	}
+	ll := p.CalcRateLogLike()
+	return ll
 }
 
 // SetValues ...
 func (p *PLObj) SetValues(t Tree, numsites float64, minmap map[*Node]float64,
 	maxmap map[*Node]float64) {
 	p.NumNodes = 0
+	p.FreeNodes = make([]int, 0)
 	for i, n := range t.Pre {
 		n.Num = i
 		p.NumNodes++
+		if n != t.Rt && len(n.Chs) > 0 {
+			p.FreeNodes = append(p.FreeNodes, n.Num)
+		}
 	}
 	p.CharDurations = make([]float64, p.NumNodes)
 	p.Durations = make([]float64, p.NumNodes)
@@ -175,32 +264,48 @@ func (p *PLObj) SetValues(t Tree, numsites float64, minmap map[*Node]float64,
 		}
 	}
 	//end set min max
-	fmt.Println(p.CharDurations)
-	fmt.Println(p.LogFactCharDurations)
-	fmt.Println(p.ParentsNdsInts)
-	fmt.Println(p.ChildrenVec)
-	fmt.Println(p.Maxs)
-	fmt.Println(p.Mins)
+	//fmt.Println(p.CharDurations)
+	//fmt.Println(p.LogFactCharDurations)
+	//fmt.Println(p.ParentsNdsInts)
+	//fmt.Println(p.ChildrenVec)
+	//fmt.Println(p.Maxs)
+	//fmt.Println(p.Mins)
 	//setup dates
 	rtDt := 10.0
 	p.Dates[t.Rt.Num] = 10.0
 	for _, n := range t.Rt.Chs {
 		p.feasibleTimes(n, rtDt)
 	}
-	fmt.Println(p.Dates)
-	fmt.Println(p.SetDurations())
-	params := make([]float64, p.NumNodes*2)
+	//fmt.Println(p.Dates)
+	fmt.Fprintln(os.Stderr, p.SetDurations())
+	//lf
+	params := make([]float64, len(p.FreeNodes)+1) // lf
 	c := 0
-	for i := range p.Rates {
-		params[i] = 1.0
-		c++
-	}
-	for i := range p.Dates {
+	params[c] = numsites / 20. //lf
+	c++                        //lf
+	for _, i := range p.FreeNodes {
 		params[c] = p.Dates[i]
 		c++
 	}
-	fmt.Println(p.CalcPL(params))
-	p.OptimizePL(params)
+	fmt.Fprintln(os.Stderr, params)
+	fmt.Fprintln(os.Stderr, p.CalcLF(params, true))
+	x := p.OptimizeLF(params)
+	fmt.Fprintln(os.Stderr, x)
+	//pl
+	params = make([]float64, p.NumNodes+len(p.FreeNodes)) // pl
+	c = 0
+	for i := range p.Rates { //every edge has a rate
+		params[i] = x.X[0]
+		c++
+	}
+	for _, i := range p.FreeNodes {
+		params[c] = p.Dates[i]
+		c++
+	}
+	fmt.Fprintln(os.Stderr, params)
+	fmt.Fprintln(os.Stderr, p.CalcPL(params, true))
+	x = p.OptimizePL(params)
+	fmt.Fprintln(os.Stderr, x)
 }
 
 func (p *PLObj) feasibleTimes(nd *Node, timeAnc float64) {
@@ -208,12 +313,12 @@ func (p *PLObj) feasibleTimes(nd *Node, timeAnc float64) {
 		p.Dates[nd.Num] = 0
 		return
 	}
-	fmt.Println(nd, nd.Num)
+	//fmt.Println(nd, nd.Num)
 	if p.Maxs[nd.Num] < timeAnc {
 		timeAnc = p.Maxs[nd.Num]
 	}
 	p.Dates[nd.Num] = timeAnc - (timeAnc-p.Mins[nd.Num])*(0.02*rand.Float64()*0.96)/math.Log(2.+3.)
-	fmt.Println(p.Dates[nd.Num], timeAnc)
+	//fmt.Println(p.Dates[nd.Num], timeAnc)
 	for _, n := range nd.Chs {
 		p.feasibleTimes(n, p.Dates[nd.Num])
 	}
@@ -241,7 +346,7 @@ func (p *PLObj) CalcPenalty() (rkt float64) {
 }
 
 // CalcRateLike ...
-func (p *PLObj) CalcRateLike() (ll float64) {
+func (p *PLObj) CalcRateLogLike() (ll float64) {
 	ll = 0.0
 	for i := 1; i < p.NumNodes; i++ {
 		x := p.Rates[i] * p.Durations[i]
@@ -313,4 +418,12 @@ func (p *PLObj) SetDurations() (success bool) {
 		}
 	}
 	return
+}
+
+//PrintNewickDurations uses the NewickFloatBL
+func (p *PLObj) PrintNewickDurations(t Tree) string {
+	for _, n := range t.Pre {
+		n.FData["duration"] = p.Durations[n.Num]
+	}
+	return t.Rt.NewickFloatBL("duration")
 }
