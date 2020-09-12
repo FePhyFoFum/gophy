@@ -57,10 +57,10 @@ func (p *PLObj) OptimizeLF(params []float64) *optimize.Result {
 	}*/
 	settings := optimize.Settings{}
 	FC := optimize.FunctionConverge{}
-	FC.Absolute = 10e-3
+	//FC.Absolute = 10e-3
 
 	//FC.Relative = 1
-	FC.Iterations = 100
+	FC.Iterations = 1000
 	settings.Converger = &FC
 	ps := optimize.Problem{Func: fcn, Grad: nil, Hess: nil}
 	var p0 []float64
@@ -101,10 +101,10 @@ func (p *PLObj) OptimizePL(params []float64) *optimize.Result {
 	}*/
 	settings := optimize.Settings{}
 	FC := optimize.FunctionConverge{}
-	FC.Absolute = 10e-3
+	//FC.Absolute = 10e-3
 
 	//FC.Relative = 1
-	FC.Iterations = 100
+	FC.Iterations = 1000
 	settings.Converger = &FC
 	ps := optimize.Problem{Func: fcn, Grad: nil, Hess: nil}
 	var p0 []float64
@@ -191,6 +191,10 @@ func (p *PLObj) CalcLF(params []float64, free bool) float64 {
 	return ll
 }
 
+func minLength(l float64, numsites float64) float64 {
+	return math.Max(l, 1./numsites)
+}
+
 // SetValues ...
 func (p *PLObj) SetValues(t Tree, numsites float64, minmap map[*Node]float64,
 	maxmap map[*Node]float64) {
@@ -218,7 +222,7 @@ func (p *PLObj) SetValues(t Tree, numsites float64, minmap map[*Node]float64,
 		for x, m := range n.Chs {
 			p.ChildrenVec[i][x] = m.Num
 		}
-		p.CharDurations[i] = math.Round(n.Len * numsites)
+		p.CharDurations[i] = math.Round(minLength(n.Len, numsites) * numsites)
 		p.LogFactCharDurations[i] = LogFact(p.CharDurations[i])
 	}
 	// set min maxs
@@ -271,13 +275,19 @@ func (p *PLObj) SetValues(t Tree, numsites float64, minmap map[*Node]float64,
 	//fmt.Println(p.Maxs)
 	//fmt.Println(p.Mins)
 	//setup dates
-	rtDt := 10.0
-	p.Dates[t.Rt.Num] = 10.0
+	rtDt := minmap[t.Rt]
+	p.Dates[t.Rt.Num] = rtDt
+	setMaxNodesToPresent(t)
 	for _, n := range t.Rt.Chs {
-		p.feasibleTimes(n, rtDt)
+		//p.feasibleTimes(n, rtDt)
+		p.feasibleTimesSplit(n, rtDt) //just splitting them, can go back to the other
 	}
-	//fmt.Println(p.Dates)
-	fmt.Fprintln(os.Stderr, p.SetDurations())
+	durcheck := p.SetDurations()
+	fmt.Println(p.PrintNewickDurations(t) + ";")
+	if durcheck == false {
+		fmt.Println(p.Durations)
+		os.Exit(0)
+	}
 	//lf
 	params := make([]float64, len(p.FreeNodes)+1) // lf
 	c := 0
@@ -302,10 +312,39 @@ func (p *PLObj) SetValues(t Tree, numsites float64, minmap map[*Node]float64,
 		params[c] = p.Dates[i]
 		c++
 	}
-	fmt.Fprintln(os.Stderr, params)
+	//fmt.Fprintln(os.Stderr, params)
 	fmt.Fprintln(os.Stderr, p.CalcPL(params, true))
 	x = p.OptimizePL(params)
 	fmt.Fprintln(os.Stderr, x)
+}
+
+func setMaxNodesToPresent(tree Tree) {
+	for _, i := range tree.Tips {
+		i.FData["maxnodes"] = 1
+	}
+	for _, i := range tree.Post {
+		if len(i.Chs) > 0 {
+			mx := 0.0
+			for _, j := range i.Chs {
+				mx = math.Max(mx, j.FData["maxnodes"])
+			}
+			i.FData["maxnodes"] = mx + 1
+		}
+	}
+}
+
+//split the difference
+func (p *PLObj) feasibleTimesSplit(nd *Node, timeAnc float64) {
+	if len(nd.Chs) == 0 {
+		p.Dates[nd.Num] = 0
+		return
+	}
+	depth := nd.FData["maxnodes"]
+	p.Dates[nd.Num] = timeAnc - (timeAnc / depth)
+	//fmt.Println(nd, timeAnc, depth, timeAnc/depth)
+	for _, n := range nd.Chs {
+		p.feasibleTimesSplit(n, p.Dates[nd.Num])
+	}
 }
 
 func (p *PLObj) feasibleTimes(nd *Node, timeAnc float64) {
@@ -345,7 +384,7 @@ func (p *PLObj) CalcPenalty() (rkt float64) {
 	return
 }
 
-// CalcRateLike ...
+// CalcRateLogLike ...
 func (p *PLObj) CalcRateLogLike() (ll float64) {
 	ll = 0.0
 	for i := 1; i < p.NumNodes; i++ {

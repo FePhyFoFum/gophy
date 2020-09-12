@@ -62,11 +62,11 @@ func main() {
 	for _, t := range trees {
 		minmap := make(map[*gophy.Node]float64, 1)
 		maxmap := make(map[*gophy.Node]float64, 1)
-		minmap[t.Rt] = 10.0
-		maxmap[t.Rt] = 10.0
+		minmap[t.Rt] = 100.0
+		maxmap[t.Rt] = 100.0
 		p := gophy.PLObj{}
-		p.Smoothing = 0.1
-		p.SetValues(t, 1000., minmap, maxmap)
+		p.Smoothing = 1.0
+		p.SetValues(t, 10000., minmap, maxmap)
 		fmt.Println(p.PrintNewickDurations(t) + ";")
 	}
 }
