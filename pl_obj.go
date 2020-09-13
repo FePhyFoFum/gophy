@@ -5,6 +5,7 @@ import (
 	"math"
 	"math/rand"
 	"os"
+	"runtime"
 
 	"gonum.org/v1/gonum/optimize"
 )
@@ -57,7 +58,7 @@ func (p *PLObj) OptimizeLF(params []float64) *optimize.Result {
 	}*/
 	settings := optimize.Settings{}
 	FC := optimize.FunctionConverge{}
-	//FC.Absolute = 10e-3
+	FC.Absolute = 10e-3
 
 	//FC.Relative = 1
 	FC.Iterations = 1000
@@ -101,9 +102,7 @@ func (p *PLObj) OptimizePL(params []float64) *optimize.Result {
 	}*/
 	settings := optimize.Settings{}
 	FC := optimize.FunctionConverge{}
-	//FC.Absolute = 10e-3
-
-	//FC.Relative = 1
+	FC.Absolute = 10e-4
 	FC.Iterations = 1000
 	settings.Converger = &FC
 	ps := optimize.Problem{Func: fcn, Grad: nil, Hess: nil}
@@ -148,12 +147,13 @@ func (p *PLObj) CalcPL(params []float64, free bool) float64 {
 	if ret == false {
 		return -1.
 	}
+
 	ll := p.CalcRateLogLike()
 	tp := p.CalcPenalty()
 	rp := p.CalcRoughnessPenalty()
 	pl := (ll + tp) + p.Smoothing*rp
 	return pl
-}			   
+}
 
 //CalcLF ...
 func (p *PLObj) CalcLF(params []float64, free bool) float64 {
@@ -188,6 +188,7 @@ func (p *PLObj) CalcLF(params []float64, free bool) float64 {
 		return -1.
 	}
 	ll := p.CalcRateLogLike()
+	//fmt.Println(ll)
 	return ll
 }
 
@@ -198,6 +199,8 @@ func minLength(l float64, numsites float64) float64 {
 // SetValues ...
 func (p *PLObj) SetValues(t Tree, numsites float64, minmap map[*Node]float64,
 	maxmap map[*Node]float64) {
+	runtime.GOMAXPROCS(0)
+
 	p.NumNodes = 0
 	p.FreeNodes = make([]int, 0)
 	for i, n := range t.Pre {
@@ -300,7 +303,7 @@ func (p *PLObj) SetValues(t Tree, numsites float64, minmap map[*Node]float64,
 	fmt.Fprintln(os.Stderr, params)
 	fmt.Fprintln(os.Stderr, p.CalcLF(params, true))
 	x := p.OptimizeLF(params)
-	fmt.Fprintln(os.Stderr, x)
+	fmt.Fprintln(os.Stderr, x.F)
 	//pl
 	params = make([]float64, p.NumNodes+len(p.FreeNodes)) // pl
 	c = 0
@@ -315,7 +318,7 @@ func (p *PLObj) SetValues(t Tree, numsites float64, minmap map[*Node]float64,
 	//fmt.Fprintln(os.Stderr, params)
 	fmt.Fprintln(os.Stderr, p.CalcPL(params, true))
 	x = p.OptimizePL(params)
-	fmt.Fprintln(os.Stderr, x)
+	fmt.Fprintln(os.Stderr, x.F)
 }
 
 func setMaxNodesToPresent(tree Tree) {
@@ -401,6 +404,33 @@ func (p *PLObj) CalcRateLogLike() (ll float64) {
 			}
 		}
 		ll += l
+	}
+	return
+}
+
+// NOT FASTER
+func (p *PLObj) CalcRateLogLikeP() (ll float64) {
+	ll = 0.0
+	lr := make(chan float64)
+	for i := 1; i < p.NumNodes; i++ {
+		go func(i int, lr chan float64) {
+			x := p.Rates[i] * p.Durations[i]
+			c := p.CharDurations[i]
+			l := 0.0
+			if x > 0.0 {
+				l = -(c*math.Log(x) - x - p.LogFactCharDurations[i])
+			} else if x == 0 {
+				if c > 0.0 {
+					l = 1e+15
+				} else if c == 0 {
+					l = 0.0
+				}
+			}
+			lr <- l
+		}(i, lr)
+	}
+	for i := 1; i < p.NumNodes; i++ {
+		ll += <-lr
 	}
 	return
 }
