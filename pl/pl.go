@@ -66,7 +66,19 @@ func main() {
 		maxmap[t.Rt] = 100.0
 		p := gophy.PLObj{}
 		p.Smoothing = 1.0
-		p.SetValues(t, 10000., minmap, maxmap)
+		numsites := 10000.
+		p.SetValues(t, numsites, minmap, maxmap)
+		x := p.RunLF(numsites / 20.)
 		fmt.Println(p.PrintNewickDurations(t) + ";")
+		nds := make([]*gophy.Node, 2)
+		nds[0], _ = t.GetTipByName("taxon_1")
+		nds[1], _ = t.GetTipByName("taxon_12")
+		nd := gophy.GetMrca(nds, t.Rt)
+		mrcagroups := make([]*gophy.Node, 1)
+		mrcagroups[0] = nd
+		x = p.RunMLF(x.X[0], mrcagroups, t)
+		fmt.Println(p.PrintNewickDurations(t) + ";")
+		//x = p.RunPL(x.X[0])
+		//fmt.Println(p.PrintNewickDurations(t) + ";")
 	}
 }

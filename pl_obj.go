@@ -28,10 +28,11 @@ type PLObj struct {
 	LogPen               bool
 	PenaltyBoundary      float64
 	Smoothing            float64
+	RateGroups           map[int]int //[nodenum]rategroup
 }
 
-// OptimizeLF optimization
-func (p *PLObj) OptimizeLF(params []float64) *optimize.Result {
+// OptimizeRD optimization
+func (p *PLObj) OptimizeRD(params []float64, likeFunc func([]float64, bool) float64) *optimize.Result {
 	count := 0
 	//start := time.Now()
 	fcn := func(pa []float64) float64 {
@@ -40,7 +41,7 @@ func (p *PLObj) OptimizeLF(params []float64) *optimize.Result {
 				return 1000000000000
 			}
 		}
-		pl := p.CalcLF(pa, true)
+		pl := likeFunc(pa, true)
 		if pl == -1 {
 			return 100000000000
 		}
@@ -73,46 +74,6 @@ func (p *PLObj) OptimizeLF(params []float64) *optimize.Result {
 	return res
 	//fmt.Println(res.F)
 	//fmt.Println(res)
-}
-
-// OptimizePL PL optimization
-func (p *PLObj) OptimizePL(params []float64) *optimize.Result {
-	count := 0
-	//start := time.Now()
-	fcn := func(pa []float64) float64 {
-		for _, i := range pa {
-			if i < 0 {
-				return 1000000000000
-			}
-		}
-		pl := p.CalcPL(pa, true)
-		if pl == -1 {
-			return 100000000000
-		}
-		if (count+1)%10 == 0 {
-			//curt := time.Now()
-			//fmt.Println(count, pl, curt.Sub(start))
-			//start = time.Now()
-		}
-		count++
-		return pl
-	}
-	/*grad := func(grad, x []float64) {
-		fd.Gradient(grad, fcn, x, nil)
-	}*/
-	settings := optimize.Settings{}
-	FC := optimize.FunctionConverge{}
-	FC.Absolute = 10e-4
-	FC.Iterations = 1000
-	settings.Converger = &FC
-	ps := optimize.Problem{Func: fcn, Grad: nil, Hess: nil}
-	var p0 []float64
-	p0 = params
-	res, err := optimize.Minimize(ps, p0, &settings, nil)
-	if err != nil {
-		fmt.Println(err)
-	}
-	return res
 }
 
 // CalcPL ...
@@ -192,6 +153,46 @@ func (p *PLObj) CalcLF(params []float64, free bool) float64 {
 	return ll
 }
 
+//CalcMultLF ...
+func (p *PLObj) CalcMultLF(params []float64, free bool) float64 {
+	for _, i := range params {
+		if i < 0 {
+			return -1.
+		}
+	}
+
+	pcount := 0
+	fcount := 0
+	for i := range p.Rates {
+		p.Rates[i] = params[p.RateGroups[i]]
+		fcount++
+		if pcount < p.RateGroups[i] {
+			pcount = p.RateGroups[i]
+		}
+	}
+	pcount++
+	if free { // only set the free nodes
+		for _, i := range p.FreeNodes {
+			p.Dates[i] = params[pcount]
+			pcount++
+			fcount++
+		}
+	} else {
+		for i := range p.Dates {
+			p.Dates[i] = params[pcount]
+			pcount++
+			fcount++
+		}
+	}
+	ret := p.SetDurations()
+	if ret == false {
+		return -1.
+	}
+	ll := p.CalcRateLogLike()
+	//fmt.Println(ll)
+	return ll
+}
+
 func minLength(l float64, numsites float64) float64 {
 	return math.Max(l, 1./numsites)
 }
@@ -199,10 +200,11 @@ func minLength(l float64, numsites float64) float64 {
 // SetValues ...
 func (p *PLObj) SetValues(t Tree, numsites float64, minmap map[*Node]float64,
 	maxmap map[*Node]float64) {
-	runtime.GOMAXPROCS(0)
+	runtime.GOMAXPROCS(2)
 
 	p.NumNodes = 0
 	p.FreeNodes = make([]int, 0)
+	//assign node numbers
 	for i, n := range t.Pre {
 		n.Num = i
 		p.NumNodes++
@@ -271,12 +273,7 @@ func (p *PLObj) SetValues(t Tree, numsites float64, minmap map[*Node]float64,
 		}
 	}
 	//end set min max
-	//fmt.Println(p.CharDurations)
-	//fmt.Println(p.LogFactCharDurations)
-	//fmt.Println(p.ParentsNdsInts)
-	//fmt.Println(p.ChildrenVec)
-	//fmt.Println(p.Maxs)
-	//fmt.Println(p.Mins)
+
 	//setup dates
 	rtDt := minmap[t.Rt]
 	p.Dates[t.Rt.Num] = rtDt
@@ -291,34 +288,79 @@ func (p *PLObj) SetValues(t Tree, numsites float64, minmap map[*Node]float64,
 		fmt.Println(p.Durations)
 		os.Exit(0)
 	}
-	//lf
+}
+
+//RunLF langley fitch run with starting float, probably numsites/20.
+func (p *PLObj) RunLF(startRate float64) *optimize.Result {
 	params := make([]float64, len(p.FreeNodes)+1) // lf
 	c := 0
-	params[c] = numsites / 20. //lf
-	c++                        //lf
+	params[c] = startRate //lf
+	c++                   //lf
 	for _, i := range p.FreeNodes {
 		params[c] = p.Dates[i]
 		c++
 	}
 	fmt.Fprintln(os.Stderr, params)
 	fmt.Fprintln(os.Stderr, p.CalcLF(params, true))
-	x := p.OptimizeLF(params)
+	x := p.OptimizeRD(params, p.CalcLF)
 	fmt.Fprintln(os.Stderr, x.F)
+	return x
+}
+
+//RunMLF multiple rate langley fitch with starting float, probably x.X[0] from LF
+// and mrcagroup
+func (p *PLObj) RunMLF(startRate float64, mrcagroups []*Node, t Tree) *optimize.Result {
+	p.RateGroups = make(map[int]int)
+	params := make([]float64, len(p.FreeNodes)+len(mrcagroups)+1)
+	params[0] = startRate
+	for i := range mrcagroups {
+		params[i+1] = startRate
+	}
+	p.SetRateGroups(t, mrcagroups)
+	c := len(mrcagroups) + 1
+	for _, i := range p.FreeNodes {
+		params[c] = p.Dates[i]
+		c++
+	}
+	fmt.Fprintln(os.Stderr, params)
+	fmt.Fprintln(os.Stderr, p.CalcMultLF(params, true))
+	x := p.OptimizeRD(params, p.CalcMultLF)
+	fmt.Fprintln(os.Stderr, x.F)
+	return x
+}
+
+//RunPL penalized likelihood run with a starting float, probably x.X[0] from LF
+func (p *PLObj) RunPL(startRate float64) *optimize.Result {
 	//pl
-	params = make([]float64, p.NumNodes+len(p.FreeNodes)) // pl
-	c = 0
+	params := make([]float64, p.NumNodes+len(p.FreeNodes)) // pl
+	c := 0
 	for i := range p.Rates { //every edge has a rate
-		params[i] = x.X[0]
+		params[i] = startRate
 		c++
 	}
 	for _, i := range p.FreeNodes {
 		params[c] = p.Dates[i]
 		c++
 	}
-	//fmt.Fprintln(os.Stderr, params)
 	fmt.Fprintln(os.Stderr, p.CalcPL(params, true))
-	x = p.OptimizePL(params)
+	x := p.OptimizeRD(params, p.CalcPL)
 	fmt.Fprintln(os.Stderr, x.F)
+	return x
+}
+
+//SetRateGroups send the mrcagroups that will identify the rate shifts
+// these go preorder so have the deepest first if they are nested
+func (p *PLObj) SetRateGroups(tree Tree, mrcagroups []*Node) {
+	for i := 1; i < p.NumNodes; i++ {
+		p.RateGroups[i] = 0
+	}
+	count := 1
+	for _, nd := range mrcagroups {
+		for _, i := range nd.PreorderArray() {
+			p.RateGroups[i.Num] = count
+		}
+		count += 1
+	}
 }
 
 func setMaxNodesToPresent(tree Tree) {
