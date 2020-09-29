@@ -85,11 +85,11 @@ func moveMarksToLabels(nd *gophy.Node) {
 	}
 }
 
-func getNodeModels(curmodels []*gophy.DNAModel, curnodemodels map[*gophy.Node]int,
-	y *gophy.DNAModel, nd *gophy.Node) (models []*gophy.DNAModel, nodemodels map[*gophy.Node]int, modelint int) {
+func getNodeModels(curmodels []*gophy.DiscreteModel, curnodemodels map[*gophy.Node]int,
+	y *gophy.DiscreteModel, nd *gophy.Node) (models []*gophy.DiscreteModel, nodemodels map[*gophy.Node]int, modelint int) {
 	modelint = len(curmodels)
 	markModel(nd, modelint)
-	models = []*gophy.DNAModel{}
+	models = []*gophy.DiscreteModel{}
 	for _, i := range curmodels {
 		models = append(models, i)
 	}
@@ -155,8 +155,8 @@ func main() {
 		modelparams[i] = 1.0
 	}
 	//root model
-	x := gophy.NewDNAModel()
-	x.SetMap()
+	x := gophy.NewDiscreteModel()
+	x.SetMapDNA()
 	fmt.Fprintln(os.Stderr, "emp:", bf)
 	x.SetBaseFreqs(bf)
 	x.SetRateMatrix(modelparams)
@@ -180,7 +180,7 @@ func main() {
 	fmt.Fprintln(os.Stderr, "lnL:", l)
 
 	//for each node in the tree if the number of tips is > minset
-	allmodels := make([]*gophy.DNAModel, 1) //number of clades that have enough taxa and aren't the root
+	allmodels := make([]*gophy.DiscreteModel, 1) //number of clades that have enough taxa and aren't the root
 	modelmap := make(map[*gophy.Node]int)
 	allmodels[0] = x
 	count := 1
@@ -189,8 +189,8 @@ func main() {
 			continue
 		}
 		if len(i.GetTips()) > minset {
-			y := gophy.NewDNAModel()
-			y.SetMap()
+			y := gophy.NewDiscreteModel()
+			y.SetMapDNA()
 			y.SetBaseFreqs(bf)
 			y.SetRateMatrix(modelparams)
 			y.SetupQGTR()
@@ -215,7 +215,7 @@ func main() {
 		if getVisible(i) > minset {
 			fmt.Fprint(os.Stderr, "\rOn "+strconv.Itoa(cur)+"/"+strconv.Itoa(count))
 			y := allmodels[modelmap[i]]
-			models := []*gophy.DNAModel{allmodels[0], y}
+			models := []*gophy.DiscreteModel{allmodels[0], y}
 			gophy.OptimizeBFRMSubClade(t, i, false, y, patternval, *wks)
 			for _, j := range t.Post {
 				nodemodels[j] = 0
@@ -235,7 +235,7 @@ func main() {
 		}
 	}
 	keys := sortAicMap(nodevalues)
-	curmodels := []*gophy.DNAModel{allmodels[0]}
+	curmodels := []*gophy.DiscreteModel{allmodels[0]}
 	curnodemodels := make(map[*gophy.Node]int)
 	//initialize things
 	for _, j := range t.Post {
@@ -305,7 +305,7 @@ func main() {
 	fmt.Println(t.Rt.Newick(true) + ";")
 }
 
-func uncertaintyLoc(modelnodes []*gophy.Node, curmodels []*gophy.DNAModel,
+func uncertaintyLoc(modelnodes []*gophy.Node, curmodels []*gophy.DiscreteModel,
 	curnodemodels map[*gophy.Node]int, useLog bool, t *gophy.Tree, patternval []float64,
 	wks int, curparams float64, currentaic float64, nsites int, useaicc bool) { // location
 	var icfun func(float64, float64, int) (x float64)
@@ -329,7 +329,7 @@ func uncertaintyLoc(modelnodes []*gophy.Node, curmodels []*gophy.DNAModel,
 		for _, ts := range testnodes {
 			//unmark just the modelnodes
 			testnodemodels := make(map[*gophy.Node]int)
-			testmodels := []*gophy.DNAModel{}
+			testmodels := []*gophy.DiscreteModel{}
 			for _, j := range curmodels {
 				testmodels = append(testmodels, j.DeepCopyDNAModel())
 			}
@@ -375,7 +375,7 @@ func uncertaintyLoc(modelnodes []*gophy.Node, curmodels []*gophy.DNAModel,
 	}
 }
 
-func uncertaintyExist(modelnodes []*gophy.Node, curmodels []*gophy.DNAModel,
+func uncertaintyExist(modelnodes []*gophy.Node, curmodels []*gophy.DiscreteModel,
 	curnodemodels map[*gophy.Node]int, useLog bool, t *gophy.Tree, patternval []float64,
 	wks int, curparams float64, currentaic float64, nsites int, useaicc bool) {
 	var icfun func(float64, float64, int) (x float64)
@@ -388,7 +388,7 @@ func uncertaintyExist(modelnodes []*gophy.Node, curmodels []*gophy.DNAModel,
 		fmt.Fprintln(os.Stderr, i, i.IData["shift"])
 		//unmark just the modelnodes
 		testnodemodels := make(map[*gophy.Node]int)
-		testmodels := []*gophy.DNAModel{}
+		testmodels := []*gophy.DiscreteModel{}
 		for _, j := range curmodels {
 			testmodels = append(testmodels, j.DeepCopyDNAModel())
 		}
