@@ -101,7 +101,7 @@ func EstParsBL(t *Tree, patternval []float64, totalsites int) {
 	}
 	for i := 0; i < nsites; i++ {
 		for _, n := range t.Pre {
-			if n == t.Rt {
+			if n.Par == nil {
 				minj := 0
 				minv := n.Data[i][0]
 				for j := 1; j < 4; j++ {
