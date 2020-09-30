@@ -130,16 +130,14 @@ func AdjustBLNR(node *Node, x *DiscreteModel, patternvals []float64, t *Tree, wk
 // OptimizeBLNR Newton-Raphson for each branch. Does 4 passes
 func OptimizeBLNR(t *Tree, x *DiscreteModel, patternvals []float64, wks int) {
 	for _, c := range t.Pre {
-		//if c == t.Rt {
-		if c.Par == nil {
+		if c == t.Rt {
 			continue
 		}
 		CalcLikeFrontBack(x, t, patternvals)
 		AdjustBLNR(c, x, patternvals, t, wks, 10e-12)
 	}
 	for _, c := range t.Post {
-		//if c == t.Rt {
-		if c.Par == nil {
+		if c == t.Rt {
 			continue
 		}
 		CalcLikeFrontBack(x, t, patternvals)
@@ -147,16 +145,14 @@ func OptimizeBLNR(t *Tree, x *DiscreteModel, patternvals []float64, wks int) {
 	}
 
 	for _, c := range t.Pre {
-		//if c == t.Rt {
-		if c.Par == nil {
+		if c == t.Rt {
 			continue
 		}
 		CalcLikeFrontBack(x, t, patternvals)
 		AdjustBLNR(c, x, patternvals, t, wks, 10e-12)
 	}
 	for _, c := range t.Post {
-		//if c == t.Rt {
-		if c.Par == nil {
+		if c == t.Rt {
 			continue
 		}
 		CalcLikeFrontBack(x, t, patternvals)

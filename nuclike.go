@@ -195,8 +195,7 @@ func CalcLogLikeOneSite(t *Tree, x *DiscreteModel, site int) float64 {
 		if len(n.Chs) > 0 {
 			CalcLogLikeNode(n, x, site)
 		}
-		//if t.Rt == n {
-		if n.Par == nil {
+		if t.Rt == n {
 			for i := 0; i < 4; i++ {
 				t.Rt.Data[site][i] += math.Log(x.BF[i])
 			}
@@ -276,14 +275,12 @@ func CalcLikeOneSiteMarked(t *Tree, x *DiscreteModel, site int) float64 {
 		if len(n.Chs) > 0 {
 			if n.Marked == true {
 				CalcLikeNode(n, x, site)
-				//if n != t.Rt {
-				if n.Par != nil {
+				if n != t.Rt {
 					n.Par.Marked = true
 				}
 			}
 		}
-		if n.Par == nil && n.Marked == true {
-			//if t.Rt == n && n.Marked == true {
+		if t.Rt == n && n.Marked == true {
 			for i := 0; i < 4; i++ {
 				t.Rt.Data[site][i] *= x.BF[i]
 			}
@@ -303,8 +300,7 @@ func CalcLogLikeWork(t *Tree, x *DiscreteModel, jobs <-chan int, results chan<- 
 			if len(n.Chs) > 0 {
 				CalcLogLikeNode(n, x, j)
 			}
-			//if t.Rt == n {
-			if n.Par == nil {
+			if t.Rt == n {
 				for i := 0; i < 4; i++ {
 					t.Rt.Data[j][i] += math.Log(x.BF[i])
 				}
@@ -368,8 +364,7 @@ func CalcLikeWorkMarked(t *Tree, x *DiscreteModel, jobs <-chan int, results chan
 					CalcLikeNode(n, x, j)
 				}
 			}
-			//if t.Rt == n && n.Marked == true {
-			if n.Par == nil && n.Marked == true {
+			if t.Rt == n && n.Marked == true {
 				for i := 0; i < 4; i++ {
 					t.Rt.Data[j][i] *= x.BF[i]
 				}
@@ -577,8 +572,7 @@ func CalcLikeFrontBack(x *DiscreteModel, tree *Tree, patternval []float64) {
 	//fmt.Println(loglike)
 	// prepare the rvcond
 	for _, c := range tree.Pre {
-		if c.Par != nil {
-			//if c != tree.Rt { //need to set the root at 1.0s
+		if c != tree.Rt { //need to set the root at 1.0s
 			RVconditionals(x, c, patternval)
 			RVTPconditionals(c, patternval)
 		}
@@ -609,8 +603,7 @@ func CalcAncStates(x *DiscreteModel, tree *Tree, patternval []float64) (retstate
 			}
 			//fmt.Println(c.Newick(true))
 			retstates[c][i] = []float64{0.0, 0.0, 0.0, 0.0}
-			//if c == tree.Rt {
-			if c.Par == nil {
+			if c == tree.Rt {
 				su := 0.
 				for j, s := range c.RtConds[i] {
 					su += (s * x.BF[j])
@@ -671,8 +664,7 @@ func calcLogLikeOneSiteSubClade(t *Tree, inn *Node, excl bool, x *DiscreteModel,
 			tn = inn
 		}
 		if tn == n {
-			//if tn == t.Rt { //only happens at the root
-			if tn.Par == nil {
+			if tn == t.Rt { //only happens at the root
 				for i := 0; i < 4; i++ {
 					n.Data[site][i] += math.Log(x.BF[i])
 				}
