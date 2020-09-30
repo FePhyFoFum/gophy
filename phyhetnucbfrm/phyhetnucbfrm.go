@@ -156,6 +156,8 @@ func main() {
 	}
 	//root model
 	x := gophy.NewDiscreteModel()
+	x.Alph = gophy.Nucleotide
+	x.NumStates = 4
 	x.SetMapDNA()
 	fmt.Fprintln(os.Stderr, "emp:", bf)
 	x.SetBaseFreqs(bf)
