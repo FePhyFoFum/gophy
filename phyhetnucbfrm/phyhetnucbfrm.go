@@ -192,6 +192,8 @@ func main() {
 		}
 		if len(i.GetTips()) > minset {
 			y := gophy.NewDiscreteModel()
+			y.NumStates = 4
+			y.Alph = gophy.Nucleotide
 			y.SetMapDNA()
 			y.SetBaseFreqs(bf)
 			y.SetRateMatrix(modelparams)
