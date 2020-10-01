@@ -9,8 +9,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/FePhyFoFum/gophy"
-
 	"gonum.org/v1/gonum/mat"
 )
 
@@ -620,7 +618,7 @@ func (d *DiscreteModel) GetPCalc(blen float64) *mat.Dense {
 
 //SetMapDNA for getting the position in the array
 func (d *DiscreteModel) SetMapDNA() {
-	d.Alph = gophy.Nucleotide
+	d.Alph = Nucleotide
 	d.NumStates = 4
 	d.CharMap = make(map[string][]int)
 	d.CharMap["A"] = []int{0}
@@ -643,7 +641,7 @@ func (d *DiscreteModel) SetMapDNA() {
 
 // SetMapProt for getting the position in the array
 func (d *DiscreteModel) SetMapProt() {
-	d.Alph = gophy.AminoAcid
+	d.Alph = AminoAcid
 	d.NumStates = 20
 	d.CharMap = make(map[string][]int)
 	d.CharMap["A"] = []int{0}
