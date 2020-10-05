@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bufio"
+	"bytes"
 	"flag"
 	"fmt"
 	"log"
@@ -9,6 +11,7 @@ import (
 	"runtime/pprof"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/FePhyFoFum/gophy"
@@ -307,6 +310,7 @@ func main() {
 		fmt.Fprintln(os.Stderr, i, j.R)
 	}
 	fmt.Println(t.Rt.Newick(true) + ";")
+	writeFigTreeNexus(curmodels, curnodemodels, t, *tfn+".gophy.results.tre")
 }
 
 func uncertaintyLoc(modelnodes []*gophy.Node, curmodels []*gophy.DiscreteModel,
@@ -375,6 +379,7 @@ func uncertaintyLoc(modelnodes []*gophy.Node, curmodels []*gophy.DiscreteModel,
 			tevals = append(tevals, tstat)
 		}
 		waic := mainaic / floats.Sum(tevals)
+		i.FData["uncloc"] = waic
 		fmt.Fprintln(os.Stderr, currentaic, waic)
 	}
 }
@@ -419,7 +424,61 @@ func uncertaintyExist(modelnodes []*gophy.Node, curmodels []*gophy.DiscreteModel
 		}
 		taic := icfun(tlm, curparams-3., nsites)
 		tstat := math.Exp((currentaic - taic) / 2)
-		i.FData["uc1"] = mainaic / (mainaic + tstat)
-		fmt.Fprintln(os.Stderr, currentaic, taic, i.FData["uc1"])
+		i.FData["uncex"] = mainaic / (mainaic + tstat)
+		fmt.Fprintln(os.Stderr, currentaic, taic, i.FData["uncex"])
 	}
+}
+
+func writeFigTreeNexus(curmodels []*gophy.DiscreteModel, curnodemodels map[*gophy.Node]int, t *gophy.Tree,
+	outfile string) {
+	f, err := os.Create(outfile)
+	if err != nil {
+		panic(err)
+	}
+	w := bufio.NewWriter(f)
+	w.WriteString("#NEXUS\nbegin trees;\ntree t = ")
+	delim := ","
+	for _, i := range t.Post {
+		i.IData["model"] = curnodemodels[i]
+		i.SData["modelpar"] = "{" + strings.Trim(strings.Join(strings.Fields(fmt.Sprint(curmodels[curnodemodels[i]].BF)), delim), "[]") + "}"
+	}
+	X := nexusRecur(t.Rt, true)
+	w.WriteString(X + ";\nend;\n")
+	w.Flush()
+}
+
+func nexusRecur(n *gophy.Node, bl bool) (ret string) {
+	var buffer bytes.Buffer
+	for in, cn := range n.Chs {
+		if in == 0 {
+			buffer.WriteString("(")
+		}
+		buffer.WriteString(nexusRecur(cn, bl))
+		if bl == true {
+			s := strconv.FormatFloat(cn.Len, 'f', -1, 64)
+			buffer.WriteString(":")
+			buffer.WriteString(s)
+		}
+		if in == len(n.Chs)-1 {
+			buffer.WriteString(")")
+		} else {
+			buffer.WriteString(",")
+		}
+	}
+	//CHANGE THIS PART
+	if len(n.Chs) == 0 {
+		buffer.WriteString(n.Nam)
+	}
+	buffer.WriteString("[&" + "model" + "=" + strconv.Itoa(n.IData["model"]))
+	buffer.WriteString(",modelpar=" + n.SData["modelpar"])
+	if _, ok := n.FData["uncloc"]; ok {
+		buffer.WriteString(",uncloc=" + strconv.FormatFloat(n.FData["uncloc"], 'f', -1, 64))
+	}
+	if _, ok := n.FData["uncex"]; ok {
+		buffer.WriteString(",uncex=" + strconv.FormatFloat(n.FData["uncex"], 'f', -1, 64))
+	}
+	buffer.WriteString("]")
+	//END CHANGE
+	ret = buffer.String()
+	return
 }
