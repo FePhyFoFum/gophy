@@ -9,11 +9,13 @@ import (
 	"math/rand"
 	"os"
 	"strconv"
+
+	"github.com/FePhyFoFum/gophy"
 )
 
 type HCSearch struct {
-	Tree            *Tree
-	PreorderNodes   []*Node
+	Tree            *gophy.Tree
+	PreorderNodes   []*gophy.Node
 	Clusters        map[int]*Cluster
 	SiteAssignments map[int]int
 	Gen             int
@@ -294,7 +296,7 @@ func (s *HCSearch) checkAndAddK() {
 	}
 }
 
-func assignClusterLengths(ns []*Node, c *Cluster) {
+func assignClusterLengths(ns []*gophy.Node, c *Cluster) {
 	for i, n := range ns {
 		n.BMLen = c.BranchLengths[i]
 	}
@@ -665,7 +667,7 @@ func (s *HCSearch) bestClusterJoin() (quit bool) {
 	return
 }
 
-func InitGreedyHC(tree *Tree, gen int, pr int, crit int, rstart bool, k int, runName string, splitgen int, alpha float64, minK int) *HCSearch {
+func InitGreedyHC(tree *gophy.Tree, gen int, pr int, crit int, rstart bool, k int, runName string, splitgen int, alpha float64, minK int) *HCSearch {
 	s := new(HCSearch)
 	s.Tree = tree
 	s.RunName = runName
@@ -689,7 +691,7 @@ func InitGreedyHC(tree *Tree, gen int, pr int, crit int, rstart bool, k int, run
 	return s
 }
 
-func TransferGreedyHC(tree *Tree, gen int, pr int, crit int, clus map[int]*Cluster, siteAssign map[int]int, runName string, splitgen int, alpha float64) *HCSearch {
+func TransferGreedyHC(tree *gophy.Tree, gen int, pr int, crit int, clus map[int]*Cluster, siteAssign map[int]int, runName string, splitgen int, alpha float64) *HCSearch {
 	s := new(HCSearch)
 	s.Tree = tree
 	s.RunName = runName

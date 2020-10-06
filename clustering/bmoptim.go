@@ -5,10 +5,12 @@ import (
 	"math"
 	"math/rand"
 	"os"
+
+	"github.com/FePhyFoFum/gophy"
 )
 
 //ClusterMissingTraitsEM will calculate the BM branch lengths using an iterative EM calculation that imputes missing data using PICs using the traits in a single cluster
-func ClusterMissingTraitsEM(t *Tree, cluster *Cluster, niter int) {
+func ClusterMissingTraitsEM(t *gophy.Tree, cluster *Cluster, niter int) {
 	best := -1000000000.0
 	var newlen []float64
 	for it := 0; it < 1; it++ {
@@ -40,7 +42,7 @@ func ClusterMissingTraitsEM(t *Tree, cluster *Cluster, niter int) {
 }
 
 //GreedyIterateLengthsMissing will calculate the BM branch lengths using an iterative EM calculation that imputes missing data using PICs using the traits in a single cluster
-func GreedyIterateLengthsMissing(t *Tree, sites []int, niter int) {
+func GreedyIterateLengthsMissing(t *gophy.Tree, sites []int, niter int) {
 	best := -1000000000.0
 	var newlen []float64
 	for it := 0; it < 1; it++ {
@@ -78,7 +80,7 @@ func GreedyIterateLengthsMissing(t *Tree, sites []int, niter int) {
 }
 
 //BMOptimBLEM will calculate the BM branch lengths using an iterative EM calculation that imputes missing data using PICs
-func BMOptimBLEM(t *Tree, niter int) {
+func BMOptimBLEM(t *gophy.Tree, niter int) {
 	var sites []int
 	for i := range t.Rt.ContData {
 		sites = append(sites, i)
@@ -130,9 +132,9 @@ func BMOptimBLEM(t *Tree, niter int) {
 }
 
 //BMCalcLensBackFront will do one pass of the EM branch length estimation
-func BMCalcLensBackFront(t *Tree, sites []int) {
+func BMCalcLensBackFront(t *gophy.Tree, sites []int) {
 	if len(t.Rt.Chs) == 3 { // the tree is unrooted
-		//parSubtreePruneLen := make(map[*Node]float64)
+		//parSubtreePruneLen := make(map[*gophy.Node]float64)
 		for _, c := range t.Rt.Chs {
 			BMPruneRooted(c)
 		}
@@ -149,10 +151,10 @@ func BMCalcLensBackFront(t *Tree, sites []int) {
 			if len(nd.Chs) == 0 { //don't do this at tips
 				continue
 			}
-			var c0, c1 *Node
+			var c0, c1 *gophy.Node
 			var bot float64
 			if nd.Par == t.Rt && len(t.Rt.Chs) == 3 {
-				var sibs []*Node
+				var sibs []*gophy.Node
 				for _, c := range t.Rt.Chs {
 					if c != nd {
 						sibs = append(sibs, c)
@@ -211,7 +213,7 @@ func BMCalcLensBackFront(t *Tree, sites []int) {
 }
 
 //virtualTritomyML will calculate the MLEs for the branch lengths of a tifurcating 3-taxon tree
-func virtualTritomyML(tree *Node, sites []int) {
+func virtualTritomyML(tree *gophy.Node, sites []int) {
 	ntraits := len(sites)
 	fntraits := float64(ntraits)
 	var x1, x2, x3 float64
@@ -284,7 +286,7 @@ func virtualTritomyML(tree *Node, sites []int) {
 }
 
 //AncTritomyML will calculate the MLEs for the branch lengths of a tifurcating 3-taxon tree assuming that direct ancestors may be in the tree
-func AncTritomyML(tree *Node, sites []int) {
+func AncTritomyML(tree *gophy.Node, sites []int) {
 	ntraits := len(sites)
 	fntraits := float64(ntraits)
 	var x1, x2, x3 float64
@@ -369,7 +371,7 @@ func AncTritomyML(tree *Node, sites []int) {
 //////////////////////////////////////////////////////////////////////////////////////////////
 
 //IterateLengthsWeighted will iteratively calculate the ML branch lengths for a particular topology and cluster when doing the greedy site clustering procedure.
-func IterateLengthsWeighted(tree *Tree, cluster *Cluster, niter int) {
+func IterateLengthsWeighted(tree *gophy.Tree, cluster *Cluster, niter int) {
 	AssertUnrootedTree(tree.Rt)
 	//nodes := tree.PreorderArray()
 	//InitMissingValues(nodes)
@@ -385,9 +387,9 @@ func IterateLengthsWeighted(tree *Tree, cluster *Cluster, niter int) {
 }
 
 //BMCalcLensBackFront will do one pass of the EM branch length estimation
-func calcBMLensBackFrontWeighted(t *Tree, cluster *Cluster) {
+func calcBMLensBackFrontWeighted(t *gophy.Tree, cluster *Cluster) {
 	if len(t.Rt.Chs) == 3 { // the tree is unrooted
-		//parSubtreePruneLen := make(map[*Node]float64)
+		//parSubtreePruneLen := make(map[*gophy.Node]float64)
 		for _, c := range t.Rt.Chs {
 			BMPruneRooted(c)
 		}
@@ -403,10 +405,10 @@ func calcBMLensBackFrontWeighted(t *Tree, cluster *Cluster) {
 			if len(nd.Chs) == 0 { //don't do this at tips
 				continue
 			}
-			var c0, c1 *Node
+			var c0, c1 *gophy.Node
 			var bot float64
 			if nd.Par == t.Rt && len(t.Rt.Chs) == 3 {
-				var sibs []*Node
+				var sibs []*gophy.Node
 				for _, c := range t.Rt.Chs {
 					if c != nd {
 						sibs = append(sibs, c)
@@ -458,7 +460,7 @@ func calcBMLensBackFrontWeighted(t *Tree, cluster *Cluster) {
 }
 
 //virtualTritomyMLWeights will calculate the MLEs for the branch lengths of a tifurcating 3-taxon tree
-func virtualTritomyMLWeights(tree *Node, weights map[int]float64) {
+func virtualTritomyMLWeights(tree *gophy.Node, weights map[int]float64) {
 	ntraits := len(tree.Chs[0].ContData)
 	var x1, x2, x3, wt float64
 	sumV1 := 0.0
@@ -546,7 +548,7 @@ func virtualTritomyMLWeights(tree *Node, weights map[int]float64) {
 }
 
 //tritomyWeightedML will calculate the MLEs for the branch lengths of a tifurcating 3-taxon tree
-func tritomyWeightedML(tree *Node, weights map[int]float64) {
+func tritomyWeightedML(tree *gophy.Node, weights map[int]float64) {
 	//ntraits := len(tree.Chs[0].ContData)
 	/*fntraits := 0.
 	for _, w := range weights {

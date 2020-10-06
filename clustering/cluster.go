@@ -3,6 +3,8 @@ package clustering
 import (
 	"strconv"
 	"strings"
+
+	"github.com/FePhyFoFum/gophy"
 )
 
 // Cluster structure for sealiontomo stuff
@@ -14,12 +16,12 @@ type Cluster struct {
 }
 
 // CalcLL calculate the ll
-func (c *Cluster) CalcLL(tree *Node) {
+func (c *Cluster) CalcLL(tree *gophy.Node) {
 	c.LogLike = SubUnrootedLogLikeParallel(tree, c.Sites, 6)
 }
 
 // WriteClusterPhylip write the cluster file
-func (c *Cluster) WriteClusterPhylip(nodes []*Node) string {
+func (c *Cluster) WriteClusterPhylip(nodes []*gophy.Node) string {
 	seqs := make(map[string][]string)
 	for _, n := range nodes {
 		if n.Nam != "" && len(n.Chs) == 0 {

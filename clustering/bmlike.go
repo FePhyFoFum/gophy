@@ -4,11 +4,13 @@ import (
 	"fmt"
 	"math"
 	"os"
+
+	"github.com/FePhyFoFum/gophy"
 )
 
 //BMPruneRooted will prune BM branch lens and PICs down to a rooted node
 //root node should be a real (ie. bifurcating) root
-func BMPruneRooted(n *Node) {
+func BMPruneRooted(n *gophy.Node) {
 	for _, chld := range n.Chs {
 		BMPruneRooted(chld)
 	}
@@ -46,7 +48,7 @@ func BMPruneRooted(n *Node) {
 
 //BMPruneRootedSingle will prune BM branch lens and calculate PIC of a single trait down to a rooted node
 //root node should be a real (ie. bifurcating) root
-func BMPruneRootedSingle(n *Node, i int) {
+func BMPruneRootedSingle(n *gophy.Node, i int) {
 	for _, chld := range n.Chs {
 		BMPruneRootedSingle(chld, i)
 	}
@@ -66,7 +68,7 @@ func BMPruneRootedSingle(n *Node, i int) {
 }
 
 //AssertUnrootedTree is a quick check to make sure the tree passed is unrooted
-func AssertUnrootedTree(tree *Node) {
+func AssertUnrootedTree(tree *gophy.Node) {
 	if len(tree.Chs) != 3 {
 		fmt.Print("BRAncH LenGTHS MUST BE ITERATED ON AN UNROOTED TREE. THIS TREE IS ROOTED.")
 		os.Exit(0)
@@ -74,7 +76,7 @@ func AssertUnrootedTree(tree *Node) {
 }
 
 //CalcUnrootedLogLike will calculate the log-likelihood of an unrooted tree, while assuming that no sites have missing data.
-func CalcUnrootedLogLike(tree *Node, startFresh bool) (chll float64) {
+func CalcUnrootedLogLike(tree *gophy.Node, startFresh bool) (chll float64) {
 	chll = 0.0
 	for _, ch := range tree.Chs {
 		curlike := 0.0
@@ -103,7 +105,7 @@ func CalcUnrootedLogLike(tree *Node, startFresh bool) (chll float64) {
 }
 
 //CalcRootedLogLike will return the BM likelihood of a tree assuming that no data are missing from the tips.
-func CalcRootedLogLike(n *Node, nlikes *float64, startFresh bool) {
+func CalcRootedLogLike(n *gophy.Node, nlikes *float64, startFresh bool) {
 	for _, chld := range n.Chs {
 		CalcRootedLogLike(chld, nlikes, startFresh)
 	}
@@ -133,7 +135,7 @@ func CalcRootedLogLike(n *Node, nlikes *float64, startFresh bool) {
 }
 
 //calcUnrootedNodeLikes  will calculate the likelihood of an unrooted tree at each site (i) of the continuous character alignment
-func calcUnrootedSiteLLParallel(tree *Node, i int) (tmpll float64) {
+func calcUnrootedSiteLLParallel(tree *gophy.Node, i int) (tmpll float64) {
 	var contrast, curVar float64
 	log2pi := 1.8378770664093453
 	if tree.Chs[0].Mis[i] == false && tree.Chs[1].Mis[i] == false && tree.Chs[2].Mis[i] == false { //do the standard calculation when no subtrees have missing traits
@@ -162,7 +164,7 @@ func calcUnrootedSiteLLParallel(tree *Node, i int) (tmpll float64) {
 }
 
 //calcRootedSiteLL will return the BM likelihood of a tree assuming that no data are missing from the tips.
-func calcRootedSiteLLParallel(n *Node, nlikes *float64, startFresh bool, site int) {
+func calcRootedSiteLLParallel(n *gophy.Node, nlikes *float64, startFresh bool, site int) {
 	for _, chld := range n.Chs {
 		calcRootedSiteLLParallel(chld, nlikes, startFresh, site)
 	}
@@ -199,7 +201,7 @@ func calcRootedSiteLLParallel(n *Node, nlikes *float64, startFresh bool, site in
 	}
 }
 
-func siteTreeLikeParallel(tree, ch1, ch2, ch3 *Node, startFresh bool, weights []float64, jobs <-chan int, results chan<- float64) {
+func siteTreeLikeParallel(tree, ch1, ch2, ch3 *gophy.Node, startFresh bool, weights []float64, jobs <-chan int, results chan<- float64) {
 	for site := range jobs {
 		tmpll := 0.
 		rootedMissingSiteLL(ch1, &tmpll, true, site)
@@ -212,7 +214,7 @@ func siteTreeLikeParallel(tree, ch1, ch2, ch3 *Node, startFresh bool, weights []
 }
 
 //WeightedUnrootedLogLikeParallel will calculate the log-likelihood of an unrooted tree, while assuming that some sites have missing data. This can be used to calculate the likelihoods of trees that have complete trait sampling, but it will be slower than CalcRootedLogLike.
-func WeightedUnrootedLogLikeParallel(tree *Node, startFresh bool, weights []float64, workers int) (sitelikes float64) {
+func WeightedUnrootedLogLikeParallel(tree *gophy.Node, startFresh bool, weights []float64, workers int) (sitelikes float64) {
 	nsites := len(tree.Chs[0].ContData)
 	ch1 := tree.Chs[0] //.PostorderArray()
 	ch2 := tree.Chs[1] //.PostorderArray()
@@ -234,7 +236,7 @@ func WeightedUnrootedLogLikeParallel(tree *Node, startFresh bool, weights []floa
 	return
 }
 
-func subSiteTreeLikeParallel(tree, ch1, ch2, ch3 *Node, startFresh bool, jobs <-chan int, results chan<- float64) {
+func subSiteTreeLikeParallel(tree, ch1, ch2, ch3 *gophy.Node, startFresh bool, jobs <-chan int, results chan<- float64) {
 	for site := range jobs {
 		tmpll := 0.
 		//calcRootedSiteLLParallel(ch1, &tmpll, startFresh, site)
@@ -249,7 +251,7 @@ func subSiteTreeLikeParallel(tree, ch1, ch2, ch3 *Node, startFresh bool, jobs <-
 }
 
 //SubUnrootedLogLikeParallel will calculate the log-likelihood of an unrooted tree, while assuming that some sites have missing data. This can be used to calculate the likelihoods of trees that have complete trait sampling, but it will be slower than CalcRootedLogLike.
-func SubUnrootedLogLikeParallel(tree *Node, sites []int, workers int) (sitelikes float64) {
+func SubUnrootedLogLikeParallel(tree *gophy.Node, sites []int, workers int) (sitelikes float64) {
 	nsites := len(sites)
 	ch1 := tree.Chs[0] //.PostorderArray()
 	ch2 := tree.Chs[1] //.PostorderArray()
@@ -272,7 +274,7 @@ func SubUnrootedLogLikeParallel(tree *Node, sites []int, workers int) (sitelikes
 }
 
 //SingleSiteLL will return the likelihood of a single site
-func SingleSiteLL(tree *Node, site int) (sitelike float64) {
+func SingleSiteLL(tree *gophy.Node, site int) (sitelike float64) {
 	sitelike = 0.0
 	var tmpll float64
 	if len(tree.Chs) == 3 {
@@ -293,7 +295,7 @@ func SingleSiteLL(tree *Node, site int) (sitelike float64) {
 	return
 }
 
-func rootedMissingSiteLL(n *Node, nlikes *float64, startFresh bool, site int) {
+func rootedMissingSiteLL(n *gophy.Node, nlikes *float64, startFresh bool, site int) {
 	for _, chld := range n.Chs {
 		rootedMissingSiteLL(chld, nlikes, startFresh, site)
 	}
@@ -331,7 +333,7 @@ func rootedMissingSiteLL(n *Node, nlikes *float64, startFresh bool, site int) {
 
 }
 
-func rootedTreeLike(tree *Node, startFresh bool, jobs <-chan int, results chan<- float64) {
+func rootedTreeLike(tree *gophy.Node, startFresh bool, jobs <-chan int, results chan<- float64) {
 	for site := range jobs {
 		tmpll := 0.
 		rootedMissingSiteLL(tree, &tmpll, startFresh, site)
@@ -340,7 +342,7 @@ func rootedTreeLike(tree *Node, startFresh bool, jobs <-chan int, results chan<-
 }
 
 //PBMLogLikeRt will calculate the BM log like on a rooted tree
-func PBMLogLikeRt(tree *Node, startFresh bool, workers int) (sitelikes float64) {
+func PBMLogLikeRt(tree *gophy.Node, startFresh bool, workers int) (sitelikes float64) {
 	nsites := len(tree.Chs[0].ContData)
 	jobs := make(chan int, nsites)
 	results := make(chan float64, nsites)

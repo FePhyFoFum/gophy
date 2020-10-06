@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/FePhyFoFum/gophy"
+	"github.com/FePhyFoFum/gophy/clustering"
 )
 
 func main() {
@@ -52,11 +53,11 @@ func main() {
 		r := rand.Float64()
 		n.BMLen = r
 	}
-	gophy.InitMissingValues(t.Pre)
+	clustering.InitMissingValues(t.Pre)
 	//gophy.BMOptimBLEM(t, 2) //going to optimize branch lengths to set mean parameter for tree length in dirichlet prior
 	treeOutFile := *runNameArg
 	if *searchArg == 3 {
-		search := gophy.InitGreedyHC(t, *genArg, *printFreqArg, *critArg, true, *kArg, treeOutFile, *splitGenArg, *clustArg, *minKArg)
+		search := clustering.InitGreedyHC(t, *genArg, *printFreqArg, *critArg, true, *kArg, treeOutFile, *splitGenArg, *clustArg, *minKArg)
 		//fmt.Println(search.ClusterString())
 		start := time.Now()
 		search.PerturbedRun()

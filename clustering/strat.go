@@ -9,11 +9,13 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/FePhyFoFum/gophy"
 )
 
 // PoissonTreeLoglike calculates the Poisson LogLike based on
 //  stratigraphic ranges
-func PoissonTreeLoglike(tree *Tree) float64 {
+func PoissonTreeLoglike(tree *gophy.Tree) float64 {
 	nodels := tree.Pre
 	lam := 1.0
 	c := 1.0
@@ -31,7 +33,7 @@ func PoissonTreeLoglike(tree *Tree) float64 {
 			a := math.Log(math.Pow(f-l, (node.FData["FINDS"] - 2.0)))
 			b := math.Log(math.Pow(lam, node.FData["FINDS"]))
 			c := -lam * (tf - tl)
-			brlik = (a + b + c) - float64(LogFactorial(int(node.FData["FINDS"]-2.0)))
+			brlik = (a + b + c) - float64(gophy.LogFactorial(int(node.FData["FINDS"]-2.0)))
 		} else if node.FData["FINDS"] == 1 {
 			brlik = math.Log(lam) + (-lam * (tf - tl))
 		} else if node.FData["FINDS"] == 0 {
@@ -44,7 +46,7 @@ func PoissonTreeLoglike(tree *Tree) float64 {
 
 // ADPoissonTreeLoglike calculates the ancestor - descendent
 //  for a set of stratigraphic ranges
-func ADPoissonTreeLoglike(nodels []*Node, lam float64) float64 {
+func ADPoissonTreeLoglike(nodels []*gophy.Node, lam float64) float64 {
 	//lam := 10.0
 	c := 1.0
 	treelik := 0.0
@@ -68,7 +70,7 @@ func ADPoissonTreeLoglike(nodels []*Node, lam float64) float64 {
 			a := math.Log(math.Pow(f-l, (node.FData["FINDS"] - 2.0)))
 			b := math.Log(math.Pow(lam, node.FData["FINDS"]))
 			c := -lam * (tf - tl)
-			brlik = (a + b + c) - float64(LogFactorial(int(node.FData["FINDS"]-2.0)))
+			brlik = (a + b + c) - float64(gophy.LogFactorial(int(node.FData["FINDS"]-2.0)))
 		} else if node.FData["FINDS"] == 1 {
 			brlik = math.Log(lam) + (-lam * (tf - tl))
 		} else if node.FData["FINDS"] == 0 {
@@ -81,9 +83,9 @@ func ADPoissonTreeLoglike(nodels []*Node, lam float64) float64 {
 
 // ReadStrat reads stratigraphic ranges from a file and assigns those
 //  data to a tree
-func ReadStrat(stratfl string, t *Tree) {
+func ReadStrat(stratfl string, t *gophy.Tree) {
 	nodels := t.Pre
-	lines := ReadLine(stratfl)
+	lines := gophy.ReadLine(stratfl)
 	matchcount := 0
 	linecount := 0
 	matched := make(map[string]bool)
@@ -152,7 +154,7 @@ func ReadStrat(stratfl string, t *Tree) {
 	}
 }
 
-func assignHeights(node *Node) {
+func assignHeights(node *gophy.Node) {
 	for _, chld := range node.Chs {
 		assignHeights(chld)
 	}
@@ -171,7 +173,7 @@ func assignHeights(node *Node) {
 }
 
 // MakeStratHeights assigns the strat heights
-func MakeStratHeights(tree *Tree) {
+func MakeStratHeights(tree *gophy.Tree) {
 	assignHeights(tree.Rt)
 	postTree := tree.Post
 	for _, node := range postTree {
@@ -184,8 +186,8 @@ func MakeStratHeights(tree *Tree) {
 }
 
 //TimeTraverse will visit all descendant nodes in order of their heights (earliest -> latest)
-func TimeTraverse(preNodes []*Node, internalOnly bool) (ret []*Node) {
-	var unsortNodes []*Node
+func TimeTraverse(preNodes []*gophy.Node, internalOnly bool) (ret []*gophy.Node) {
+	var unsortNodes []*gophy.Node
 	if internalOnly == true {
 		for _, n := range preNodes {
 			if len(n.Chs) != 0 {
@@ -203,8 +205,8 @@ func TimeTraverse(preNodes []*Node, internalOnly bool) (ret []*Node) {
 	return
 }
 
-/*	var orderedChs []*Node
-	added := make(map[*Node]bool)
+/*	var orderedChs []*gophy.Node
+	added := make(map[*gophy.Node]bool)
 	for _, cn := range unsortNodes {
 		if cn.Height > unsortNodes[0].Height {
 			orderedChs = append(orderedChs, cn) //put all Chs with height >  the first element in the new array first
@@ -218,7 +220,7 @@ func TimeTraverse(preNodes []*Node, internalOnly bool) (ret []*Node) {
 */
 
 // OldestChildAge returns the oldest Child
-func OldestChildAge(node *Node) float64 {
+func OldestChildAge(node *gophy.Node) float64 {
 	oldestChildHeight := 0.0
 	for _, c := range node.Chs {
 		if c.FData["FAD"] > oldestChildHeight && c.Nam+"_ancestral" != node.Nam {

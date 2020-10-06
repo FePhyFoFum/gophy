@@ -3,11 +3,12 @@ package clustering
 import (
 	"fmt"
 
+	"github.com/FePhyFoFum/gophy"
 	"gonum.org/v1/gonum/optimize"
 )
 
 //OptimizePreservationLam will optimize the poisson rate parameter in the preservation model
-func OptimizePreservationLam(tree *Tree) (float64, float64) {
+func OptimizePreservationLam(tree *gophy.Tree) (float64, float64) {
 	//lam := 1.0 //2.4
 	preNodes := tree.Pre
 	fcn := func(p []float64) float64 {

@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"math"
 	"os"
+
+	"github.com/FePhyFoFum/gophy"
 )
 
 //InitMissingValues will find the missing sites in a data matrix and plug in values corresponding to the mean of the remaining sites
-func InitMissingValues(tree []*Node) {
+func InitMissingValues(tree []*gophy.Node) {
 	means := CalcSiteMeans(tree)
 	for _, n := range tree {
 		if len(n.Chs) == 0 {
@@ -17,7 +19,7 @@ func InitMissingValues(tree []*Node) {
 }
 
 //MakeMissingMeansTip will replace missing values with the mean across all tips for a single tip
-func MakeMissingMeansTip(n *Node, means []float64) {
+func MakeMissingMeansTip(n *gophy.Node, means []float64) {
 	for i := range n.ContData {
 		if n.Mis[i] == true {
 			n.ContData[i] = means[i]
@@ -26,7 +28,7 @@ func MakeMissingMeansTip(n *Node, means []float64) {
 }
 
 //CalcSiteMeans will calculate the mean value for all the sites in the matrix for which the site is not missing
-func CalcSiteMeans(nodes []*Node) (siteSum []float64) {
+func CalcSiteMeans(nodes []*gophy.Node) (siteSum []float64) {
 	var ntraits []int
 	for range nodes[0].ContData {
 		siteSum = append(siteSum, 0.0)
@@ -50,7 +52,7 @@ func CalcSiteMeans(nodes []*Node) (siteSum []float64) {
 }
 
 //CalcExpectedTraits will plug in the expected values for missing traits under BM using the pruning/PIC ancestral state estimation approach
-func CalcExpectedTraits(tree *Node) {
+func CalcExpectedTraits(tree *gophy.Node) {
 	if len(tree.Chs) == 3 {
 		for _, c := range tree.Chs {
 			BMPruneRooted(c)
@@ -62,7 +64,7 @@ func CalcExpectedTraits(tree *Node) {
 		for _, nd := range c.PreorderArray() {
 			if nd.Par == tree {
 				if len(tree.Chs) == 3 {
-					var sibs []*Node
+					var sibs []*gophy.Node
 					for _, c := range tree.Chs {
 						if c != nd {
 							sibs = append(sibs, c)
@@ -126,7 +128,7 @@ func CalcExpectedTraits(tree *Node) {
 }
 
 //ClusterCalcExpectedTraits will plug in the expected values for missing traits under BM using the pruning/PIC ancestral state estimation approach
-func ClusterCalcExpectedTraits(tree *Node, sites []int) {
+func ClusterCalcExpectedTraits(tree *gophy.Node, sites []int) {
 	if len(tree.Chs) == 3 {
 		for _, c := range tree.Chs {
 			BMPruneRooted(c)
@@ -138,7 +140,7 @@ func ClusterCalcExpectedTraits(tree *Node, sites []int) {
 		for _, nd := range c.PreorderArray() {
 			if nd.Par == tree {
 				if len(tree.Chs) == 3 {
-					var sibs []*Node
+					var sibs []*gophy.Node
 					for _, c := range tree.Chs {
 						if c != nd {
 							sibs = append(sibs, c)
@@ -202,7 +204,7 @@ func ClusterCalcExpectedTraits(tree *Node, sites []int) {
 	}
 }
 
-func calcSingleExpTrait(c1, c2 *Node, ind int) (val float64) {
+func calcSingleExpTrait(c1, c2 *gophy.Node, ind int) (val float64) {
 	bot := ((1.0 / c1.PruneLen) + (1.0 / c2.PruneLen))
 	val = (((1 / c1.PruneLen) * c2.ContData[ind]) + ((1 / c2.PruneLen) * c1.ContData[ind])) / bot
 	return

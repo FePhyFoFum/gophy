@@ -5,10 +5,12 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/FePhyFoFum/gophy"
 )
 
 func ReadMCLoutput(clfl string) (clusters map[int]*Cluster) {
-	lines := ReadLine(clfl)
+	lines := gophy.ReadLine(clfl)
 	clusters = map[int]*Cluster{}
 	for lab, line := range lines {
 		if line == "" {

@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"math"
 	"os"
+
+	"github.com/FePhyFoFum/gophy"
 )
 
 //TritomySubML will calculate the MLEs for the branch lengths of a tifurcating 3-taxon tree using only the sites indicated in sites
-func TritomySubML(tree *Node, sites []int) {
+func TritomySubML(tree *gophy.Node, sites []int) {
 	ntraits := len(sites)
 	fntraits := float64(ntraits)
 	var x1, x2, x3 float64
@@ -78,7 +80,7 @@ func TritomySubML(tree *Node, sites []int) {
 }
 
 //TritomyWeightedML will calculate the MLEs for the branch lengths of a tifurcating 3-taxon tree
-func TritomyWeightedML(tree *Node, weights map[int]float64) {
+func TritomyWeightedML(tree *gophy.Node, weights map[int]float64) {
 	//ntraits := len(tree.Chs[0].ContData)
 	fntraits := 0.
 	for _, w := range weights {

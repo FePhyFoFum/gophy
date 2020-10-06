@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
+
+	"github.com/FePhyFoFum/gophy"
 )
 
 func (s *HCSearch) RunEM() {
@@ -104,7 +106,7 @@ func (s *HCSearch) siteClusterUpdate(site int, siteClusterLab int) (weights map[
 	return
 }
 
-func InitEMSearch(tree *Tree, gen int, k int, pr int, alpha float64) *HCSearch {
+func InitEMSearch(tree *gophy.Tree, gen int, k int, pr int, alpha float64) *HCSearch {
 	s := new(HCSearch)
 	s.Tree = tree
 	s.PreorderNodes = tree.Pre
