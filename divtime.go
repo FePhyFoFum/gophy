@@ -1,3 +1,7 @@
+//
+//TODO: add
+//      CV
+//      free nodes/ fossil nodes
 package gophy
 
 import (
@@ -627,3 +631,5 @@ func (p *PLObj) PrintNewickDurations(t Tree) string {
 	}
 	return t.Rt.NewickFloatBL("duration")
 }
+
+//
