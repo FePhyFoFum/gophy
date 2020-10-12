@@ -193,6 +193,46 @@ func (p *PLObj) CalcMultLF(params []float64, free bool) float64 {
 	return ll
 }
 
+// CalcMultPL ...
+func (p *PLObj) CalcMultPL(params []float64, free bool) float64 {
+	for _, i := range params {
+		if i < 0 {
+			return -1.
+		}
+	}
+
+	pcount := 0
+	fcount := 0
+	for i := range p.Rates {
+		p.Rates[i] = params[pcount]
+		pcount++
+		fcount++
+	}
+	if free { // only set the free nodes
+		for _, i := range p.FreeNodes {
+			p.Dates[i] = params[pcount]
+			pcount++
+			fcount++
+		}
+	} else {
+		for i := range p.Dates {
+			p.Dates[i] = params[pcount]
+			pcount++
+			fcount++
+		}
+	}
+	ret := p.SetDurations()
+	if ret == false {
+		return -1.
+	}
+
+	ll := p.CalcRateLogLike()
+	tp := p.CalcPenalty()
+	rp := p.CalcRoughnessPenaltyMult()
+	pl := (ll + tp) + p.Smoothing*rp
+	return pl
+}
+
 func minLength(l float64, numsites float64) float64 {
 	return math.Max(l, 1./numsites)
 }
@@ -283,7 +323,7 @@ func (p *PLObj) SetValues(t Tree, numsites float64, minmap map[*Node]float64,
 		p.feasibleTimesSplit(n, rtDt) //just splitting them, can go back to the other
 	}
 	durcheck := p.SetDurations()
-	fmt.Println(p.PrintNewickDurations(t) + ";")
+	//fmt.Println(p.PrintNewickDurations(t) + ";")
 	if durcheck == false {
 		fmt.Println(p.Durations)
 		os.Exit(0)
@@ -300,10 +340,10 @@ func (p *PLObj) RunLF(startRate float64) *optimize.Result {
 		params[c] = p.Dates[i]
 		c++
 	}
-	fmt.Fprintln(os.Stderr, params)
-	fmt.Fprintln(os.Stderr, p.CalcLF(params, true))
+	//fmt.Fprintln(os.Stderr, params)
+	fmt.Fprintln(os.Stderr, "start LF:", p.CalcLF(params, true))
 	x := p.OptimizeRD(params, p.CalcLF)
-	fmt.Fprintln(os.Stderr, x.F)
+	fmt.Fprintln(os.Stderr, "end LF:", x.F)
 	return x
 }
 
@@ -322,10 +362,10 @@ func (p *PLObj) RunMLF(startRate float64, mrcagroups []*Node, t Tree) *optimize.
 		params[c] = p.Dates[i]
 		c++
 	}
-	fmt.Fprintln(os.Stderr, params)
-	fmt.Fprintln(os.Stderr, p.CalcMultLF(params, true))
+	//fmt.Fprintln(os.Stderr, params)
+	fmt.Fprintln(os.Stderr, "start MLF:", p.CalcMultLF(params, true))
 	x := p.OptimizeRD(params, p.CalcMultLF)
-	fmt.Fprintln(os.Stderr, x.F)
+	fmt.Fprintln(os.Stderr, "end MLF:", x.F)
 	return x
 }
 
@@ -342,9 +382,30 @@ func (p *PLObj) RunPL(startRate float64) *optimize.Result {
 		params[c] = p.Dates[i]
 		c++
 	}
-	fmt.Fprintln(os.Stderr, p.CalcPL(params, true))
+	fmt.Fprintln(os.Stderr, "start PL:", p.CalcPL(params, true))
 	x := p.OptimizeRD(params, p.CalcPL)
-	fmt.Fprintln(os.Stderr, x.F)
+	//fmt.Fprintln(os.Stderr, x.F)
+	return x
+}
+
+//RunMPL penalized likelihood run with a starting float from x.X[0] from LF
+// and mrcagroup -- assuming that p.RateGroups has already been setup
+
+func (p *PLObj) RunMPL(mrcagroups []*Node, t Tree) *optimize.Result {
+	params := make([]float64, p.NumNodes+len(p.FreeNodes))
+	c := 0
+	//fmt.Fprintln(os.Stderr, p.Rates)
+	for i, j := range p.Rates { //every edge has a rate
+		params[i] = j
+		c++
+	}
+	for _, i := range p.FreeNodes {
+		params[c] = p.Dates[i]
+		c++
+	}
+	fmt.Fprintln(os.Stderr, "start MPL:", p.CalcMultPL(params, true))
+	x := p.OptimizeRD(params, p.CalcMultPL)
+	fmt.Fprintln(os.Stderr, "end MPL:", x.F)
 	return x
 }
 
@@ -499,6 +560,34 @@ func (p *PLObj) CalcRoughnessPenalty() (su float64) {
 				sm := p.Rates[i] - p.Rates[p.ParentsNdsInts[i]]
 				su += (sm * sm)
 			}
+		}
+	}
+	su += (ss - s*s/tomy) / tomy
+	return
+}
+
+// CalcRoughnessPenaltyMult ...
+func (p *PLObj) CalcRoughnessPenaltyMult() (su float64) {
+	su = 0
+	tomy := 0.0
+	s := 0.0
+	ss := 0.0
+	for i := 0; i < p.NumNodes; i++ {
+		if i == 0 { //root
+			for _, j := range p.ChildrenVec[i] {
+				r := p.Rates[j]
+				if p.LogPen {
+					r = math.Log(r)
+				}
+				s += r
+				ss += r * r
+				tomy++
+			}
+		} else {
+			if p.ParentsNdsInts[i] != 0 && p.RateGroups[p.ParentsNdsInts[i]] == p.RateGroups[i] {
+				sm := p.Rates[i] - p.Rates[p.ParentsNdsInts[i]]
+				su += (sm * sm)
+			} //need to figure out the rate penalty when for the edges that subtend the shift
 		}
 	}
 	su += (ss - s*s/tomy) / tomy
