@@ -390,8 +390,7 @@ func (p *PLObj) RunMLF(startRate float64, mrcagroups []*Node, t Tree,
 }
 
 //RunPL penalized likelihood run with a starting float, probably x.X[0] from LF
-func (p *PLObj) RunPL(startRate float64) *optimize.Result {
-	//pl
+func (p *PLObj) RunPL(startRate float64, verbose bool) *optimize.Result {
 	params := make([]float64, p.NumNodes+len(p.FreeNodes)) // pl
 	c := 0
 	for i := range p.Rates { //every edge has a rate
@@ -402,9 +401,14 @@ func (p *PLObj) RunPL(startRate float64) *optimize.Result {
 		params[c] = p.Dates[i]
 		c++
 	}
-	fmt.Fprintln(os.Stderr, "start PL:", p.CalcPL(params, true))
+	val := p.CalcPL(params, true)
+	if verbose {
+		fmt.Fprintln(os.Stderr, "start PL:", val)
+	}
 	x := p.OptimizeRD(params, p.CalcPL)
-	//fmt.Fprintln(os.Stderr, x.F)
+	if verbose {
+		fmt.Fprintln(os.Stderr, "end PL:", x.F)
+	}
 	return x
 }
 
@@ -435,11 +439,11 @@ func (p *PLObj) RunMPL(mrcagroups []*Node, t Tree, verbose bool) *optimize.Resul
 
 //RunCV ...
 // this is just doing cross validation LOOCV
-func (p *PLObj) RunCV(params []float64, verbose bool) {
+func (p *PLObj) RunCV(params []float64, verbose bool, likeFunc func([]float64, bool) float64) {
 	chisq := 0.0
 	for _, i := range p.Tree.Tips {
 		p.CVNode = i.Num
-		p.OptimizeRD(params, p.CalcMultPL)
+		p.OptimizeRD(params, likeFunc)
 		//fmt.Println(x.F)
 		ratees := 0.
 		par := i.Par.Num
