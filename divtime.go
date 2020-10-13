@@ -111,14 +111,31 @@ func (p *PLObj) CalcPL(params []float64, free bool) float64 {
 			fcount++
 		}
 	}
+
 	ret := p.SetDurations()
 	if ret == false {
 		return -1.
 	}
 
+	/*jobs := make(chan int, p.NumNodes-1)
+	results := make(chan float64, p.NumNodes-1)
+	for w := 0; w < 2; w++ {
+		go p.PCalcRateLogLike(jobs, results)
+	}
+	njobs := 0
+	for i := 1; i < p.NumNodes; i++ {
+		jobs <- i
+		njobs++
+	}
+	close(jobs)
+	ll := 0.0
+	for i := 0; i < njobs; i++ {
+		ll += <-results
+	}*/
 	ll := p.CalcRateLogLike()
 	tp := p.CalcPenalty()
 	rp := p.CalcRoughnessPenalty()
+
 	pl := (ll + tp) + p.Smoothing*rp
 	return pl
 }
@@ -604,6 +621,30 @@ func (p *PLObj) CalcRateLogLikeP() (ll float64) {
 	}
 	for i := 1; i < p.NumNodes; i++ {
 		ll += <-lr
+	}
+	return
+}
+
+func (p *PLObj) PCalcRateLogLike(jobs <-chan int, results chan<- float64) {
+	for i := range jobs {
+		//ll = 0.0
+		//for i := 1; i < p.NumNodes; i++ {
+		//if i == p.CVNode { //skip the cv node
+		//	continue
+		//}
+		x := p.Rates[i] * p.Durations[i]
+		c := p.CharDurations[i]
+		l := 0.0
+		if x > 0.0 {
+			l = -(c*math.Log(x) - x - p.LogFactCharDurations[i])
+		} else if x == 0 {
+			if c > 0.0 {
+				l = 1e+15
+			} else if c == 0 {
+				l = 0.0
+			}
+		}
+		results <- l
 	}
 	return
 }
