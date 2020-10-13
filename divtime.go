@@ -1,8 +1,9 @@
+package gophy
+
 //
 //TODO: add
 //      CV
 //      free nodes/ fossil nodes
-package gophy
 
 import (
 	"fmt"
@@ -33,6 +34,8 @@ type PLObj struct {
 	PenaltyBoundary      float64
 	Smoothing            float64
 	RateGroups           map[int]int //[nodenum]rategroup
+	CVNode               int
+	Tree                 Tree
 }
 
 // OptimizeRD optimization
@@ -246,6 +249,7 @@ func (p *PLObj) SetValues(t Tree, numsites float64, minmap map[*Node]float64,
 	maxmap map[*Node]float64) {
 	runtime.GOMAXPROCS(2)
 
+	p.Tree = t
 	p.NumNodes = 0
 	p.FreeNodes = make([]int, 0)
 	//assign node numbers
@@ -394,7 +398,6 @@ func (p *PLObj) RunPL(startRate float64) *optimize.Result {
 
 //RunMPL penalized likelihood run with a starting float from x.X[0] from LF
 // and mrcagroup -- assuming that p.RateGroups has already been setup
-
 func (p *PLObj) RunMPL(mrcagroups []*Node, t Tree) *optimize.Result {
 	params := make([]float64, p.NumNodes+len(p.FreeNodes))
 	c := 0
@@ -413,6 +416,35 @@ func (p *PLObj) RunMPL(mrcagroups []*Node, t Tree) *optimize.Result {
 	return x
 }
 
+//RunCV ...
+// this is just doing cross validation LOOCV
+func (p *PLObj) RunCV(params []float64) {
+	chisq := 0.0
+	for _, i := range p.Tree.Tips {
+		p.CVNode = i.Num
+		p.OptimizeRD(params, p.CalcMultPL)
+		//fmt.Println(x.F)
+		ratees := 0.
+		par := i.Par.Num
+		if par == 0 { //is the root
+			ratees = p.Rates[i.GetSib().Num]
+		} else {
+			ratees = p.Rates[par]
+		}
+		d := p.Durations[p.CVNode]
+		expe := ratees * d
+		length := p.CharDurations[p.CVNode]
+		sq := (length - expe) * (length - expe) // (expe-length)*(expe-length);
+		if d < 1e-100 || expe < 1e-100 {
+			chisq += 0
+		} else {
+			chisq += (sq / expe) //average chisq
+		}
+		fmt.Println(i.Nam, " rate:", ratees, " expe:", expe, " dur:", d, " len: ", length, " sq: ", sq, " chisq: ", chisq)
+	}
+	fmt.Fprintln(os.Stderr, "chisq", chisq)
+}
+
 //SetRateGroups send the mrcagroups that will identify the rate shifts
 // these go preorder so have the deepest first if they are nested
 func (p *PLObj) SetRateGroups(tree Tree, mrcagroups []*Node) {
@@ -424,7 +456,7 @@ func (p *PLObj) SetRateGroups(tree Tree, mrcagroups []*Node) {
 		for _, i := range nd.PreorderArray() {
 			p.RateGroups[i.Num] = count
 		}
-		count += 1
+		count++
 	}
 }
 
@@ -498,6 +530,9 @@ func (p *PLObj) CalcPenalty() (rkt float64) {
 func (p *PLObj) CalcRateLogLike() (ll float64) {
 	ll = 0.0
 	for i := 1; i < p.NumNodes; i++ {
+		if i == p.CVNode { //skip the cv node
+			continue
+		}
 		x := p.Rates[i] * p.Durations[i]
 		c := p.CharDurations[i]
 		l := 0.0
@@ -515,6 +550,7 @@ func (p *PLObj) CalcRateLogLike() (ll float64) {
 	return
 }
 
+// CalcRateLogLikeP ...
 // NOT FASTER
 func (p *PLObj) CalcRateLogLikeP() (ll float64) {
 	ll = 0.0
@@ -549,6 +585,9 @@ func (p *PLObj) CalcRoughnessPenalty() (su float64) {
 	s := 0.0
 	ss := 0.0
 	for i := 0; i < p.NumNodes; i++ {
+		if i == p.CVNode { // skip cvnode
+			continue
+		}
 		if i == 0 { //root
 			for _, j := range p.ChildrenVec[i] {
 				r := p.Rates[j]
