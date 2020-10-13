@@ -246,7 +246,7 @@ func minLength(l float64, numsites float64) float64 {
 
 // SetValues ...
 func (p *PLObj) SetValues(t Tree, numsites float64, minmap map[*Node]float64,
-	maxmap map[*Node]float64) {
+	maxmap map[*Node]float64, verbose bool) {
 	runtime.GOMAXPROCS(2)
 
 	p.Tree = t
@@ -284,40 +284,39 @@ func (p *PLObj) SetValues(t Tree, numsites float64, minmap map[*Node]float64,
 	p.PenMins = make([]float64, p.NumNodes)
 	p.PenMaxs = make([]float64, p.NumNodes)
 	for _, n := range t.Post {
-		if len(n.Chs) > 0 { //internal
-			if _, ok := minmap[n]; ok {
-				p.Mins[n.Num] = minmap[n]
-			} else {
-				ymin := 0.0
-				for _, j := range n.Chs {
-					if len(j.Chs) > 0 {
-						if p.Mins[j.Num] > ymin {
-							ymin = p.Mins[j.Num]
-						}
+		//if len(n.Chs) > 0 { //internal -- taken out for the tip dates
+		if _, ok := minmap[n]; ok {
+			p.Mins[n.Num] = minmap[n]
+		} else {
+			ymin := 0.0
+			for _, j := range n.Chs {
+				if len(j.Chs) > 0 {
+					if p.Mins[j.Num] > ymin {
+						ymin = p.Mins[j.Num]
 					}
 				}
-				p.Mins[n.Num] = ymin
 			}
-			if _, ok := maxmap[n]; ok {
-				p.Maxs[n.Num] = maxmap[n]
-			} else {
-				ymax := 10000.0
-				par := n
-				for {
-					par = par.Par
-					tmax := ymax
-					if _, ok := maxmap[par]; ok {
-						tmax = maxmap[par]
-					}
-					if tmax < ymax {
-						ymax = tmax
-					}
-					if par.Par == nil {
-						break
-					}
+			p.Mins[n.Num] = ymin
+		}
+		if _, ok := maxmap[n]; ok {
+			p.Maxs[n.Num] = maxmap[n]
+		} else {
+			ymax := 10000.0
+			par := n
+			for {
+				par = par.Par
+				tmax := ymax
+				if _, ok := maxmap[par]; ok {
+					tmax = maxmap[par]
 				}
-				p.Maxs[n.Num] = ymax
+				if tmax < ymax {
+					ymax = tmax
+				}
+				if par.Par == nil {
+					break
+				}
 			}
+			p.Maxs[n.Num] = ymax
 		}
 	}
 	//end set min max
@@ -331,7 +330,9 @@ func (p *PLObj) SetValues(t Tree, numsites float64, minmap map[*Node]float64,
 		p.feasibleTimesSplit(n, rtDt) //just splitting them, can go back to the other
 	}
 	durcheck := p.SetDurations()
-	//fmt.Println(p.PrintNewickDurations(t) + ";")
+	if verbose {
+		fmt.Println(p.PrintNewickDurations(t) + ";")
+	}
 	if durcheck == false {
 		fmt.Println(p.Durations)
 		os.Exit(0)
@@ -339,7 +340,7 @@ func (p *PLObj) SetValues(t Tree, numsites float64, minmap map[*Node]float64,
 }
 
 //RunLF langley fitch run with starting float, probably numsites/20.
-func (p *PLObj) RunLF(startRate float64) *optimize.Result {
+func (p *PLObj) RunLF(startRate float64, verbose bool) *optimize.Result {
 	params := make([]float64, len(p.FreeNodes)+1) // lf
 	c := 0
 	params[c] = startRate //lf
@@ -349,15 +350,21 @@ func (p *PLObj) RunLF(startRate float64) *optimize.Result {
 		c++
 	}
 	//fmt.Fprintln(os.Stderr, params)
-	fmt.Fprintln(os.Stderr, "start LF:", p.CalcLF(params, true))
+	val := p.CalcLF(params, true)
+	if verbose {
+		fmt.Fprintln(os.Stderr, "start LF:", val)
+	}
 	x := p.OptimizeRD(params, p.CalcLF)
-	fmt.Fprintln(os.Stderr, "end LF:", x.F)
+	if verbose {
+		fmt.Fprintln(os.Stderr, "end LF:", x.F)
+	}
 	return x
 }
 
 //RunMLF multiple rate langley fitch with starting float, probably x.X[0] from LF
 // and mrcagroup
-func (p *PLObj) RunMLF(startRate float64, mrcagroups []*Node, t Tree) *optimize.Result {
+func (p *PLObj) RunMLF(startRate float64, mrcagroups []*Node, t Tree,
+	verbose bool) *optimize.Result {
 	p.RateGroups = make(map[int]int)
 	params := make([]float64, len(p.FreeNodes)+len(mrcagroups)+1)
 	params[0] = startRate
@@ -371,9 +378,14 @@ func (p *PLObj) RunMLF(startRate float64, mrcagroups []*Node, t Tree) *optimize.
 		c++
 	}
 	//fmt.Fprintln(os.Stderr, params)
-	fmt.Fprintln(os.Stderr, "start MLF:", p.CalcMultLF(params, true))
+	val := p.CalcMultLF(params, true)
+	if verbose {
+		fmt.Fprintln(os.Stderr, "start MLF:", val)
+	}
 	x := p.OptimizeRD(params, p.CalcMultLF)
-	fmt.Fprintln(os.Stderr, "end MLF:", x.F)
+	if verbose {
+		fmt.Fprintln(os.Stderr, "end MLF:", x.F)
+	}
 	return x
 }
 
@@ -398,7 +410,7 @@ func (p *PLObj) RunPL(startRate float64) *optimize.Result {
 
 //RunMPL penalized likelihood run with a starting float from x.X[0] from LF
 // and mrcagroup -- assuming that p.RateGroups has already been setup
-func (p *PLObj) RunMPL(mrcagroups []*Node, t Tree) *optimize.Result {
+func (p *PLObj) RunMPL(mrcagroups []*Node, t Tree, verbose bool) *optimize.Result {
 	params := make([]float64, p.NumNodes+len(p.FreeNodes))
 	c := 0
 	//fmt.Fprintln(os.Stderr, p.Rates)
@@ -410,15 +422,20 @@ func (p *PLObj) RunMPL(mrcagroups []*Node, t Tree) *optimize.Result {
 		params[c] = p.Dates[i]
 		c++
 	}
-	fmt.Fprintln(os.Stderr, "start MPL:", p.CalcMultPL(params, true))
+	val := p.CalcMultPL(params, true)
+	if verbose {
+		fmt.Fprintln(os.Stderr, "start MPL:", val)
+	}
 	x := p.OptimizeRD(params, p.CalcMultPL)
-	fmt.Fprintln(os.Stderr, "end MPL:", x.F)
+	if verbose {
+		fmt.Fprintln(os.Stderr, "end MPL:", x.F)
+	}
 	return x
 }
 
 //RunCV ...
 // this is just doing cross validation LOOCV
-func (p *PLObj) RunCV(params []float64) {
+func (p *PLObj) RunCV(params []float64, verbose bool) {
 	chisq := 0.0
 	for _, i := range p.Tree.Tips {
 		p.CVNode = i.Num
@@ -440,7 +457,10 @@ func (p *PLObj) RunCV(params []float64) {
 		} else {
 			chisq += (sq / expe) //average chisq
 		}
-		fmt.Println(i.Nam, " rate:", ratees, " expe:", expe, " dur:", d, " len: ", length, " sq: ", sq, " chisq: ", chisq)
+		if verbose {
+			fmt.Fprintln(os.Stderr, i.Nam, " rate:", ratees, " expe:", expe, " dur:",
+				d, " len: ", length, " sq: ", sq, " chisq: ", chisq)
+		}
 	}
 	fmt.Fprintln(os.Stderr, "chisq", chisq)
 }
@@ -479,6 +499,9 @@ func setMaxNodesToPresent(tree Tree) {
 func (p *PLObj) feasibleTimesSplit(nd *Node, timeAnc float64) {
 	if len(nd.Chs) == 0 {
 		p.Dates[nd.Num] = 0
+		if _, ok := nd.FData["tipdates"]; ok {
+			p.Dates[nd.Num] = nd.FData["tipdates"]
+		}
 		return
 	}
 	depth := nd.FData["maxnodes"]
@@ -492,6 +515,9 @@ func (p *PLObj) feasibleTimesSplit(nd *Node, timeAnc float64) {
 func (p *PLObj) feasibleTimes(nd *Node, timeAnc float64) {
 	if len(nd.Chs) == 0 {
 		p.Dates[nd.Num] = 0
+		if _, ok := nd.FData["tipdates"]; ok {
+			p.Dates[nd.Num] = nd.FData["tipdates"]
+		}
 		return
 	}
 	//fmt.Println(nd, nd.Num)
