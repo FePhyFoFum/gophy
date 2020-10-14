@@ -36,6 +36,7 @@ type PLObj struct {
 	RateGroups           map[int]int //[nodenum]rategroup
 	CVNode               int
 	Tree                 Tree
+	Logs                 map[float64]float64
 }
 
 // OptimizeRD optimization
@@ -116,22 +117,23 @@ func (p *PLObj) CalcPL(params []float64, free bool) float64 {
 	if ret == false {
 		return -1.
 	}
-
-	/*jobs := make(chan int, p.NumNodes-1)
-	results := make(chan float64, p.NumNodes-1)
-	for w := 0; w < 2; w++ {
-		go p.PCalcRateLogLike(jobs, results)
-	}
-	njobs := 0
-	for i := 1; i < p.NumNodes; i++ {
-		jobs <- i
-		njobs++
-	}
-	close(jobs)
-	ll := 0.0
-	for i := 0; i < njobs; i++ {
-		ll += <-results
-	}*/
+	/*
+		jobs := make(chan int, p.NumNodes-1)
+		results := make(chan float64, p.NumNodes-1)
+		for w := 0; w < 5; w++ {
+			go p.PCalcRateLogLike(jobs, results)
+		}
+		njobs := 0
+		for i := 1; i < p.NumNodes; i++ {
+			jobs <- i
+			njobs++
+		}
+		close(jobs)
+		ll := 0.0
+		for i := 0; i < njobs; i++ {
+			ll += <-results
+		}
+	*/
 	ll := p.CalcRateLogLike()
 	tp := p.CalcPenalty()
 	rp := p.CalcRoughnessPenalty()
@@ -172,8 +174,25 @@ func (p *PLObj) CalcLF(params []float64, free bool) float64 {
 	if ret == false {
 		return -1.
 	}
+	/*
+		jobs := make(chan int, p.NumNodes-1)
+		results := make(chan float64, p.NumNodes-1)
+		for w := 0; w < 3; w++ {
+			go p.PCalcRateLogLike(jobs, results)
+		}
+		njobs := 0
+		for i := 1; i < p.NumNodes; i++ {
+			jobs <- i
+			njobs++
+		}
+		close(jobs)
+		ll := 0.0
+		for i := 0; i < njobs; i++ {
+			ll += <-results
+		}
+	*/
 	ll := p.CalcRateLogLike()
-	//fmt.Println(ll)
+	//ll := p.CalcRateLogLikeP()
 	return ll
 }
 
@@ -264,8 +283,6 @@ func minLength(l float64, numsites float64) float64 {
 // SetValues ...
 func (p *PLObj) SetValues(t Tree, numsites float64, minmap map[*Node]float64,
 	maxmap map[*Node]float64, verbose bool) {
-	runtime.GOMAXPROCS(2)
-
 	p.Tree = t
 	p.NumNodes = 0
 	p.FreeNodes = make([]int, 0)
@@ -600,26 +617,42 @@ func (p *PLObj) CalcRateLogLike() (ll float64) {
 // CalcRateLogLikeP ...
 // NOT FASTER
 func (p *PLObj) CalcRateLogLikeP() (ll float64) {
+	//cpu :=
+	//runtime.GOMAXPROCS(cpu)
+	cpu := runtime.GOMAXPROCS(0)
+	chunk := (p.NumNodes - 1) / cpu
 	ll = 0.0
 	lr := make(chan float64)
-	for i := 1; i < p.NumNodes; i++ {
-		go func(i int, lr chan float64) {
-			x := p.Rates[i] * p.Durations[i]
-			c := p.CharDurations[i]
-			l := 0.0
-			if x > 0.0 {
-				l = -(c*math.Log(x) - x - p.LogFactCharDurations[i])
-			} else if x == 0 {
-				if c > 0.0 {
-					l = 1e+15
-				} else if c == 0 {
-					l = 0.0
-				}
+	for j := 0; j < cpu; j++ {
+		//	for i := 1; i < p.NumNodes; i++ {
+		go func(start int, r chan<- float64) {
+			end := start + chunk
+			if end >= p.NumNodes {
+				end = p.NumNodes
 			}
-			lr <- l
-		}(i, lr)
+			l2 := 0.0
+			for i := start; i < end; i++ {
+				if i == 0 {
+					continue
+				}
+				x := p.Rates[i] * p.Durations[i]
+				c := p.CharDurations[i]
+				l := 0.0
+				if x > 0.0 {
+					l = -(c*math.Log(x) - x - p.LogFactCharDurations[i])
+				} else if x == 0 {
+					if c > 0.0 {
+						l = 1e+15
+					} else if c == 0 {
+						l = 0.0
+					}
+				}
+				l2 += l
+			}
+			r <- l2
+		}(j*chunk, lr)
 	}
-	for i := 1; i < p.NumNodes; i++ {
+	for i := 0; i < cpu; i++ {
 		ll += <-lr
 	}
 	return
