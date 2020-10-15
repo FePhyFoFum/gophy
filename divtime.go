@@ -113,66 +113,118 @@ func (p *PLObj) OptimizeRD(params []float64, likeFunc func([]float64, bool) floa
 	//fmt.Println(res)
 }
 
-//TODO: getback to this
-func (p *PLObj) OptimizeRDBOUNDED(params []float64) {
-	var p0 []float64
-	p0 = params
-
-	opt, err := nlopt.NewNLopt(nlopt.LD_LBFGS, uint(len(params)))
+//OptimizeRDBOUNDED NLOPT
+func (p *PLObj) OptimizeRDBOUNDED(params []float64, likeFunc func([]float64, bool) float64,
+	LF bool, PL bool, alg int, verbose bool) ([]float64, float64) {
+	opt, err := nlopt.NewNLopt(alg, uint(len(params)))
+	//opt2, _ := nlopt.NewNLopt(nlopt.LD_SLSQP, uint(len(params)))
+	//opt.SetLocalOptimizer(opt2)
 	if err != nil {
 		panic(err)
 	}
 	defer opt.Destroy()
 
 	//get bounds from mins and maxs
+	bounds := make([][2]float64, len(params))
 	lbounds := make([]float64, len(params))
 	hbounds := make([]float64, len(params))
-	lbounds[0] = 0
-	hbounds[0] = 100000000
-	c := 1
-	for _, i := range p.FreeNodes {
-		lbounds[c] = p.Mins[i]
-		hbounds[c] = p.Maxs[i]
-		c++
+	if LF {
+		lbounds[0] = 0.
+		hbounds[0] = 100000000.
+		bounds[0] = [2]float64{0., 1000000.}
+		c := 1
+		for _, i := range p.FreeNodes {
+			lbounds[c] = p.Mins[i]
+			hbounds[c] = p.Maxs[i]
+			bounds[c] = [2]float64{p.Mins[i], p.Maxs[i]}
+			c++
+		}
+	} else if PL {
+		c := 0
+		for i := range p.Rates { //every edge has a rate
+			if i == 0 { //root
+				continue
+			}
+			lbounds[c] = 0.
+			hbounds[c] = 10000000.
+			bounds[c] = [2]float64{0., 1000000.}
+			c++
+		}
+		for _, i := range p.FreeNodes {
+			lbounds[c] = p.Mins[i]
+			hbounds[c] = p.Maxs[i]
+			bounds[c] = [2]float64{p.Mins[i], p.Maxs[i]}
+			c++
+		}
 	}
 	opt.SetLowerBounds(lbounds)
 	opt.SetUpperBounds(hbounds)
+	//opt2.SetLowerBounds(lbounds)
+	//opt2.SetUpperBounds(hbounds)
+	opt.SetMaxEval(100000)
+	opt.SetFtolAbs(10e-5)
 	var evals int
 	fcn := func(pa, gradient []float64) float64 {
 		evals++
-		fmt.Println(pa)
+		//fmt.Println(pa)
 		for _, i := range pa {
 			if i < 0 {
 				return 1000000000000
 			}
 		}
-		pl := p.CalcLF(pa, true)
-		fmt.Println(pl)
+		pl := likeFunc(pa, true)
+		if evals%10000 == 0 {
+			//	fmt.Println(pl, len(gradient))
+		}
 		if pl == -1 {
 			return 100000000000
 		}
-		p.calcLFGradient(pa, &gradient)
+		if len(gradient) > 0 {
+			if LF {
+				p.calcLFGradient(pa, &gradient)
+			} else if PL {
+				p.calcPLGradient(pa, &gradient)
+			}
+		}
 		return pl
 	}
 	opt.SetMinObjective(fcn)
-	xopt, minf, err := opt.Optimize(p0)
-	fmt.Println(xopt, minf)
+	xopt, minf, err := opt.Optimize(params)
+	/*if verbose {
+		fmt.Println("first opt:", minf)
+	}*/
+	if err != nil {
+		panic(err)
+	}
+
 	/*
+		//and the last one
 		optimizer := new(lbfgsb.Lbfgsb)
 		optimizer.Init(len(params))
-		optimizer.SetBoundsSparse(bounds)
-		optimizer.SetFTolerance(1e-10)
-		optimizer.SetGTolerance(1e-10)
+		optimizer.SetBounds(bounds)
 		x := new(LikeFunction)
 		x.p = p
+		x.likeFunc = likeFunc
+		if LF {
+			x.gradFunc = p.calcLFGradient
+		} else if PL {
+			x.gradFunc = p.calcPLGradient
+		}
 		obj := x
-		minimum, exitStatus := optimizer.Minimize(obj, p0)
-		fmt.Println(minimum.F, minimum.X, minimum.G, exitStatus)
+		minimum, _ := optimizer.Minimize(obj, xopt)
+		//fmt.Println(minimum.F) //, minimum.X, minimum.G, exitStatus)
+		if verbose {
+			fmt.Println("second opt:", minimum.F)
+		}
+		return minimum.X, minimum.F //xopt, minf
 	*/
+	return xopt, minf
 }
 
 type LikeFunction struct {
-	p *PLObj
+	p        *PLObj
+	likeFunc func([]float64, bool) float64
+	gradFunc func([]float64, *[]float64)
 }
 
 func (sf LikeFunction) EvaluateFunction(pa []float64) float64 {
@@ -182,8 +234,8 @@ func (sf LikeFunction) EvaluateFunction(pa []float64) float64 {
 		}
 	}
 
-	pl := sf.p.CalcLF(pa, true)
-	fmt.Println(pa, pl)
+	pl := sf.likeFunc(pa, true)
+	//fmt.Println(pa, pl)
 	if pl == -1 {
 		return 100000000000
 	}
@@ -192,7 +244,7 @@ func (sf LikeFunction) EvaluateFunction(pa []float64) float64 {
 
 func (sf LikeFunction) EvaluateGradient(point []float64) (gradient []float64) {
 	gradient = make([]float64, len(point))
-	sf.p.calcLFGradient(point, &gradient)
+	sf.gradFunc(point, &gradient)
 	return
 
 }
@@ -515,10 +567,13 @@ func (p *PLObj) RunLF(startRate float64, verbose bool) *optimize.Result {
 		fmt.Fprintln(os.Stderr, "start LF:", val)
 	}
 	x := p.OptimizeRD(params, p.CalcLF, true, false)
+	x.X, x.F = p.OptimizeRDBOUNDED(x.X, p.CalcLF, true, false, nlopt.LD_SLSQP, verbose)
+	x.X, x.F = p.OptimizeRDBOUNDED(x.X, p.CalcLF, true, false, nlopt.LD_CCSAQ, verbose)
+
 	if verbose {
 		fmt.Fprintln(os.Stderr, "end LF:", x.F)
 	}
-	//p.OptimizeRDBOUNDED(params)
+
 	return x
 }
 
@@ -570,6 +625,9 @@ func (p *PLObj) RunPL(startRate float64, verbose bool) *optimize.Result {
 		fmt.Fprintln(os.Stderr, "start PL:", val)
 	}
 	x := p.OptimizeRD(params, p.CalcPL, false, true)
+	x.X, x.F = p.OptimizeRDBOUNDED(x.X, p.CalcPL, false, true, nlopt.LD_SLSQP, verbose)
+	x.X, x.F = p.OptimizeRDBOUNDED(x.X, p.CalcPL, false, true, nlopt.LD_CCSAQ, verbose)
+
 	if verbose {
 		fmt.Fprintln(os.Stderr, "end PL:", x.F)
 	}
@@ -598,6 +656,7 @@ func (p *PLObj) RunMPL(mrcagroups []*Node, t Tree, verbose bool) *optimize.Resul
 		fmt.Fprintln(os.Stderr, "start MPL:", val)
 	}
 	x := p.OptimizeRD(params, p.CalcMultPL, false, true)
+	x.X, x.F = p.OptimizeRDBOUNDED(x.X, p.CalcMultPL, false, true, nlopt.LN_PRAXIS, verbose)
 	if verbose {
 		fmt.Fprintln(os.Stderr, "end MPL:", x.F)
 	}
@@ -906,6 +965,13 @@ func (p *PLObj) PrintNewickDurations(t Tree) string {
 		n.FData["duration"] = p.Durations[n.Num]
 	}
 	return t.Rt.NewickFloatBL("duration")
+}
+
+func (p *PLObj) PrintNewickRates(t Tree) string {
+	for _, n := range t.Pre {
+		n.FData["rate"] = p.Rates[n.Num]
+	}
+	return t.Rt.NewickFloatBL("rate")
 }
 
 //without CV
