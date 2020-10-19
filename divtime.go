@@ -225,7 +225,7 @@ func (p *PLObj) OptimizeRDBOUNDED(params []float64, likeFunc func([]float64, boo
 func (p *PLObj) OptimizeRDBOUNDEDIE(params []float64, likeFunc func([]float64, bool) float64,
 	LF bool, PL bool, alg int, verbose bool, paramnodemap map[int]int) ([]float64, float64) {
 	opt, err := nlopt.NewNLopt(alg, uint(len(params)))
-	opt2, _ := nlopt.NewNLopt(nlopt.LD_TNEWTON, uint(len(params)))
+	opt2, _ := nlopt.NewNLopt(nlopt.LD_LBFGS, uint(len(params)))
 	opt.SetLocalOptimizer(opt2)
 	if err != nil {
 		panic(err)
