@@ -37,6 +37,7 @@ type PLObj struct {
 	PenaltyBoundary      float64
 	Smoothing            float64
 	RateGroups           map[int]int //[nodenum]rategroup
+	NumRateGroups        int
 	CVNode               int
 	Tree                 Tree
 	Logs                 map[float64]float64
@@ -44,7 +45,7 @@ type PLObj struct {
 
 // OptimizeRD optimization
 func (p *PLObj) OptimizeRD(params []float64, likeFunc func([]float64, bool) float64,
-	LF bool, PL bool) *optimize.Result {
+	LF bool, PL bool, MULT bool) *optimize.Result {
 	count := 0
 	//start := time.Now()
 	fcn := func(pa []float64) float64 {
@@ -70,7 +71,11 @@ func (p *PLObj) OptimizeRD(params []float64, likeFunc func([]float64, bool) floa
 	if LF == true {
 		grad = func(grad, x []float64) {
 			//fmt.Println("before", grad)
-			p.calcLFGradient(x, &grad)
+			if MULT == false {
+				p.calcLFGradient(x, &grad)
+			} else {
+				p.calcMLFGradient(x, &grad)
+			}
 			//fmt.Println("after", grad)
 			//os.Exit(0)
 
@@ -91,7 +96,7 @@ func (p *PLObj) OptimizeRD(params []float64, likeFunc func([]float64, bool) floa
 	}*/
 	settings := optimize.Settings{}
 	FC := optimize.FunctionConverge{}
-	FC.Absolute = 10e-3
+	FC.Absolute = 10e-10
 	//FC.Relative = 1
 	FC.Iterations = 1000
 	settings.Converger = &FC
@@ -166,7 +171,6 @@ func (p *PLObj) OptimizeRDBOUNDED(params []float64, likeFunc func([]float64, boo
 	opt.SetFtolAbs(10e-5)
 	var evals int
 	fcn := func(pa, gradient []float64) float64 {
-		fmt.Println(pa)
 		evals++
 		for _, i := range pa {
 			if i < 0 {
@@ -174,7 +178,6 @@ func (p *PLObj) OptimizeRDBOUNDED(params []float64, likeFunc func([]float64, boo
 			}
 		}
 		pl := likeFunc(pa, true)
-		fmt.Println(pa, pl)
 		if evals%10000 == 0 {
 			//	fmt.Println(pl, len(gradient))
 		}
@@ -635,10 +638,8 @@ func (p *PLObj) SetValues(t Tree, numsites float64, minmap map[*Node]float64,
 	//setup dates
 	rtDt := minmap[t.Rt]
 	p.Dates[t.Rt.Num] = rtDt
-	setMaxNodesToPresent(t)
 	for _, n := range t.Rt.Chs {
 		p.feasibleTimes(n, rtDt)
-		//p.feasibleTimesSplit(n, rtDt) //just splitting them, can go back to the other
 	}
 	durcheck := p.SetDurations()
 	if verbose {
@@ -667,7 +668,7 @@ func (p *PLObj) RunLF(startRate float64, verbose bool) *optimize.Result {
 	if verbose {
 		fmt.Fprintln(os.Stderr, "start LF:", val)
 	}
-	x := p.OptimizeRD(params, p.CalcLF, true, false)
+	x := p.OptimizeRD(params, p.CalcLF, true, false, false)
 	origx := x.X
 	var err error
 	x.X, x.F, err = p.OptimizeRDBOUNDEDIE(x.X, p.CalcLF, true, false, nlopt.LD_AUGLAG, verbose,
@@ -680,7 +681,7 @@ func (p *PLObj) RunLF(startRate float64, verbose bool) *optimize.Result {
 	if verbose {
 		fmt.Fprintln(os.Stderr, "end LF:", x.F)
 	}
-
+	p.CalcLF(x.X, true)
 	return x
 }
 
@@ -705,10 +706,11 @@ func (p *PLObj) RunMLF(startRate float64, mrcagroups []*Node, t Tree,
 	if verbose {
 		fmt.Fprintln(os.Stderr, "start MLF:", val)
 	}
-	x := p.OptimizeRD(params, p.CalcMultLF, false, false)
+	x := p.OptimizeRD(params, p.CalcMultLF, true, false, true)
 	if verbose {
 		fmt.Fprintln(os.Stderr, "end MLF:", x.F)
 	}
+	p.CalcMultLF(x.X, true)
 	return x
 }
 
@@ -733,7 +735,7 @@ func (p *PLObj) RunPL(startRate float64, verbose bool) *optimize.Result {
 	if verbose {
 		fmt.Fprintln(os.Stderr, "start PL:", val)
 	}
-	x := p.OptimizeRD(params, p.CalcPL, false, true)
+	x := p.OptimizeRD(params, p.CalcPL, false, true, false)
 	origx := x.X
 	var err error
 	x.X, x.F, err = p.OptimizeRDBOUNDEDIE(x.X, p.CalcPL, false, true, nlopt.LD_AUGLAG, verbose,
@@ -746,11 +748,12 @@ func (p *PLObj) RunPL(startRate float64, verbose bool) *optimize.Result {
 			x.X, x.F, err = p.OptimizeRDBOUNDED(x.X, p.CalcPL, false, true, nlopt.LD_SLSQP, verbose)
 		}
 	}
-	x.X, x.F, err = p.OptimizeRDBOUNDED(x.X, p.CalcPL, false, true, nlopt.LD_CCSAQ, verbose)
+	//x.X, x.F, err = p.OptimizeRDBOUNDED(x.X, p.CalcPL, false, true, nlopt.LD_CCSAQ, verbose)
 	//
 	if verbose {
 		fmt.Fprintln(os.Stderr, "end PL:", x.F)
 	}
+	p.CalcPL(x.X, true)
 	return x
 }
 
@@ -775,7 +778,7 @@ func (p *PLObj) RunMPL(mrcagroups []*Node, t Tree, verbose bool) *optimize.Resul
 	if verbose {
 		fmt.Fprintln(os.Stderr, "start MPL:", val)
 	}
-	x := p.OptimizeRD(params, p.CalcMultPL, false, true)
+	x := p.OptimizeRD(params, p.CalcMultPL, false, true, false)
 	var err error
 	x.X, x.F, err = p.OptimizeRDBOUNDED(x.X, p.CalcMultPL, false, true, nlopt.LN_PRAXIS, verbose)
 	if err != nil {
@@ -784,6 +787,7 @@ func (p *PLObj) RunMPL(mrcagroups []*Node, t Tree, verbose bool) *optimize.Resul
 	if verbose {
 		fmt.Fprintln(os.Stderr, "end MPL:", x.F)
 	}
+	p.CalcMultPL(x.X, true)
 	return x
 }
 
@@ -793,7 +797,7 @@ func (p *PLObj) RunCV(params []float64, verbose bool, likeFunc func([]float64, b
 	chisq := 0.0
 	for _, i := range p.Tree.Tips {
 		p.CVNode = i.Num
-		p.OptimizeRD(params, likeFunc, false, false)
+		p.OptimizeRD(params, likeFunc, false, false, false)
 		//fmt.Println(x.F)
 		ratees := 0.
 		par := i.Par.Num
@@ -832,38 +836,7 @@ func (p *PLObj) SetRateGroups(tree Tree, mrcagroups []*Node) {
 		}
 		count++
 	}
-}
-
-func setMaxNodesToPresent(tree Tree) {
-	for _, i := range tree.Tips {
-		i.FData["maxnodes"] = 1
-	}
-	for _, i := range tree.Post {
-		if len(i.Chs) > 0 {
-			mx := 0.0
-			for _, j := range i.Chs {
-				mx = math.Max(mx, j.FData["maxnodes"])
-			}
-			i.FData["maxnodes"] = mx + 1
-		}
-	}
-}
-
-//split the difference
-func (p *PLObj) feasibleTimesSplit(nd *Node, timeAnc float64) {
-	if len(nd.Chs) == 0 {
-		p.Dates[nd.Num] = 0
-		if _, ok := nd.FData["tipdates"]; ok {
-			p.Dates[nd.Num] = nd.FData["tipdates"]
-		}
-		return
-	}
-	depth := nd.FData["maxnodes"]
-	p.Dates[nd.Num] = timeAnc - (timeAnc / depth)
-	//fmt.Println(nd, timeAnc, depth, timeAnc/depth)
-	for _, n := range nd.Chs {
-		p.feasibleTimesSplit(n, p.Dates[nd.Num])
-	}
+	p.NumRateGroups = count
 }
 
 func (p *PLObj) feasibleTimes(nd *Node, timeAnc float64) {
@@ -1147,7 +1120,165 @@ func (p *PLObj) calcLFGradient(params []float64, g *[]float64) {
 	}
 }
 
+//without CV
+//multiple rate LF gradient
+func (p *PLObj) calcMLFGradient(params []float64, g *[]float64) {
+	//rate derivative
+	//for each rate, need to calculate the gradient
+	rates := make([]float64, p.NumRateGroups)
+	sumbls := make([]float64, p.NumRateGroups)
+	sumtimes := make([]float64, p.NumRateGroups)
+	for i, j := range p.RateGroups { //node, num
+		sumbls[j] += p.CharDurations[i]
+		sumtimes[j] += p.Durations[i]
+	}
+	count := 0
+	for i := 0; i < p.NumRateGroups; i++ {
+		rates[i] = params[i]
+		(*g)[i] = -(sumbls[i]/rates[i] - sumtimes[i])
+		if math.IsNaN((*g)[count]) {
+			for i := 0; i < len(params); i++ {
+				(*g)[i] = 1000000
+			}
+			return
+		}
+		count++
+	}
+	//time derivative
+	for _, i := range p.FreeNodes {
+		//	for i := 0; i < p.NumNodes; i++ {
+		//		if _, ok := p.FreeNodesM[i]; ok { //use to be free->(at) == 1
+		(*g)[count] = 0
+		if i != 0 { //not the root
+			if p.CharDurations[i] == 0.0 {
+				(*g)[count] = rates[p.RateGroups[i]]
+			} else {
+				(*g)[count] = -p.CharDurations[i]/p.Durations[i] + rates[p.RateGroups[i]]
+			}
+		}
+		for j := 0; j < len(p.ChildrenVec[i]); j++ { //WAY FASTER THAN ABOVE
+			curch := p.ChildrenVec[i][j]
+			if p.CharDurations[curch] == 0.0 {
+				(*g)[count] -= rates[p.RateGroups[curch]]
+			} else {
+				(*g)[count] += p.CharDurations[curch]/p.Durations[curch] - rates[p.RateGroups[curch]]
+			}
+		}
+
+		(*g)[count] *= -1
+		count++
+		//		}
+	}
+}
+
 func (p *PLObj) calcPLGradient(params []float64, g *[]float64) {
+	icount := p.NumNodes - 1 //seems to be numnodes not -1, icount := p.NumNodes - 1
+	if p.CVNode > 0 {
+		icount--
+	}
+
+	//int subcv = calc_isum(p.cvnodes);
+	//icount -= subcv;
+	//time derivative
+	for _, i := range p.FreeNodes {
+		//	for i := 0; i < p.NumNodes; i++ {
+		//		if _, ok := p.FreeNodesM[i]; ok { //if (free->at(curponi) == 1){// greater than 0 is free, negative is not free
+		(*g)[icount] = 0.0
+		if i != 0 { //not the root
+			if p.CharDurations[i] == 0.0 {
+				(*g)[icount] = p.Rates[i]
+			} else {
+				//g->at(icount) = -nd->char_duration/nd->duration+nd->rate;
+				(*g)[icount] = -p.CharDurations[i]/p.Durations[i] + p.Rates[i]
+			}
+		}
+		for j := 0; j < len(p.ChildrenVec[i]); j++ {
+			curch := p.ChildrenVec[i][j]
+			if p.CVNode != curch { //if cvnodes[curch] == 0 {
+				if p.CharDurations[curch] == 0.0 {
+					(*g)[icount] -= p.Rates[curch]
+				} else {
+					(*g)[icount] += p.CharDurations[curch]/p.Durations[curch] - p.Rates[curch]
+				}
+			}
+		}
+		(*g)[icount] *= -1
+		icount++
+		//		}
+	}
+	//fmt.Println(icount, params, g)
+	//os.Exit(0)
+	//rate derivative//this one is additive
+	icount = 0
+	for i := 1; i < p.NumNodes; i++ {
+		if p.CVNode != i { //if(cvnodes[i] == 0){
+			tomy := 0.
+			meanr := 0.0
+			tg := 0.0
+			var lograte float64
+			//if i != 0 { //not the root
+			tg = p.CharDurations[i]/p.Rates[i] - p.Durations[i]
+			if p.LogPen == true {
+				lograte = math.Log(p.Rates[i])
+			}
+			if p.ParentsNdsInts[i] == 0 { //parent is the root
+				curp := p.ParentsNdsInts[i]
+				for j := 0; j < len(p.ChildrenVec[curp]); j++ {
+					curch := p.ChildrenVec[curp][j]
+					if p.CVNode != curch { //if(cvnodes[curch] == 0){
+						tomy++ //++tomy;
+						if p.LogPen {
+							meanr += math.Log(p.Rates[curch])
+						} else {
+							meanr += p.Rates[curch]
+						}
+					}
+				}
+				meanr /= tomy
+				if p.LogPen {
+					tg += -(2 * p.Smoothing / p.Rates[i]) * (lograte - meanr) / tomy
+				} else {
+					tg += -(2 * p.Smoothing) * (p.Rates[i] - meanr) / tomy
+				}
+				//		    cout << "f "<<  tg << endl;
+				for j := 0; j < len(p.ChildrenVec[i]); j++ {
+					curch := p.ChildrenVec[i][j]
+					if p.CVNode != curch { //if (cvnodes[curch] == 0){
+						if p.LogPen {
+							tg += 2 * p.Smoothing * (math.Log(p.Rates[curch]) - lograte) / p.Rates[i]
+						} else {
+							tg += 2 * p.Smoothing * (p.Rates[curch] - p.Rates[i])
+						}
+					}
+				}
+				//		    cout << tg << endl;
+			} else {
+				curp := p.ParentsNdsInts[i]
+				if p.LogPen {
+					tg += (-2 * p.Smoothing) * (lograte - math.Log(p.Rates[curp])) / p.Rates[i]
+				} else {
+					tg += (-2 * p.Smoothing) * (p.Rates[i] - p.Rates[curp])
+				}
+				for j := 0; j < len(p.ChildrenVec[i]); j++ {
+					curch := p.ChildrenVec[i][j]
+					if p.CVNode != curch { //if (cvnodes[curch] == 0){
+						if p.LogPen {
+							tg += 2 * p.Smoothing * (math.Log(p.Rates[curch]) - lograte) / p.Rates[i]
+						} else {
+							tg += 2 * p.Smoothing * (p.Rates[curch] - p.Rates[i])
+						}
+					}
+				}
+				//		    cout << "notroot " << -tg << endl;
+			}
+			(*g)[icount] = -tg //-1;
+			icount++
+			//}
+		}
+	}
+}
+
+func (p *PLObj) calcMPLGradient(params []float64, g *[]float64) {
 	icount := p.NumNodes - 1 //seems to be numnodes not -1, icount := p.NumNodes - 1
 	if p.CVNode > 0 {
 		icount--
