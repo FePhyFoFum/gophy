@@ -116,10 +116,12 @@ func (p *PLObj) OptimizeRD(params []float64, likeFunc func([]float64, bool) floa
 
 //OptimizeRDBOUNDED NLOPT
 func (p *PLObj) OptimizeRDBOUNDED(params []float64, likeFunc func([]float64, bool) float64,
-	LF bool, PL bool, alg int, verbose bool) ([]float64, float64) {
+	LF bool, PL bool, alg int, verbose bool) ([]float64, float64, error) {
 	opt, err := nlopt.NewNLopt(alg, uint(len(params)))
-	//opt2, _ := nlopt.NewNLopt(nlopt.LD_SLSQP, uint(len(params)))
-	//opt.SetLocalOptimizer(opt2)
+	if alg == nlopt.LD_AUGLAG {
+		opt2, _ := nlopt.NewNLopt(nlopt.LD_LBFGS, uint(len(params)))
+		opt.SetLocalOptimizer(opt2)
+	}
 	if err != nil {
 		panic(err)
 	}
@@ -160,20 +162,19 @@ func (p *PLObj) OptimizeRDBOUNDED(params []float64, likeFunc func([]float64, boo
 	}
 	opt.SetLowerBounds(lbounds)
 	opt.SetUpperBounds(hbounds)
-	//opt2.SetLowerBounds(lbounds)
-	//opt2.SetUpperBounds(hbounds)
 	opt.SetMaxEval(100000)
 	opt.SetFtolAbs(10e-5)
 	var evals int
 	fcn := func(pa, gradient []float64) float64 {
+		fmt.Println(pa)
 		evals++
-		//fmt.Println(pa)
 		for _, i := range pa {
 			if i < 0 {
 				return 1000000000000
 			}
 		}
 		pl := likeFunc(pa, true)
+		fmt.Println(pa, pl)
 		if evals%10000 == 0 {
 			//	fmt.Println(pl, len(gradient))
 		}
@@ -191,12 +192,6 @@ func (p *PLObj) OptimizeRDBOUNDED(params []float64, likeFunc func([]float64, boo
 	}
 	opt.SetMinObjective(fcn)
 	xopt, minf, err := opt.Optimize(params)
-	/*if verbose {
-		fmt.Println("first opt:", minf)
-	}*/
-	if err != nil {
-		panic(err)
-	}
 
 	/*
 		//and the last one
@@ -219,11 +214,12 @@ func (p *PLObj) OptimizeRDBOUNDED(params []float64, likeFunc func([]float64, boo
 		}
 		return minimum.X, minimum.F //xopt, minf
 	*/
-	return xopt, minf
+	return xopt, minf, err
 }
 
+//OptimizeRDBOUNDEDIE NLOPT with inequality constraints
 func (p *PLObj) OptimizeRDBOUNDEDIE(params []float64, likeFunc func([]float64, bool) float64,
-	LF bool, PL bool, alg int, verbose bool, paramnodemap map[int]int) ([]float64, float64) {
+	LF bool, PL bool, alg int, verbose bool, paramnodemap map[int]int) ([]float64, float64, error) {
 	opt, err := nlopt.NewNLopt(alg, uint(len(params)))
 	opt2, _ := nlopt.NewNLopt(nlopt.LD_LBFGS, uint(len(params)))
 	opt.SetLocalOptimizer(opt2)
@@ -318,14 +314,8 @@ func (p *PLObj) OptimizeRDBOUNDEDIE(params []float64, likeFunc func([]float64, b
 	}
 	opt.SetMinObjective(fcn)
 	xopt, minf, err := opt.Optimize(params)
-	/*if verbose {
-		fmt.Println("first opt:", minf)
-	}*/
-	if err != nil {
-		panic(err)
-	}
 
-	return xopt, minf
+	return xopt, minf, err
 }
 
 type LikeFunction struct {
@@ -678,11 +668,15 @@ func (p *PLObj) RunLF(startRate float64, verbose bool) *optimize.Result {
 		fmt.Fprintln(os.Stderr, "start LF:", val)
 	}
 	x := p.OptimizeRD(params, p.CalcLF, true, false)
-	x.X, x.F = p.OptimizeRDBOUNDED(x.X, p.CalcLF, true, false, nlopt.LD_SLSQP, verbose)
-	//x.X, x.F = p.OptimizeRDBOUNDEDIE(x.X, p.CalcLF, true, false, nlopt.LD_AUGLAG, verbose,
-	//	paramnodemap)
+	origx := x.X
+	var err error
+	x.X, x.F, err = p.OptimizeRDBOUNDEDIE(x.X, p.CalcLF, true, false, nlopt.LD_AUGLAG, verbose,
+		paramnodemap)
+	if err != nil {
+		x.X = origx
+		x.X, x.F, err = p.OptimizeRDBOUNDED(x.X, p.CalcLF, true, false, nlopt.LD_SLSQP, verbose)
+	}
 	//x.X, x.F = p.OptimizeRDBOUNDED(x.X, p.CalcLF, true, false, nlopt.LD_CCSAQ, verbose)
-
 	if verbose {
 		fmt.Fprintln(os.Stderr, "end LF:", x.F)
 	}
@@ -740,10 +734,20 @@ func (p *PLObj) RunPL(startRate float64, verbose bool) *optimize.Result {
 		fmt.Fprintln(os.Stderr, "start PL:", val)
 	}
 	x := p.OptimizeRD(params, p.CalcPL, false, true)
-	//x.X, x.F = p.OptimizeRDBOUNDED(x.X, p.CalcPL, false, true, nlopt.LD_SLSQP, verbose)
-	//x.X, x.F = p.OptimizeRDBOUNDED(x.X, p.CalcPL, false, true, nlopt.LD_CCSAQ, verbose)
-	x.X, x.F = p.OptimizeRDBOUNDEDIE(x.X, p.CalcPL, false, true, nlopt.LD_AUGLAG, verbose,
+	origx := x.X
+	var err error
+	x.X, x.F, err = p.OptimizeRDBOUNDEDIE(x.X, p.CalcPL, false, true, nlopt.LD_AUGLAG, verbose,
 		paramnodemap)
+	if err != nil {
+		x.X = origx
+		x.X, x.F, err = p.OptimizeRDBOUNDED(x.X, p.CalcPL, false, true, nlopt.LD_AUGLAG, verbose)
+		if err != nil {
+			x.X = origx
+			x.X, x.F, err = p.OptimizeRDBOUNDED(x.X, p.CalcPL, false, true, nlopt.LD_SLSQP, verbose)
+		}
+	}
+	x.X, x.F, err = p.OptimizeRDBOUNDED(x.X, p.CalcPL, false, true, nlopt.LD_CCSAQ, verbose)
+	//
 	if verbose {
 		fmt.Fprintln(os.Stderr, "end PL:", x.F)
 	}
@@ -772,7 +776,11 @@ func (p *PLObj) RunMPL(mrcagroups []*Node, t Tree, verbose bool) *optimize.Resul
 		fmt.Fprintln(os.Stderr, "start MPL:", val)
 	}
 	x := p.OptimizeRD(params, p.CalcMultPL, false, true)
-	x.X, x.F = p.OptimizeRDBOUNDED(x.X, p.CalcMultPL, false, true, nlopt.LN_PRAXIS, verbose)
+	var err error
+	x.X, x.F, err = p.OptimizeRDBOUNDED(x.X, p.CalcMultPL, false, true, nlopt.LN_PRAXIS, verbose)
+	if err != nil {
+		//another one?
+	}
 	if verbose {
 		fmt.Fprintln(os.Stderr, "end MPL:", x.F)
 	}
@@ -870,7 +878,8 @@ func (p *PLObj) feasibleTimes(nd *Node, timeAnc float64) {
 	if p.Maxs[nd.Num] < timeAnc {
 		timeAnc = p.Maxs[nd.Num]
 	}
-	p.Dates[nd.Num] = timeAnc - (timeAnc-p.Mins[nd.Num])*(0.02*rand.Float64()*0.96)/math.Log(2.+3.)
+	//p.Dates[nd.Num] = timeAnc - (timeAnc-p.Mins[nd.Num])*(0.02*rand.Float64()*0.96)/math.Log(2.+3.)
+	p.Dates[nd.Num] = timeAnc - (timeAnc-p.Mins[nd.Num])*(rand.Float64())/math.Log(2.+3.)
 	//fmt.Println(p.Dates[nd.Num], timeAnc)
 	for _, n := range nd.Chs {
 		p.feasibleTimes(n, p.Dates[nd.Num])
