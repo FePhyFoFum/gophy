@@ -69,5 +69,5 @@ func (t *Tree) GetTipByName(name string) (*Node, error) {
 			return n, nil
 		}
 	}
-	return nil, errors.New("no node with that name")
+	return nil, errors.New("no node with name: " + name)
 }
