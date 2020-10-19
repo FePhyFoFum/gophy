@@ -31,6 +31,7 @@ type PLObj struct {
 	ChildrenVec          [][]int
 	FreeNodes            []int
 	FreeNodesM           map[int]bool
+	NodesMap             map[int]*Node
 	NumNodes             int
 	LogPen               bool
 	PenaltyBoundary      float64
@@ -218,6 +219,112 @@ func (p *PLObj) OptimizeRDBOUNDED(params []float64, likeFunc func([]float64, boo
 		}
 		return minimum.X, minimum.F //xopt, minf
 	*/
+	return xopt, minf
+}
+
+func (p *PLObj) OptimizeRDBOUNDEDIE(params []float64, likeFunc func([]float64, bool) float64,
+	LF bool, PL bool, alg int, verbose bool, paramnodemap map[int]int) ([]float64, float64) {
+	opt, err := nlopt.NewNLopt(alg, uint(len(params)))
+	opt2, _ := nlopt.NewNLopt(nlopt.LD_TNEWTON, uint(len(params)))
+	opt.SetLocalOptimizer(opt2)
+	if err != nil {
+		panic(err)
+	}
+	defer opt.Destroy()
+
+	//get bounds from mins and maxs
+	bounds := make([][2]float64, len(params))
+	lbounds := make([]float64, len(params))
+	hbounds := make([]float64, len(params))
+	if LF {
+		lbounds[0] = 0.
+		hbounds[0] = 100000000.
+		bounds[0] = [2]float64{0., 1000000.}
+		c := 1
+		for _, i := range p.FreeNodes {
+			lbounds[c] = p.Mins[i]
+			hbounds[c] = p.Maxs[i]
+			bounds[c] = [2]float64{p.Mins[i], p.Maxs[i]}
+			c++
+		}
+	} else if PL {
+		c := 0
+		for i := range p.Rates { //every edge has a rate
+			if i == 0 { //root
+				continue
+			}
+			lbounds[c] = 0.
+			hbounds[c] = 10000000.
+			bounds[c] = [2]float64{0., 1000000.}
+			c++
+		}
+		for _, i := range p.FreeNodes {
+			lbounds[c] = p.Mins[i]
+			hbounds[c] = p.Maxs[i]
+			bounds[c] = [2]float64{p.Mins[i], p.Maxs[i]}
+			c++
+		}
+	}
+	opt.SetLowerBounds(lbounds)
+	opt.SetUpperBounds(hbounds)
+	//for each internal node
+	for _, j := range p.FreeNodes {
+		ap := paramnodemap[j]
+		par := p.NodesMap[j].Par
+		if _, ok := p.FreeNodesM[par.Num]; ok {
+			bp := paramnodemap[par.Num]
+			//fmt.Fprintln(os.Stderr, p.NodesMap[j].Par, ">", p.NodesMap[j])
+			iefcn := func(pa, gradient []float64) float64 {
+				a := pa[ap]
+				b := pa[bp]
+				if len(gradient) > 0 {
+					for i := range gradient {
+						gradient[i] = 0.0
+					}
+				}
+				return a - b
+			}
+			opt.AddInequalityConstraint(iefcn, 10e-10)
+		}
+	}
+	//opt2.SetLowerBounds(lbounds)
+	//opt2.SetUpperBounds(hbounds)
+	opt.SetMaxEval(100000)
+	opt.SetFtolAbs(10e-10)
+	var evals int
+	fcn := func(pa, gradient []float64) float64 {
+		evals++
+		//fmt.Println(pa)
+		for _, i := range pa {
+			if i < 0 {
+				return 1000000000000
+			}
+		}
+		pl := likeFunc(pa, true)
+		if evals%10000 == 0 {
+			//	fmt.Println(pl, len(gradient))
+		}
+		if pl == -1 {
+			return 100000000000
+		}
+		if len(gradient) > 0 {
+			if LF {
+				p.calcLFGradient(pa, &gradient)
+			} else if PL {
+				p.calcPLGradient(pa, &gradient)
+			}
+		}
+		return pl
+	}
+	opt.SetMinObjective(fcn)
+	xopt, minf, err := opt.Optimize(params)
+	/*if verbose {
+		fmt.Println("first opt:", minf)
+	}*/
+	if err != nil {
+		panic(err)
+	}
+
 	return xopt, minf
 }
 
@@ -460,9 +567,11 @@ func (p *PLObj) SetValues(t Tree, numsites float64, minmap map[*Node]float64,
 	p.NumNodes = 0
 	p.FreeNodes = make([]int, 0)
 	p.FreeNodesM = make(map[int]bool)
+	p.NodesMap = make(map[int]*Node)
 	//assign node numbers
 	for i, n := range t.Pre {
 		n.Num = i
+		p.NodesMap[n.Num] = n
 		p.NumNodes++
 		if n != t.Rt && len(n.Chs) > 0 {
 			p.FreeNodes = append(p.FreeNodes, n.Num)
@@ -554,11 +663,13 @@ func (p *PLObj) SetValues(t Tree, numsites float64, minmap map[*Node]float64,
 //RunLF langley fitch run with starting float, probably numsites/20.
 func (p *PLObj) RunLF(startRate float64, verbose bool) *optimize.Result {
 	params := make([]float64, len(p.FreeNodes)+1) // lf
+	paramnodemap := make(map[int]int, 0)          //key=freenode i, value = param c
 	c := 0
 	params[c] = startRate //lf
 	c++                   //lf
 	for _, i := range p.FreeNodes {
 		params[c] = p.Dates[i]
+		paramnodemap[i] = c
 		c++
 	}
 	//fmt.Fprintln(os.Stderr, params)
@@ -568,7 +679,9 @@ func (p *PLObj) RunLF(startRate float64, verbose bool) *optimize.Result {
 	}
 	x := p.OptimizeRD(params, p.CalcLF, true, false)
 	x.X, x.F = p.OptimizeRDBOUNDED(x.X, p.CalcLF, true, false, nlopt.LD_SLSQP, verbose)
-	x.X, x.F = p.OptimizeRDBOUNDED(x.X, p.CalcLF, true, false, nlopt.LD_CCSAQ, verbose)
+	//x.X, x.F = p.OptimizeRDBOUNDEDIE(x.X, p.CalcLF, true, false, nlopt.LD_AUGLAG, verbose,
+	//	paramnodemap)
+	//x.X, x.F = p.OptimizeRDBOUNDED(x.X, p.CalcLF, true, false, nlopt.LD_CCSAQ, verbose)
 
 	if verbose {
 		fmt.Fprintln(os.Stderr, "end LF:", x.F)
@@ -608,6 +721,7 @@ func (p *PLObj) RunMLF(startRate float64, mrcagroups []*Node, t Tree,
 //RunPL penalized likelihood run with a starting float, probably x.X[0] from LF
 func (p *PLObj) RunPL(startRate float64, verbose bool) *optimize.Result {
 	params := make([]float64, p.NumNodes-1+len(p.FreeNodes)) // pl
+	paramnodemap := make(map[int]int, 0)                     //key=freenode i, value = param c
 	c := 0
 	for i := range p.Rates { //every edge has a rate
 		if i == 0 { //root
@@ -618,6 +732,7 @@ func (p *PLObj) RunPL(startRate float64, verbose bool) *optimize.Result {
 	}
 	for _, i := range p.FreeNodes {
 		params[c] = p.Dates[i]
+		paramnodemap[i] = c
 		c++
 	}
 	val := p.CalcPL(params, true)
@@ -625,9 +740,10 @@ func (p *PLObj) RunPL(startRate float64, verbose bool) *optimize.Result {
 		fmt.Fprintln(os.Stderr, "start PL:", val)
 	}
 	x := p.OptimizeRD(params, p.CalcPL, false, true)
-	x.X, x.F = p.OptimizeRDBOUNDED(x.X, p.CalcPL, false, true, nlopt.LD_SLSQP, verbose)
-	x.X, x.F = p.OptimizeRDBOUNDED(x.X, p.CalcPL, false, true, nlopt.LD_CCSAQ, verbose)
-
+	//x.X, x.F = p.OptimizeRDBOUNDED(x.X, p.CalcPL, false, true, nlopt.LD_SLSQP, verbose)
+	//x.X, x.F = p.OptimizeRDBOUNDED(x.X, p.CalcPL, false, true, nlopt.LD_CCSAQ, verbose)
+	x.X, x.F = p.OptimizeRDBOUNDEDIE(x.X, p.CalcPL, false, true, nlopt.LD_AUGLAG, verbose,
+		paramnodemap)
 	if verbose {
 		fmt.Fprintln(os.Stderr, "end PL:", x.F)
 	}
