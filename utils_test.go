@@ -245,3 +245,11 @@ func TestLogFact(t *testing.T) {
 		t.Fail()
 	}
 }
+func TestCalcConfIntLgLike(t *testing.T) {
+	x := math.Round(gophy.CalcConfIntLgLike(2, 0.95)*1000) / 1000
+	y := math.Round(math.Log(0.95)*1000) / 1000
+	if !(x == y) {
+		fmt.Println(x, y)
+		t.Fail()
+	}
+}

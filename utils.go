@@ -72,8 +72,8 @@ func PCalcRFDistancesPartial(bpts map[int][]int, bps []Bipart, jobs <-chan []int
 		for _, x := range bpts[in1] {
 			for _, y := range bpts[in2] {
 				if bps[x].ConflictsWith(bps[y]) {
-					mb["t1"+string(x)] = true
-					mb["t2"+string(y)] = true
+					mb["t1"+strconv.Itoa(x)] = true
+					mb["t2"+strconv.Itoa(y)] = true
 				}
 			}
 		}
@@ -106,8 +106,8 @@ func PCalcRFDistancesPartialWeighted(bpts map[int][]int, tippenalty bool, bps []
 		for _, x := range bpts[in1] {
 			for _, y := range bpts[in2] {
 				if bps[x].ConflictsWith(bps[y]) {
-					mb["t1"+string(x)] = bps[x].NdsM[in1].Len
-					mb["t2"+string(y)] = bps[y].NdsM[in2].Len
+					mb["t1"+strconv.Itoa(x)] = bps[x].NdsM[in1].Len
+					mb["t2"+strconv.Itoa(y)] = bps[y].NdsM[in2].Len
 					// record the max dev
 					if bps[x].NdsM[in1].Len > maxdev {
 						maxdev = bps[x].NdsM[in1].Len
@@ -461,4 +461,12 @@ func ReadLine(path string) (ln []string) {
 	ss := string(b)
 	ln = strings.Split(ss, "\n")
 	return
+}
+
+//CalcConfIntLgLike calculates the distance from the ML
+// this is based on pg. 66 from In all Likelihood
+// -.5*s.chi2(df).ppf(1-i) or -.5*s.norm(df,2*df).ppf(1-i) for large df
+func CalcConfIntLgLike(nparams float64, perc float64) float64 {
+	CS := distuv.ChiSquared{K: nparams}
+	return -.5 * CS.Quantile(1.-perc) // perc is probably 0.95
 }
