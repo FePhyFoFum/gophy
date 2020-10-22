@@ -547,6 +547,45 @@ func (p *PLObj) CalcMultPL(params []float64, free bool) float64 {
 	return pl
 }
 
+func (p *PLObj) CalcPLJustLike(params []float64, free bool) float64 {
+	for _, i := range params {
+		if i < 0 {
+			return -1.
+		}
+	}
+
+	pcount := 0
+	fcount := 0
+	for i := range p.Rates {
+		if i == 0 { // skip the root
+			continue
+		}
+		p.Rates[i] = params[pcount]
+		pcount++
+		fcount++
+	}
+	if free { // only set the free nodes
+		for _, i := range p.FreeNodes {
+			p.Dates[i] = params[pcount]
+			pcount++
+			fcount++
+		}
+	} else {
+		for i := range p.Dates {
+			p.Dates[i] = params[pcount]
+			pcount++
+			fcount++
+		}
+	}
+	ret := p.SetDurations()
+	if ret == false {
+		return -1.
+	}
+
+	ll := p.CalcRateLogLike()
+	return ll
+}
+
 func minLength(l float64, numsites float64) float64 {
 	return math.Max(l, 1./numsites)
 }
