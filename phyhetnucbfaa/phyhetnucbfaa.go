@@ -154,11 +154,11 @@ func main() {
 
 	//read tree
 	t := gophy.ReadTreeFromFile(*tfn)
-	seqs, patternsint, nsites, bf := gophy.ReadPatternsSeqsFromFile(*afn)
+	seqs, patternsint, nsites, bf := gophy.ReadPatternsSeqsFromFile(*afn, false)
 	patternval, _ := gophy.PreparePatternVecs(t, patternsint, seqs)
 
 	//root model
-	x := gophy.NewProteinModelNew()
+	x := gophy.NewProteinModel()
 	x.DiscreteModel.SetBaseFreqs(bf)
 	x.SetRateMatrixWAG()
 	fmt.Fprintln(os.Stderr, "emp:", bf)
@@ -190,7 +190,7 @@ func main() {
 			continue
 		}
 		if len(i.GetTips()) > minset {
-			y := gophy.NewProteinModelNew()
+			y := gophy.NewProteinModel()
 			y.DiscreteModel.SetBaseFreqs(bf)
 			y.SetRateMatrixWAG()
 			modelmap[i] = count

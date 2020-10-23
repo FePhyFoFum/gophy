@@ -5,12 +5,12 @@ import (
 )
 
 // MultStateModel multistate model struct
-type MultStateModelNew struct {
-	DiscreteModelNew
+type MultStateModel struct {
+	DiscreteModel
 }
 
 // NewMultStateModel get new MULTModel pointer
-func NewMultStateModelNew(numstates int) *MultStateModelNew {
+func NewMultStateModel(numstates int) *MultStateModel {
 	CharMap := make(map[string][]int)
 	CharMap["-"] = make([]int, numstates)
 	CharMap["N"] = make([]int, numstates)
@@ -19,9 +19,9 @@ func NewMultStateModelNew(numstates int) *MultStateModelNew {
 		CharMap["-"][i] = i
 		CharMap["N"][i] = i
 	}
-	dnam := MultStateModelNew{}
-	dnam.DiscreteModelNew.Alph = MultiState
-	dnam.DiscreteModelNew.NumStates = numstates
-	dnam.DiscreteModelNew.CharMap = CharMap
+	dnam := MultStateModel{}
+	dnam.DiscreteModel.Alph = MultiState
+	dnam.DiscreteModel.NumStates = numstates
+	dnam.DiscreteModel.CharMap = CharMap
 	return &dnam
 }

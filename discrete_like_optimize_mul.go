@@ -172,7 +172,7 @@ func OptimizeGTRMul(t *Tree, models []*DiscreteModel, nodemodels map[*Node]int, 
 		for i, j := range models {
 			cn := i * 5
 			//fmt.Println(mds[cn:cn+5])
-			j.SetRateMatrixDNA(mds[cn : cn+5])
+			j.SetRateMatrix(mds[cn : cn+5])
 			j.SetupQGTR()
 		}
 		lnl := PCalcLikePatternsMul(t, models, nodemodels, patternvals, wks)
@@ -210,7 +210,7 @@ func OptimizeGTRMul(t *Tree, models []*DiscreteModel, nodemodels map[*Node]int, 
 	for i, j := range models {
 		cn := i * 5
 		fmt.Println(res.X[cn : cn+5])
-		j.SetRateMatrixDNA(res.X[cn : cn+5])
+		j.SetRateMatrix(res.X[cn : cn+5])
 		j.SetupQGTR()
 	}
 }
@@ -234,7 +234,7 @@ func OptimizeGTRBPMul(t *Tree, models []*DiscreteModel, nodemodels map[*Node]int
 		}
 		cur := 0
 		for _, j := range models {
-			j.SetRateMatrixDNA(mds[cur : cur+5])
+			j.SetRateMatrix(mds[cur : cur+5])
 			cur += 5
 			bf := []float64{mds[cur], mds[cur+1], mds[cur+2]}
 			cur += 3
@@ -295,7 +295,7 @@ func OptimizeGTRBPMul(t *Tree, models []*DiscreteModel, nodemodels map[*Node]int
 	fmt.Println("   ", res.F)
 	cur := 0
 	for _, j := range models {
-		j.SetRateMatrixDNA(res.X[cur : cur+5])
+		j.SetRateMatrix(res.X[cur : cur+5])
 		cur += 5
 		bf := []float64{res.X[cur], res.X[cur+1], res.X[cur+2]}
 		cur += 3
@@ -325,7 +325,7 @@ func OptimizeGTRCompSharedRM(t *Tree, models []*DiscreteModel, nodemodels map[*N
 		cur := 5
 		//fmt.Println(" ++", mds)
 		for _, j := range models {
-			j.SetRateMatrixDNA(mds[0:5])
+			j.SetRateMatrix(mds[0:5])
 			bf := []float64{mds[cur], mds[cur+1], mds[cur+2]}
 			cur += 3
 			bf = append(bf, 1-floats.Sum(bf))
@@ -390,7 +390,7 @@ func OptimizeGTRCompSharedRM(t *Tree, models []*DiscreteModel, nodemodels map[*N
 	//fmt.Println("   ", res.F)
 	cur := 5
 	for _, j := range models {
-		j.SetRateMatrixDNA(res.X[0:5])
+		j.SetRateMatrix(res.X[0:5])
 		bf := []float64{res.X[cur], res.X[cur+1], res.X[cur+2]}
 		cur += 3
 		bf = append(bf, 1-floats.Sum(bf))
@@ -421,7 +421,7 @@ func OptimizeGTRCompSharedRMSingleModel(t *Tree, models []*DiscreteModel,
 		cur := 5
 		//fmt.Println(" ++", mds)
 		j := models[whichmodel]
-		j.SetRateMatrixDNA(mds[0:5])
+		j.SetRateMatrix(mds[0:5])
 		bf := []float64{mds[cur], mds[cur+1], mds[cur+2]}
 		cur += 3
 		bf = append(bf, 1-floats.Sum(bf))
@@ -480,7 +480,7 @@ func OptimizeGTRCompSharedRMSingleModel(t *Tree, models []*DiscreteModel,
 	//fmt.Println("   ", res.F)
 	cur := 5
 	j := models[whichmodel]
-	j.SetRateMatrixDNA(res.X[0:5])
+	j.SetRateMatrix(res.X[0:5])
 	bf := []float64{res.X[cur], res.X[cur+1], res.X[cur+2]}
 	cur += 3
 	bf = append(bf, 1-floats.Sum(bf))
@@ -501,7 +501,7 @@ func OptimizeGTRCompSharedRMSubClade(t *Tree, n *Node, excl bool, models []*Disc
 		}
 		cur := 5
 		for _, j := range models {
-			j.SetRateMatrixDNA(mds[0:5])
+			j.SetRateMatrix(mds[0:5])
 			bf := []float64{mds[cur], mds[cur+1], mds[cur+2]}
 			cur += 3
 			bf = append(bf, 1-SumFloatVec(bf))
@@ -560,7 +560,7 @@ func OptimizeGTRCompSharedRMSubClade(t *Tree, n *Node, excl bool, models []*Disc
 	//fmt.Println("   ", res.F)
 	cur := 5
 	for _, j := range models {
-		j.SetRateMatrixDNA(res.X[0:5])
+		j.SetRateMatrix(res.X[0:5])
 		bf := []float64{res.X[cur], res.X[cur+1], res.X[cur+2]}
 		cur += 3
 		bf = append(bf, 1-floats.Sum(bf))

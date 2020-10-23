@@ -242,7 +242,7 @@ func OptimizeGTR(t *Tree, x *DiscreteModel, patternvals []float64, sup bool, wks
 				return 1000000000000
 			}
 		}
-		x.SetRateMatrixDNA(mds)
+		x.SetRateMatrix(mds)
 		x.SetupQGTR()
 		//lnl := PCalcLikePatterns(t, x, patternvals, wks)
 		lnl := lkfun(t, x, patternvals, wks)
@@ -260,7 +260,7 @@ func OptimizeGTR(t *Tree, x *DiscreteModel, patternvals []float64, sup bool, wks
 		fmt.Println(err)
 	}
 	//fmt.Println(res.F)
-	x.SetRateMatrixDNA(res.X)
+	x.SetRateMatrix(res.X)
 }
 
 //OptimizeBF optimizing the basefreq model but for a clade
@@ -325,7 +325,7 @@ func OptimizeGTRSubClade(t *Tree, n *Node, excl bool, x *DiscreteModel, patternv
 				return 1000000000000
 			}
 		}
-		x.SetRateMatrixDNA(mds)
+		x.SetRateMatrix(mds)
 		x.SetupQGTR()
 		lnl := PCalcLogLikePatternsSubClade(t, n, excl, x, patternvals, wks)
 		if count%100 == 0 {
@@ -350,7 +350,7 @@ func OptimizeGTRSubClade(t *Tree, n *Node, excl bool, x *DiscreteModel, patternv
 		fmt.Println(err)
 	}
 	fmt.Println(res.F)
-	x.SetRateMatrixDNA(res.X)
+	x.SetRateMatrix(res.X)
 }
 
 //OptimizeBFSubClade optimizing the basefreq model but for a subclade
@@ -415,7 +415,7 @@ func OptimizeBFRMSubClade(t *Tree, n *Node, excl bool, x *DiscreteModel, pattern
 				return 1000000000000
 			}
 		}
-		x.SetRateMatrixDNA(mds[0:5])
+		x.SetRateMatrix(mds[0:5])
 		bf := []float64{mds[5], mds[6], mds[7]}
 		bf = append(bf, 1.-floats.Sum(bf))
 		x.SetBaseFreqs(bf)
@@ -438,7 +438,7 @@ func OptimizeBFRMSubClade(t *Tree, n *Node, excl bool, x *DiscreteModel, pattern
 	}
 	bf := []float64{res.X[5], res.X[6], res.X[7]}
 	bf = append(bf, 1.0-floats.Sum(bf))
-	x.SetRateMatrixDNA(res.X[0:5])
+	x.SetRateMatrix(res.X[0:5])
 	x.SetBaseFreqs(bf)
 	x.SetupQGTR()
 }

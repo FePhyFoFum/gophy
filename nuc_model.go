@@ -1,10 +1,12 @@
 package gophy
 
-type DNAModelNew struct {
-	DiscreteModelNew
+import "gonum.org/v1/gonum/mat"
+
+type DNAModel struct {
+	M DiscreteModel
 }
 
-func NewDNAModelNew() *DNAModelNew {
+func NewDNAModel() *DNAModel {
 	CharMap := make(map[string][]int)
 	CharMap["A"] = []int{0}
 	CharMap["C"] = []int{1}
@@ -22,15 +24,15 @@ func NewDNAModelNew() *DNAModelNew {
 	CharMap["B"] = []int{1, 2, 3}
 	CharMap["V"] = []int{0, 1, 2}
 	CharMap["D"] = []int{0, 2, 3}
-	dnam := DNAModelNew{}
-	dnam.DiscreteModelNew.Alph = Nucleotide
-	dnam.DiscreteModelNew.NumStates = 4
-	dnam.DiscreteModelNew.CharMap = CharMap
+	dnam := DNAModel{}
+	dnam.M.Alph = Nucleotide
+	dnam.M.NumStates = 4
+	dnam.M.CharMap = CharMap
 	return &dnam
 }
 
-/*
-func (d *DNAModelNew) InitRateMatrix(params []float64) {
+/* this should be set by the SetRateMatrix in discrete_model
+func (d *DNAModelNew) SetRateMatrix(params []float64) {
 	R := mat.NewDense(4, 4, nil)
 	R.Set(0, 0, 0)
 	R.Set(1, 1, 0)
@@ -51,3 +53,15 @@ func (d *DNAModelNew) InitRateMatrix(params []float64) {
 	d.DiscreteModel.R = R
 }
 */
+
+// DeepCopyDNAModel ...
+func (d *DNAModel) DeepCopyDNAModel() *DNAModel {
+	outm := NewDNAModel()
+	outm.M.BF = []float64{0.25, 0.25, 0.25, 0.25}
+	copy(outm.M.BF, d.M.BF)
+	outm.M.Q = mat.NewDense(4, 4, nil)
+	outm.M.R = mat.NewDense(4, 4, nil)
+	outm.M.R.Copy(d.M.R)
+	outm.M.Q.Copy(d.M.Q)
+	return outm
+}

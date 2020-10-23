@@ -10,21 +10,38 @@ import (
 )
 
 // ProteinModel protein model struct
-type ProteinModelNew struct {
+type ProteinModel struct {
 	DiscreteModel
 }
 
 // NewProteinModel get new PROTModel pointer
-func NewProteinModelNew() *ProteinModelNew {
+func NewProteinModel() *ProteinModel {
 	CharMap := make(map[string][]int)
-	CharMap["-"] = make([]int, 20)
-	CharMap["N"] = make([]int, 20)
-	for i := 0; i < 20; i++ {
-		CharMap[strconv.Itoa(i)] = []int{i}
-		CharMap["-"][i] = i
-		CharMap["N"][i] = i
-	}
-	dnam := ProteinModelNew{}
+	CharMap["A"] = []int{0}
+	CharMap["R"] = []int{1}
+	CharMap["N"] = []int{2}
+	CharMap["D"] = []int{3}
+	CharMap["C"] = []int{4}
+	CharMap["Q"] = []int{5}
+	CharMap["E"] = []int{6}
+	CharMap["G"] = []int{7}
+	CharMap["H"] = []int{8}
+	CharMap["I"] = []int{9}
+	CharMap["L"] = []int{10}
+	CharMap["K"] = []int{11}
+	CharMap["M"] = []int{12}
+	CharMap["F"] = []int{13}
+	CharMap["P"] = []int{14}
+	CharMap["S"] = []int{15}
+	CharMap["T"] = []int{16}
+	CharMap["W"] = []int{17}
+	CharMap["Y"] = []int{18}
+	CharMap["V"] = []int{19}
+	CharMap["-"] = []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19}
+	CharMap["X"] = []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19}
+	CharMap["B"] = []int{2, 3}
+	CharMap["Z"] = []int{5, 6}
+	dnam := ProteinModel{}
 	dnam.DiscreteModel.Alph = AminoAcid
 	dnam.DiscreteModel.NumStates = 20
 	dnam.DiscreteModel.CharMap = CharMap
@@ -32,7 +49,7 @@ func NewProteinModelNew() *ProteinModelNew {
 }
 
 // SetRateMatrixJTT set up JTT exchangeabilities
-func (d *ProteinModelNew) SetRateMatrixJTT() {
+func (d *ProteinModel) SetRateMatrixJTT() {
 	d.DiscreteModel.Ex = `58
 	54  45
 	81  16 528
@@ -86,7 +103,7 @@ func (d *ProteinModelNew) SetRateMatrixJTT() {
 }
 
 // SetRateMatrixWAG set up WAG exchangeabilities
-func (d *ProteinModelNew) SetRateMatrixWAG() {
+func (d *ProteinModel) SetRateMatrixWAG() {
 	d.DiscreteModel.Ex = `0.551571
 	0.509848  0.635346
 	0.738998  0.147304  5.429420
@@ -140,7 +157,7 @@ func (d *ProteinModelNew) SetRateMatrixWAG() {
 }
 
 // SetRateMatrixLG set up LG exchangeabilities
-func (d *ProteinModelNew) SetRateMatrixLG() {
+func (d *ProteinModel) SetRateMatrixLG() {
 	d.DiscreteModel.Ex = `0.425093
 	0.276818 0.751878
 	0.395144 0.123954 5.076149
@@ -196,7 +213,7 @@ func (d *ProteinModelNew) SetRateMatrixLG() {
 // SetupQProt set up Q matrix
 // This is scaled (so the branch lengths are going to be proportional to these changes)
 // Use SetRateMatrix* and then do this
-func (d *ProteinModelNew) SetupQProt() {
+func (d *ProteinModel) SetupQProt() {
 	bigpi := mat.NewDiagDense(d.NumStates, d.BF)
 	dQ := mat.NewDense(d.NumStates, d.NumStates, nil)
 	dQ.Mul(d.R, bigpi)
