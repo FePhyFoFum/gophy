@@ -11,7 +11,7 @@ import (
 
 // ProteinModel protein model struct
 type ProteinModel struct {
-	DiscreteModel
+	M DiscreteModel
 }
 
 // NewProteinModel get new PROTModel pointer
@@ -42,15 +42,15 @@ func NewProteinModel() *ProteinModel {
 	CharMap["B"] = []int{2, 3}
 	CharMap["Z"] = []int{5, 6}
 	dnam := ProteinModel{}
-	dnam.DiscreteModel.Alph = AminoAcid
-	dnam.DiscreteModel.NumStates = 20
-	dnam.DiscreteModel.CharMap = CharMap
+	dnam.M.Alph = AminoAcid
+	dnam.M.NumStates = 20
+	dnam.M.CharMap = CharMap
 	return &dnam
 }
 
 // SetRateMatrixJTT set up JTT exchangeabilities
 func (d *ProteinModel) SetRateMatrixJTT() {
-	d.DiscreteModel.Ex = `58
+	d.M.Ex = `58
 	54  45
 	81  16 528
 	56 113  34  10
@@ -73,7 +73,7 @@ func (d *ProteinModel) SetRateMatrixJTT() {
 	0.076748 0.051691 0.042645 0.051544 0.019803 0.040752 0.061830 0.073152 0.022944 0.053761 0.091904 0.058676 0.023826 0.040126 0.050901 0.068765 0.058565 0.014261 0.032102 0.066005`
 	// from paml jones.dat
 
-	scanner := bufio.NewScanner(strings.NewReader(d.Ex))
+	scanner := bufio.NewScanner(strings.NewReader(d.M.Ex))
 	res := [][]float64{}
 	for scanner.Scan() {
 		tmp := []float64{}
@@ -87,24 +87,24 @@ func (d *ProteinModel) SetRateMatrixJTT() {
 		}
 		res = append(res, tmp)
 	}
-	d.DiscreteModel.R = mat.NewDense(20, 20, nil) // exchangeabilities - let diagonals be 0
-	for i := 0; i < d.DiscreteModel.NumStates; i++ {
-		for j := 0; j < d.DiscreteModel.NumStates; j++ {
+	d.M.R = mat.NewDense(20, 20, nil) // exchangeabilities - let diagonals be 0
+	for i := 0; i < d.M.NumStates; i++ {
+		for j := 0; j < d.M.NumStates; j++ {
 			if i == j {
-				d.DiscreteModel.R.Set(i, j, 0.0)
+				d.M.R.Set(i, j, 0.0)
 			} else if j > i {
-				d.DiscreteModel.R.Set(i, j, res[j-1][i])
+				d.M.R.Set(i, j, res[j-1][i])
 			} else {
-				d.DiscreteModel.R.Set(i, j, res[i-1][j])
+				d.M.R.Set(i, j, res[i-1][j])
 			}
 		}
 	}
-	d.DiscreteModel.MBF = res[20]
+	d.M.MBF = res[20]
 }
 
 // SetRateMatrixWAG set up WAG exchangeabilities
 func (d *ProteinModel) SetRateMatrixWAG() {
-	d.DiscreteModel.Ex = `0.551571
+	d.M.Ex = `0.551571
 	0.509848  0.635346
 	0.738998  0.147304  5.429420
 	1.027040  0.528191  0.265256  0.0302949
@@ -127,7 +127,7 @@ func (d *ProteinModel) SetRateMatrixWAG() {
 	0.0866279 0.043972  0.0390894 0.0570451 0.0193078 0.0367281 0.0580589 0.0832518 0.0244313 0.048466  0.086209  0.0620286 0.0195027 0.0384319 0.0457631 0.0695179 0.0610127 0.0143859 0.0352742 0.0708956`
 	// from PAML wag.dat
 
-	scanner := bufio.NewScanner(strings.NewReader(d.Ex))
+	scanner := bufio.NewScanner(strings.NewReader(d.M.Ex))
 	res := [][]float64{}
 	for scanner.Scan() {
 		tmp := []float64{}
@@ -141,24 +141,24 @@ func (d *ProteinModel) SetRateMatrixWAG() {
 		}
 		res = append(res, tmp)
 	}
-	d.DiscreteModel.R = mat.NewDense(20, 20, nil) // exchangeabilities - let diagonals be 0
-	for i := 0; i < d.DiscreteModel.NumStates; i++ {
-		for j := 0; j < d.DiscreteModel.NumStates; j++ {
+	d.M.R = mat.NewDense(20, 20, nil) // exchangeabilities - let diagonals be 0
+	for i := 0; i < d.M.NumStates; i++ {
+		for j := 0; j < d.M.NumStates; j++ {
 			if i == j {
-				d.DiscreteModel.R.Set(i, j, 0.0)
+				d.M.R.Set(i, j, 0.0)
 			} else if j > i {
-				d.DiscreteModel.R.Set(i, j, res[j-1][i])
+				d.M.R.Set(i, j, res[j-1][i])
 			} else {
-				d.DiscreteModel.R.Set(i, j, res[i-1][j])
+				d.M.R.Set(i, j, res[i-1][j])
 			}
 		}
 	}
-	d.DiscreteModel.MBF = res[20]
+	d.M.MBF = res[20]
 }
 
 // SetRateMatrixLG set up LG exchangeabilities
 func (d *ProteinModel) SetRateMatrixLG() {
-	d.DiscreteModel.Ex = `0.425093
+	d.M.Ex = `0.425093
 	0.276818 0.751878
 	0.395144 0.123954 5.076149
 	2.489084 0.534551 0.528768 0.062556
@@ -181,7 +181,7 @@ func (d *ProteinModel) SetRateMatrixLG() {
 	0.079066 0.055941 0.041977 0.053052 0.012937 0.040767 0.071586 0.057337 0.022355 0.062157 0.099081 0.064600 0.022951 0.042302 0.044040 0.061197 0.053287 0.012066 0.034155 0.069147`
 	// lg.dat from paml
 
-	scanner := bufio.NewScanner(strings.NewReader(d.Ex))
+	scanner := bufio.NewScanner(strings.NewReader(d.M.Ex))
 	res := [][]float64{}
 	for scanner.Scan() {
 		tmp := []float64{}
@@ -195,28 +195,28 @@ func (d *ProteinModel) SetRateMatrixLG() {
 		}
 		res = append(res, tmp)
 	}
-	d.DiscreteModel.R = mat.NewDense(20, 20, nil) // exchangeabilities - let diagonals be 0
-	for i := 0; i < d.NumStates; i++ {
-		for j := 0; j < d.NumStates; j++ {
+	d.M.R = mat.NewDense(20, 20, nil) // exchangeabilities - let diagonals be 0
+	for i := 0; i < d.M.NumStates; i++ {
+		for j := 0; j < d.M.NumStates; j++ {
 			if i == j {
-				d.DiscreteModel.R.Set(i, j, 0.0)
+				d.M.R.Set(i, j, 0.0)
 			} else if j > i {
-				d.DiscreteModel.R.Set(i, j, res[j-1][i])
+				d.M.R.Set(i, j, res[j-1][i])
 			} else {
-				d.DiscreteModel.R.Set(i, j, res[i-1][j])
+				d.M.R.Set(i, j, res[i-1][j])
 			}
 		}
 	}
-	d.DiscreteModel.MBF = res[20]
+	d.M.MBF = res[20]
 }
 
 // SetupQProt set up Q matrix
 // This is scaled (so the branch lengths are going to be proportional to these changes)
 // Use SetRateMatrix* and then do this
-func (d *ProteinModel) SetupQProt() {
-	bigpi := mat.NewDiagDense(d.NumStates, d.BF)
-	dQ := mat.NewDense(d.NumStates, d.NumStates, nil)
-	dQ.Mul(d.R, bigpi)
+/*func (d *ProteinModel) SetupQProt() {
+	bigpi := mat.NewDiagDense(d.M.NumStates, d.M.BF)
+	dQ := mat.NewDense(d.M.NumStates, d.M.NumStates, nil)
+	dQ.Mul(d.M.R, bigpi)
 	// le and gascuel 08 account of scaling. Gives correct likelihood but for overlong branch lengths
 	// var diagSum float64
 	// for i := 0; i < d.NumStates; i++ {
@@ -235,26 +235,27 @@ func (d *ProteinModel) SetupQProt() {
 
 	// foster-style scaling
 	var offdSum float64
-	for i := 0; i < d.DiscreteModel.NumStates; i++ {
-		for j := 0; j < d.DiscreteModel.NumStates; j++ {
+	for i := 0; i < d.M.NumStates; i++ {
+		for j := 0; j < d.M.NumStates; j++ {
 			if i != j {
 				offdSum += dQ.At(i, j)
 			}
 		}
 	}
 	var dSum float64
-	d.DiscreteModel.Q = mat.NewDense(d.NumStates, d.NumStates, nil)
-	for i := 0; i < d.NumStates; i++ {
-		d.DiscreteModel.Q.Set(i, i, 0-sumRow(dQ, i))
-		dSum += d.DiscreteModel.Q.At(i, i) * d.DiscreteModel.BF[i]
+	d.M.Q = mat.NewDense(d.M.NumStates, d.M.NumStates, nil)
+	for i := 0; i < d.M.NumStates; i++ {
+		d.M.Q.Set(i, i, 0-sumRow(dQ, i))
+		dSum += d.M.Q.At(i, i) * d.M.BF[i]
 	}
-	for i := 0; i < d.DiscreteModel.NumStates; i++ {
-		for j := 0; j < d.DiscreteModel.NumStates; j++ {
+	for i := 0; i < d.M.NumStates; i++ {
+		for j := 0; j < d.M.NumStates; j++ {
 			if i == j {
-				d.DiscreteModel.Q.Set(i, i, d.DiscreteModel.Q.At(i, i)/-dSum)
+				d.M.Q.Set(i, i, d.M.Q.At(i, i)/-dSum)
 			} else {
-				d.DiscreteModel.Q.Set(i, j, dQ.At(i, j)/-dSum)
+				d.M.Q.Set(i, j, dQ.At(i, j)/-dSum)
 			}
 		}
 	}
 }
+*/

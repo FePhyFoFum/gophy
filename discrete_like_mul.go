@@ -82,6 +82,7 @@ func calcLikeMulSubCladeWork(t *Tree, inn *Node, excl bool, models []*DiscreteMo
 		sl := 0.0
 		for _, n := range arr {
 			x := models[nodemodels[n]]
+			numstates := x.NumStates
 			if len(n.Chs) > 0 {
 				calcLikeNodeMul(n, x, j)
 			}
@@ -93,16 +94,16 @@ func calcLikeMulSubCladeWork(t *Tree, inn *Node, excl bool, models []*DiscreteMo
 			}
 			if tn == n {
 				if tn == t.Rt { //only happens at the root
-					for i := 0; i < 4; i++ {
+					for i := 0; i < numstates; i++ {
 						n.Data[j][i] *= x.BF[i]
 					}
 					sl = floats.Sum(n.Data[j])
 				} else {
 					p := x.GetPCalc(n.Len)
 					rtconds := make([]float64, x.GetNumStates())
-					for m := 0; m < 4; m++ {
+					for m := 0; m < numstates; m++ {
 						templike := 0.0
-						for k := 0; k < 4; k++ {
+						for k := 0; k < numstates; k++ {
 							templike += p.At(m, k) * n.Data[j][k]
 						}
 						rtconds[m] = templike
@@ -127,6 +128,7 @@ func calcLikeOneSiteMulSubClade(t *Tree, inn *Node, excl bool, models []*Discret
 	}
 	for _, n := range arr {
 		x := models[nodemodels[n]]
+		numstates := x.NumStates
 		if len(n.Chs) > 0 {
 			calcLikeNodeMul(n, x, site)
 		}
@@ -138,7 +140,7 @@ func calcLikeOneSiteMulSubClade(t *Tree, inn *Node, excl bool, models []*Discret
 		}
 		if tn == n {
 			if tn == t.Rt { //only happens at the root
-				for i := 0; i < 4; i++ {
+				for i := 0; i < numstates; i++ {
 					n.Data[site][i] *= x.BF[i]
 				}
 				sl = floats.Sum(n.Data[site])
@@ -146,9 +148,9 @@ func calcLikeOneSiteMulSubClade(t *Tree, inn *Node, excl bool, models []*Discret
 				//needs to get the branch length incorporated
 				p := x.GetPCalc(n.Len)
 				rtconds := make([]float64, x.GetNumStates())
-				for j := 0; j < 4; j++ {
+				for j := 0; j < numstates; j++ {
 					templike := 0.0
-					for k := 0; k < 4; k++ {
+					for k := 0; k < numstates; k++ {
 						templike += p.At(j, k) * n.Data[site][k]
 					}
 					rtconds[j] = templike
@@ -194,11 +196,12 @@ func calcLikeOneSiteMul(t *Tree, models []*DiscreteModel, nodemodels map[*Node]i
 	sl := 0.0
 	for _, n := range t.Post {
 		x := models[nodemodels[n]]
+		numstates := x.NumStates
 		if len(n.Chs) > 0 {
 			calcLikeNodeMul(n, x, site)
 		}
 		if t.Rt == n {
-			for i := 0; i < 4; i++ {
+			for i := 0; i < numstates; i++ {
 				t.Rt.Data[site][i] *= x.BF[i]
 			}
 			sl = floats.Sum(t.Rt.Data[site])
@@ -212,11 +215,12 @@ func CalcLogLikeOneSiteMul(t *Tree, models []*DiscreteModel, nodemodels map[*Nod
 	sl := 0.0
 	for _, n := range t.Post {
 		x := models[nodemodels[n]]
+		numstates := x.NumStates
 		if len(n.Chs) > 0 {
 			CalcLogLikeNode(n, x, site)
 		}
 		if t.Rt == n {
-			for i := 0; i < 4; i++ {
+			for i := 0; i < numstates; i++ {
 				t.Rt.Data[site][i] += math.Log(x.BF[i])
 			}
 			sl = floats.LogSumExp(t.Rt.Data[site])
@@ -231,11 +235,12 @@ func calcLikeWorkMul(t *Tree, models []*DiscreteModel, nodemodels map[*Node]int,
 		sl := 0.0
 		for _, n := range t.Post {
 			x := models[nodemodels[n]]
+			numstates := x.NumStates
 			if len(n.Chs) > 0 {
 				calcLikeNodeMul(n, x, j)
 			}
 			if t.Rt == n {
-				for i := 0; i < 4; i++ {
+				for i := 0; i < numstates; i++ {
 					t.Rt.Data[j][i] *= x.BF[i]
 				}
 				sl = floats.Sum(t.Rt.Data[j])
@@ -251,11 +256,12 @@ func CalcLogLikeWorkMul(t *Tree, models []*DiscreteModel, nodemodels map[*Node]i
 		sl := 0.0
 		for _, n := range t.Post {
 			x := models[nodemodels[n]]
+			numstates := x.NumStates
 			if len(n.Chs) > 0 {
 				CalcLogLikeNode(n, x, j)
 			}
 			if t.Rt == n {
-				for i := 0; i < 4; i++ {
+				for i := 0; i < numstates; i++ {
 					t.Rt.Data[j][i] += math.Log(x.BF[i])
 				}
 				sl = floats.LogSumExp(t.Rt.Data[j])
@@ -267,7 +273,8 @@ func CalcLogLikeWorkMul(t *Tree, models []*DiscreteModel, nodemodels map[*Node]i
 
 //calcLikeNodeMul calculate the likelihood of a node
 func calcLikeNodeMul(nd *Node, model *DiscreteModel, site int) {
-	for i := 0; i < 4; i++ {
+	numstates := model.NumStates
+	for i := 0; i < numstates; i++ {
 		nd.Data[site][i] = 1.
 	}
 	x1 := 0.0
@@ -275,17 +282,17 @@ func calcLikeNodeMul(nd *Node, model *DiscreteModel, site int) {
 	for _, c := range nd.Chs {
 		P := model.GetPMap(c.Len)
 		if len(c.Chs) == 0 {
-			for i := 0; i < 4; i++ {
+			for i := 0; i < numstates; i++ {
 				x1 = 0.0
-				for j := 0; j < 4; j++ {
+				for j := 0; j < numstates; j++ {
 					x1 += P.At(i, j) * c.Data[site][j]
 				}
 				nd.Data[site][i] *= x1
 			}
 		} else {
-			for i := 0; i < 4; i++ {
+			for i := 0; i < numstates; i++ {
 				x2 = 0.0
-				for j := 0; j < 4; j++ {
+				for j := 0; j < numstates; j++ {
 					x2 += P.At(i, j) * c.Data[site][j]
 				}
 				nd.Data[site][i] *= x2
@@ -326,6 +333,7 @@ func CalcLikeOneSiteMarkedMul(t *Tree, models []*DiscreteModel, nodemodels map[*
 	sl := 0.0
 	for _, n := range t.Post {
 		x := models[nodemodels[n]]
+		numstates := x.NumStates
 		if len(n.Chs) > 0 {
 			if n.Marked == true {
 				CalcLikeNode(n, x, site)
@@ -335,7 +343,7 @@ func CalcLikeOneSiteMarkedMul(t *Tree, models []*DiscreteModel, nodemodels map[*
 			}
 		}
 		if t.Rt == n && n.Marked == true {
-			for i := 0; i < 4; i++ {
+			for i := 0; i < numstates; i++ {
 				t.Rt.Data[site][i] *= x.BF[i]
 			}
 			sl = floats.Sum(t.Rt.Data[site])
@@ -352,13 +360,14 @@ func CalcLikeWorkMarkedMul(t *Tree, models []*DiscreteModel, nodemodels map[*Nod
 		sl := 0.0
 		for _, n := range t.Post {
 			x := models[nodemodels[n]]
+			numstates := x.NumStates
 			if len(n.Chs) > 0 {
 				if n.Marked == true {
 					CalcLikeNode(n, x, j)
 				}
 			}
 			if t.Rt == n && n.Marked == true {
-				for i := 0; i < 4; i++ {
+				for i := 0; i < numstates; i++ {
 					t.Rt.Data[j][i] *= x.BF[i]
 				}
 				sl = floats.Sum(t.Rt.Data[j])
@@ -377,10 +386,11 @@ func CalcLikeWorkMarkedMul(t *Tree, models []*DiscreteModel, nodemodels map[*Nod
 //RTMultconditionals ...
 func RTMultconditionals(models []*DiscreteModel, nodemodels map[*Node]int, node *Node, patternval []float64) {
 	p := models[nodemodels[node]].GetPCalc(node.Len)
+	numstates := models[nodemodels[node]].NumStates
 	for s := range patternval {
-		for j := 0; j < 4; j++ {
+		for j := 0; j < numstates; j++ {
 			templike := 0.0
-			for k := 0; k < 4; k++ {
+			for k := 0; k < numstates; k++ {
 				templike += p.At(j, k) * node.TpConds[s][k]
 			}
 			node.RtConds[s][j] = templike
@@ -391,10 +401,11 @@ func RTMultconditionals(models []*DiscreteModel, nodemodels map[*Node]int, node 
 //RVMultconditionals ...
 func RVMultconditionals(models []*DiscreteModel, nodemodels map[*Node]int, node *Node, patternval []float64) {
 	p := models[nodemodels[node]].GetPCalc(node.Par.Len)
+	numstates := models[nodemodels[node]].NumStates
 	for s := range patternval {
-		for j := 0; j < 4; j++ {
+		for j := 0; j < numstates; j++ {
 			node.Par.RvTpConds[s][j] = 0.0
-			for k := 0; k < 4; k++ {
+			for k := 0; k < numstates; k++ {
 				node.Par.RvTpConds[s][j] += p.At(j, k) * node.Par.RvConds[s][k]
 			}
 		}
@@ -422,7 +433,7 @@ func CalcLikeFrontBackMult(models []*DiscreteModel, nodemodels map[*Node]int, tr
 	//loglike := 0.
 	for _, c := range tree.Post {
 		//calculate the tip conditionals
-		TPconditionals(c, patternval)
+		TPconditionals(models[nodemodels[c]], c, patternval)
 		//take the tip cond to the rt
 		RTMultconditionals(models, nodemodels, c, patternval) // calculate from tpcond to rtcond
 		/*if c == tree.Rt { // turn on if you want likelihoods
@@ -441,7 +452,7 @@ func CalcLikeFrontBackMult(models []*DiscreteModel, nodemodels map[*Node]int, tr
 	for _, c := range tree.Pre {
 		if c != tree.Rt { //need to set the root at 1.0s
 			RVMultconditionals(models, nodemodels, c, patternval)
-			RVTPconditionals(c, patternval)
+			RVTPconditionals(models[nodemodels[c]], c, patternval)
 		}
 	}
 }

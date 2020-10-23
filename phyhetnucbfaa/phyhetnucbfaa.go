@@ -155,35 +155,36 @@ func main() {
 	//read tree
 	t := gophy.ReadTreeFromFile(*tfn)
 	seqs, patternsint, nsites, bf := gophy.ReadPatternsSeqsFromFile(*afn, false)
-	patternval, _ := gophy.PreparePatternVecs(t, patternsint, seqs)
+	patternval, _ := gophy.PreparePatternVecsProt(t, patternsint, seqs)
 
 	//root model
 	x := gophy.NewProteinModel()
-	x.DiscreteModel.SetBaseFreqs(bf)
+	x.M.SetBaseFreqs(bf)
 	x.SetRateMatrixWAG()
+	x.M.SetupQGTR()
 	fmt.Fprintln(os.Stderr, "emp:", bf)
 
-	l := gophy.PCalcLikePatterns(t, &x.DiscreteModel, patternval, *wks)
+	l := gophy.PCalcLikePatterns(t, &x.M, patternval, *wks)
 	fmt.Fprintln(os.Stderr, "lnL:", l)
 	useLog := false //slower
 	if math.IsInf(l, -1) {
 		fmt.Println("initial value problem, switch to big")
 		useLog = true
-		l = gophy.PCalcLogLikePatterns(t, &x.DiscreteModel, patternval, *wks)
+		l = gophy.PCalcLogLikePatterns(t, &x.M, patternval, *wks)
 		fmt.Fprintln(os.Stderr, "lnL:", l)
 	}
-	gophy.OptimizeBF(t, &x.DiscreteModel, patternval, useLog, *wks)
+	gophy.OptimizeBF(t, &x.M, patternval, useLog, *wks)
 	if useLog {
-		l = gophy.PCalcLogLikePatterns(t, &x.DiscreteModel, patternval, *wks)
+		l = gophy.PCalcLogLikePatterns(t, &x.M, patternval, *wks)
 	} else {
-		l = gophy.PCalcLikePatterns(t, &x.DiscreteModel, patternval, *wks)
+		l = gophy.PCalcLikePatterns(t, &x.M, patternval, *wks)
 	}
 	fmt.Fprintln(os.Stderr, "lnL:", l)
 
 	//for each node in the tree if the number of tips is > minset
 	allmodels := make([]*gophy.DiscreteModel, 1) //number of clades that have enough taxa and aren't the root
 	modelmap := make(map[*gophy.Node]int)
-	allmodels[0] = &x.DiscreteModel
+	allmodels[0] = &x.M
 	count := 1
 	for _, i := range t.Post {
 		if i == t.Rt {
@@ -191,10 +192,10 @@ func main() {
 		}
 		if len(i.GetTips()) > minset {
 			y := gophy.NewProteinModel()
-			y.DiscreteModel.SetBaseFreqs(bf)
+			y.M.SetBaseFreqs(bf)
 			y.SetRateMatrixWAG()
 			modelmap[i] = count
-			allmodels = append(allmodels, &y.DiscreteModel)
+			allmodels = append(allmodels, &y.M)
 			count++
 		}
 	}
@@ -260,10 +261,10 @@ func main() {
 			//need to be able to send better starting points so it doesn't take as long
 			lm := 1.0
 			if useLog {
-				gophy.OptimizeGTRCompSharedRM(t, testmodels, testnodemodels, true, patternval, true, *wks)
+				//gophy.OptimizeGTRCompSharedRM(t, testmodels, testnodemodels, true, patternval, true, *wks)
 				lm = gophy.PCalcLogLikePatternsMul(t, testmodels, testnodemodels, patternval, *wks)
 			} else {
-				gophy.OptimizeGTRCompSharedRM(t, testmodels, testnodemodels, true, patternval, false, *wks)
+				//gophy.OptimizeGTRCompSharedRM(t, testmodels, testnodemodels, true, patternval, false, *wks)
 				lm = gophy.PCalcLikePatternsMul(t, testmodels, testnodemodels, patternval, *wks)
 			}
 			naic := icfun(lm, curparams+3., nsites)

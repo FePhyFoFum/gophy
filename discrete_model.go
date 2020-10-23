@@ -112,7 +112,7 @@ func (d *DiscreteModel) SetupQJC1Rate(rt float64) {
 	}
 }
 
-// SetupQGTR sets up scaled GTR for (mainly) nucleotide models
+// SetupQGTR sets up scaled GTR for (mainly)
 // Could also be used to estimate PROTGTR but that's a bad idea
 func (d *DiscreteModel) SetupQGTR() {
 	// NWH code, Foster-style scaling

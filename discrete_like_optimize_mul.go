@@ -75,6 +75,7 @@ func AdjustBLNRMult(node *Node, models []*DiscreteModel, nodemodels map[*Node]in
 	}
 	startL := PCalcLogLikePatternsMul(t, models, nodemodels, patternvals, wks)
 	x := models[nodemodels[node]]
+	numstates := x.NumStates
 	startLen := node.Len
 	//need subtree 1
 	s1probs := node.TpConds
@@ -93,8 +94,8 @@ func AdjustBLNRMult(node *Node, models []*DiscreteModel, nodemodels map[*Node]in
 			templike := 0.
 			tempd1 := 0.
 			tempd2 := 0.
-			for j := 0; j < 4; j++ {
-				for k := 0; k < 4; k++ {
+			for j := 0; j < numstates; j++ {
+				for k := 0; k < numstates; k++ {
 					templike += (s1probs[s][j] * p.At(j, k) * s2probs[s][k] * x.BF[j])
 					tempd1 += (s1probs[s][j] * d1p.At(j, k) * s2probs[s][k] * x.BF[j])
 					tempd2 += (s1probs[s][j] * d2p.At(j, k) * s2probs[s][k] * x.BF[j])
@@ -159,8 +160,8 @@ func OptimizeBLNRMult(t *Tree, models []*DiscreteModel, nodemodels map[*Node]int
 	}
 }
 
-// OptimizeGTRMul optimize GTR
-func OptimizeGTRMul(t *Tree, models []*DiscreteModel, nodemodels map[*Node]int, patternvals []float64, wks int) {
+// OptimizeGTRDNAMul optimize GTR
+func OptimizeGTRDNAMul(t *Tree, models []*DiscreteModel, nodemodels map[*Node]int, patternvals []float64, wks int) {
 	count := 0
 	//start := time.Now()
 	fcn := func(mds []float64) float64 {
@@ -215,8 +216,8 @@ func OptimizeGTRMul(t *Tree, models []*DiscreteModel, nodemodels map[*Node]int, 
 	}
 }
 
-// OptimizeGTRBPMul optimize GTR and base composition for the different parts
-func OptimizeGTRBPMul(t *Tree, models []*DiscreteModel, nodemodels map[*Node]int, usemodelvals bool,
+// OptimizeGTRBPDNAMul optimize GTR and base composition for the different parts
+func OptimizeGTRBPDNAMul(t *Tree, models []*DiscreteModel, nodemodels map[*Node]int, usemodelvals bool,
 	patternvals []float64, log bool, wks int) {
 	var lkfun func(*Tree, []*DiscreteModel, map[*Node]int, []float64, int) float64
 	if log {
@@ -305,8 +306,8 @@ func OptimizeGTRBPMul(t *Tree, models []*DiscreteModel, nodemodels map[*Node]int
 	}
 }
 
-// OptimizeGTRCompSharedRM optimize GTR base composition but share rate matrix for the different parts
-func OptimizeGTRCompSharedRM(t *Tree, models []*DiscreteModel, nodemodels map[*Node]int,
+// OptimizeGTRDNACompSharedRM optimize GTR base composition but share rate matrix for the different parts
+func OptimizeGTRDNACompSharedRM(t *Tree, models []*DiscreteModel, nodemodels map[*Node]int,
 	usemodelvals bool, patternvals []float64, log bool, wks int) {
 	var lkfun func(*Tree, []*DiscreteModel, map[*Node]int, []float64, int) float64
 	if log {
@@ -399,9 +400,9 @@ func OptimizeGTRCompSharedRM(t *Tree, models []*DiscreteModel, nodemodels map[*N
 	}
 }
 
-// OptimizeGTRCompSharedRMSingleModel optimize GTR base composition but share rate matrix for the different parts
+// OptimizeGTRDNACompSharedRMSingleModel optimize GTR base composition but share rate matrix for the different parts
 //   you send an int that will identify which model can be adjusted and only that one will be
-func OptimizeGTRCompSharedRMSingleModel(t *Tree, models []*DiscreteModel,
+func OptimizeGTRDNACompSharedRMSingleModel(t *Tree, models []*DiscreteModel,
 	nodemodels map[*Node]int, usemodelvals bool, whichmodel int,
 	patternvals []float64, log bool, wks int) {
 	var lkfun func(*Tree, []*DiscreteModel, map[*Node]int, []float64, int) float64
@@ -488,8 +489,8 @@ func OptimizeGTRCompSharedRMSingleModel(t *Tree, models []*DiscreteModel,
 	j.SetupQGTR()
 }
 
-// OptimizeGTRCompSharedRMSubClade optimize GTR base composition but share rate matrix for the different parts
-func OptimizeGTRCompSharedRMSubClade(t *Tree, n *Node, excl bool, models []*DiscreteModel, nodemodels map[*Node]int,
+// OptimizeGTRDNACompSharedRMSubClade optimize GTR base composition but share rate matrix for the different parts
+func OptimizeGTRDNACompSharedRMSubClade(t *Tree, n *Node, excl bool, models []*DiscreteModel, nodemodels map[*Node]int,
 	usemodelvals bool, patternvals []float64, wks int) {
 	count := 0
 	//start := time.Now()

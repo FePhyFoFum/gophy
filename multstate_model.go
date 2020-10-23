@@ -6,7 +6,7 @@ import (
 
 // MultStateModel multistate model struct
 type MultStateModel struct {
-	DiscreteModel
+	M DiscreteModel
 }
 
 // NewMultStateModel get new MULTModel pointer
@@ -20,8 +20,8 @@ func NewMultStateModel(numstates int) *MultStateModel {
 		CharMap["N"][i] = i
 	}
 	dnam := MultStateModel{}
-	dnam.DiscreteModel.Alph = MultiState
-	dnam.DiscreteModel.NumStates = numstates
-	dnam.DiscreteModel.CharMap = CharMap
+	dnam.M.Alph = MultiState
+	dnam.M.NumStates = numstates
+	dnam.M.CharMap = CharMap
 	return &dnam
 }
