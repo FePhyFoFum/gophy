@@ -491,3 +491,15 @@ func (d *DiscreteModel) GetStochMapMatrices(dur float64, from int, to int) (summ
 	}
 	return
 }
+
+func (d *DiscreteModel) DeepCopyDiscreteModel() *DiscreteModel {
+	outm := NewDiscreteModel()
+	outm.NumStates = d.NumStates
+	outm.BF = make([]float64, outm.NumStates)
+	copy(outm.BF, d.BF)
+	outm.Q = mat.NewDense(outm.NumStates, outm.NumStates, nil)
+	outm.R = mat.NewDense(outm.NumStates, outm.NumStates, nil)
+	outm.R.Copy(d.R)
+	outm.Q.Copy(d.Q)
+	return outm
+}

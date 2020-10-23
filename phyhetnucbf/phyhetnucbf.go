@@ -155,7 +155,7 @@ func main() {
 
 	//read tree
 	t := gophy.ReadTreeFromFile(*tfn)
-	seqs, patternsint, nsites, bf := gophy.ReadPatternsSeqsFromFile(*afn)
+	seqs, patternsint, nsites, bf := gophy.ReadPatternsSeqsFromFile(*afn, true)
 	patternval, _ := gophy.PreparePatternVecs(t, patternsint, seqs)
 
 	// model things
@@ -164,53 +164,45 @@ func main() {
 		modelparams[i] = 1.0
 	}
 	//root model
-	//x := gophy.NewDNAModel()
-	x := gophy.NewDiscreteModel()
-	x.Alph = gophy.Nucleotide
-	x.NumStates = 4
-	x.SetMapDNA()
-	//x.SetMap()
+	x := gophy.NewDNAModel()
 	fmt.Fprintln(os.Stderr, "emp:", bf)
-	x.SetBaseFreqs(bf)
-	x.SetRateMatrix(modelparams)
-	x.SetupQGTR()
-	l := gophy.PCalcLikePatterns(t, x, patternval, *wks)
+	x.M.SetBaseFreqs(bf)
+	x.M.SetRateMatrix(modelparams)
+	x.M.SetupQGTR()
+	l := gophy.PCalcLikePatterns(t, &x.M, patternval, *wks)
 	fmt.Fprintln(os.Stderr, "lnL:", l)
 	useLog := false //slower
 	if math.IsInf(l, -1) {
 		fmt.Println("initial value problem, switch to big")
 		useLog = true
-		l = gophy.PCalcLogLikePatterns(t, x, patternval, *wks)
+		l = gophy.PCalcLogLikePatterns(t, &x.M, patternval, *wks)
 		fmt.Fprintln(os.Stderr, "lnL:", l)
 	}
-	gophy.OptimizeGTR(t, x, patternval, useLog, *wks)
-	gophy.OptimizeBF(t, x, patternval, useLog, *wks)
+	gophy.OptimizeGTRDNA(t, &x.M, patternval, useLog, *wks)
+	gophy.OptimizeBF(t, &x.M, patternval, useLog, *wks)
 	if useLog {
-		l = gophy.PCalcLogLikePatterns(t, x, patternval, *wks)
+		l = gophy.PCalcLogLikePatterns(t, &x.M, patternval, *wks)
 	} else {
-		l = gophy.PCalcLikePatterns(t, x, patternval, *wks)
+		l = gophy.PCalcLikePatterns(t, &x.M, patternval, *wks)
 	}
 	fmt.Fprintln(os.Stderr, "lnL:", l)
 
 	//for each node in the tree if the number of tips is > minset
 	allmodels := make([]*gophy.DiscreteModel, 1) //number of clades that have enough taxa and aren't the root
 	modelmap := make(map[*gophy.Node]int)
-	allmodels[0] = x
+	allmodels[0] = &x.M
 	count := 1
 	for _, i := range t.Post {
 		if i == t.Rt {
 			continue
 		}
 		if len(i.GetTips()) > minset {
-			y := gophy.NewDiscreteModel()
-			y.NumStates = 4
-			y.Alph = gophy.Nucleotide
-			y.SetMapDNA()
-			y.SetBaseFreqs(bf)
-			y.SetRateMatrix(modelparams)
-			y.SetupQGTR()
+			y := gophy.NewDNAModel()
+			y.M.SetBaseFreqs(bf)
+			y.M.SetRateMatrix(modelparams)
+			y.M.SetupQGTR()
 			modelmap[i] = count
-			allmodels = append(allmodels, y)
+			allmodels = append(allmodels, &y.M)
 			count++
 		}
 	}
@@ -276,10 +268,10 @@ func main() {
 			//need to be able to send better starting points so it doesn't take as long
 			lm := 1.0
 			if useLog {
-				gophy.OptimizeGTRCompSharedRM(t, testmodels, testnodemodels, true, patternval, true, *wks)
+				gophy.OptimizeGTRDNACompSharedRM(t, testmodels, testnodemodels, true, patternval, true, *wks)
 				lm = gophy.PCalcLogLikePatternsMul(t, testmodels, testnodemodels, patternval, *wks)
 			} else {
-				gophy.OptimizeGTRCompSharedRM(t, testmodels, testnodemodels, true, patternval, false, *wks)
+				gophy.OptimizeGTRDNACompSharedRM(t, testmodels, testnodemodels, true, patternval, false, *wks)
 				lm = gophy.PCalcLikePatternsMul(t, testmodels, testnodemodels, patternval, *wks)
 			}
 			naic := icfun(lm, curparams+3., nsites)
@@ -346,7 +338,7 @@ func uncertaintyLoc(modelnodes []*gophy.Node, curmodels []*gophy.DiscreteModel,
 			testnodemodels := make(map[*gophy.Node]int)
 			testmodels := []*gophy.DiscreteModel{}
 			for _, j := range curmodels {
-				testmodels = append(testmodels, j.DeepCopyDNAModel())
+				testmodels = append(testmodels, j.DeepCopyDiscreteModel())
 			}
 			for k, j := range curnodemodels {
 				testnodemodels[k] = j
@@ -373,11 +365,11 @@ func uncertaintyLoc(modelnodes []*gophy.Node, curmodels []*gophy.DiscreteModel,
 			//   go back to the original as well
 			tlm := 0.0
 			if useLog {
-				gophy.OptimizeGTRCompSharedRMSingleModel(t, testmodels,
+				gophy.OptimizeGTRDNACompSharedRMSingleModel(t, testmodels,
 					testnodemodels, true, i.IData["shift"], patternval, true, wks)
 				tlm = gophy.PCalcLogLikePatternsMul(t, testmodels, testnodemodels, patternval, wks)
 			} else {
-				gophy.OptimizeGTRCompSharedRMSingleModel(t, testmodels,
+				gophy.OptimizeGTRDNACompSharedRMSingleModel(t, testmodels,
 					testnodemodels, true, i.IData["shift"], patternval, false, wks)
 				tlm = gophy.PCalcLikePatternsMul(t, testmodels, testnodemodels, patternval, wks)
 			}
@@ -406,7 +398,7 @@ func uncertaintyExist(modelnodes []*gophy.Node, curmodels []*gophy.DiscreteModel
 		testnodemodels := make(map[*gophy.Node]int)
 		testmodels := []*gophy.DiscreteModel{}
 		for _, j := range curmodels {
-			testmodels = append(testmodels, j.DeepCopyDNAModel())
+			testmodels = append(testmodels, j.DeepCopyDiscreteModel())
 		}
 		for k, j := range curnodemodels {
 			testnodemodels[k] = j
@@ -421,11 +413,11 @@ func uncertaintyExist(modelnodes []*gophy.Node, curmodels []*gophy.DiscreteModel
 		//   go back to the original as well
 		tlm := 0.0
 		if useLog {
-			gophy.OptimizeGTRCompSharedRMSingleModel(t, testmodels,
+			gophy.OptimizeGTRDNACompSharedRMSingleModel(t, testmodels,
 				testnodemodels, true, 0, patternval, true, wks)
 			tlm = gophy.PCalcLogLikePatternsMul(t, testmodels, testnodemodels, patternval, wks)
 		} else {
-			gophy.OptimizeGTRCompSharedRMSingleModel(t, testmodels,
+			gophy.OptimizeGTRDNACompSharedRMSingleModel(t, testmodels,
 				testnodemodels, true, 0, patternval, false, wks)
 			tlm = gophy.PCalcLikePatternsMul(t, testmodels, testnodemodels, patternval, wks)
 		}
