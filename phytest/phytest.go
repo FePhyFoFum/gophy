@@ -24,7 +24,7 @@ func slidingWindow(x, w float64) float64 {
 }
 
 // MCMC simple MCMC for branch lengths
-func MCMC(t *gophy.Tree, x *gophy.Model, patternval []float64, wks int, outfilename string) {
+func MCMC(t *gophy.Tree, x *gophy.DiscreteModel, patternval []float64, wks int, outfilename string) {
 	f, err := os.Create(outfilename)
 	if err != nil {
 		log.Fatal(err)
@@ -99,7 +99,7 @@ func printModelDNA(modelparams []float64, basefreqs []float64) {
 }
 
 // A,R,N,D,C,Q,E,G,H,I,L,K,M,F,P,S,T,W,Y,V
-func printModelProt(d *gophy.Model) {
+func printModelProt(d *gophy.DiscreteModel) {
 	fmt.Fprintln(os.Stderr, "resfreqs --A:", d.BF[0], "resfreqs --R:", d.BF[1], "resfreqs --N:", d.BF[2], "resfreqs --D:", d.BF[3], "resfreqs --C:", d.BF[4])
 	fmt.Fprintln(os.Stderr, "resfreqs --Q:", d.BF[5], "resfreqs --E:", d.BF[6], "resfreqs --G:", d.BF[7], "resfreqs --H:", d.BF[8], "resfreqs --I:", d.BF[9])
 	fmt.Fprintln(os.Stderr, "resfreqs --L:", d.BF[10], "resfreqs --K:", d.BF[11], "resfreqs --M:", d.BF[12], "resfreqs --F:", d.BF[13], "resfreqs --P:", d.BF[14])
@@ -158,7 +158,7 @@ func main() {
 		pprof.StartCPUProfile(f)
 		defer pprof.StopCPUProfile()
 	}
-	x := gophy.NewModel()
+	x := gophy.NewDiscreteModel()
 	if dt == gophy.Nucleotide {
 		x.Alph = dt
 		x.NumStates = 4
