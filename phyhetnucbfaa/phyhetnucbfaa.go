@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/FePhyFoFum/gophy"
-	"gonum.org/v1/gonum/floats"
 
 	"golang.org/x/exp/rand"
 )
@@ -155,20 +154,16 @@ func main() {
 
 	//read tree
 	t := gophy.ReadTreeFromFile(*tfn)
-	seqs, patternsint, nsites, bf := gophy.ReadPatternsSeqsFromFile(*afn, true)
-	patternval, _ := gophy.PreparePatternVecs(t, patternsint, seqs)
+	seqs, patternsint, nsites, bf := gophy.ReadPatternsSeqsFromFile(*afn, false)
+	patternval, _ := gophy.PreparePatternVecsProt(t, patternsint, seqs)
 
-	// model things
-	modelparams := make([]float64, 5)
-	for i := range modelparams {
-		modelparams[i] = 1.0
-	}
 	//root model
-	x := gophy.NewDNAModel()
-	fmt.Fprintln(os.Stderr, "emp:", bf)
+	x := gophy.NewProteinModel()
 	x.M.SetBaseFreqs(bf)
-	x.M.SetRateMatrix(modelparams)
+	x.SetRateMatrixJTT()
 	x.M.SetupQGTR()
+	fmt.Fprintln(os.Stderr, "emp:", bf)
+
 	l := gophy.PCalcLikePatterns(t, &x.M, patternval, *wks)
 	fmt.Fprintln(os.Stderr, "lnL:", l)
 	useLog := false //slower
@@ -178,7 +173,6 @@ func main() {
 		l = gophy.PCalcLogLikePatterns(t, &x.M, patternval, *wks)
 		fmt.Fprintln(os.Stderr, "lnL:", l)
 	}
-	gophy.OptimizeGTRDNA(t, &x.M, patternval, useLog, *wks)
 	gophy.OptimizeBF(t, &x.M, patternval, useLog, *wks)
 	if useLog {
 		l = gophy.PCalcLogLikePatterns(t, &x.M, patternval, *wks)
@@ -197,10 +191,9 @@ func main() {
 			continue
 		}
 		if len(i.GetTips()) > minset {
-			y := gophy.NewDNAModel()
+			y := gophy.NewProteinModel()
 			y.M.SetBaseFreqs(bf)
-			y.M.SetRateMatrix(modelparams)
-			y.M.SetupQGTR()
+			y.SetRateMatrixWAG()
 			modelmap[i] = count
 			allmodels = append(allmodels, &y.M)
 			count++
@@ -268,10 +261,10 @@ func main() {
 			//need to be able to send better starting points so it doesn't take as long
 			lm := 1.0
 			if useLog {
-				gophy.OptimizeGTRDNACompSharedRM(t, testmodels, testnodemodels, true, patternval, true, *wks)
+				//gophy.OptimizeGTRCompSharedRM(t, testmodels, testnodemodels, true, patternval, true, *wks)
 				lm = gophy.PCalcLogLikePatternsMul(t, testmodels, testnodemodels, patternval, *wks)
 			} else {
-				gophy.OptimizeGTRDNACompSharedRM(t, testmodels, testnodemodels, true, patternval, false, *wks)
+				//gophy.OptimizeGTRCompSharedRM(t, testmodels, testnodemodels, true, patternval, false, *wks)
 				lm = gophy.PCalcLikePatternsMul(t, testmodels, testnodemodels, patternval, *wks)
 			}
 			naic := icfun(lm, curparams+3., nsites)
@@ -293,13 +286,13 @@ func main() {
 	//uncertainty
 	// existence, check with and without the
 	if *uc1 {
-		uncertaintyExist(modelnodes, curmodels, curnodemodels, useLog, t,
-			patternval, *wks, curparams, currentaic, nsites, *aicc)
+		//uncertaintyExist(modelnodes, curmodels, curnodemodels, useLog, t,
+		//	patternval, *wks, curparams, currentaic, nsites, *aicc)
 	}
 	//uncertainty
 	if *uc2 {
-		uncertaintyLoc(modelnodes, curmodels, curnodemodels, useLog, t,
-			patternval, *wks, curparams, currentaic, nsites, *aicc)
+		//uncertaintyLoc(modelnodes, curmodels, curnodemodels, useLog, t,
+		//	patternval, *wks, curparams, currentaic, nsites, *aicc)
 	}
 	moveMarksToLabels(t.Rt)
 	fmt.Fprintln(os.Stderr, "Final models")
@@ -310,8 +303,10 @@ func main() {
 	//make a nexus so it is easier to read in the fig-tree
 	fmt.Println(t.Rt.Newick(true) + ";")
 	writeFigTreeNexus(curmodels, curnodemodels, t, *tfn+".gophy.results.tre")
+
 }
 
+/*
 func uncertaintyLoc(modelnodes []*gophy.Node, curmodels []*gophy.DiscreteModel,
 	curnodemodels map[*gophy.Node]int, useLog bool, t *gophy.Tree, patternval []float64,
 	wks int, curparams float64, currentaic float64, nsites int, useaicc bool) { // location
@@ -336,9 +331,9 @@ func uncertaintyLoc(modelnodes []*gophy.Node, curmodels []*gophy.DiscreteModel,
 		for _, ts := range testnodes {
 			//unmark just the modelnodes
 			testnodemodels := make(map[*gophy.Node]int)
-			testmodels := []*gophy.DiscreteModel{}
+			testmodels := []*gophy.ProteinModelNew{}
 			for _, j := range curmodels {
-				testmodels = append(testmodels, j.DeepCopyDiscreteModel())
+				testmodels = append(testmodels, j.DeepCopyDNAModel())
 			}
 			for k, j := range curnodemodels {
 				testnodemodels[k] = j
@@ -365,11 +360,11 @@ func uncertaintyLoc(modelnodes []*gophy.Node, curmodels []*gophy.DiscreteModel,
 			//   go back to the original as well
 			tlm := 0.0
 			if useLog {
-				gophy.OptimizeGTRDNACompSharedRMSingleModel(t, testmodels,
+				gophy.OptimizeGTRCompSharedRMSingleModel(t, testmodels,
 					testnodemodels, true, i.IData["shift"], patternval, true, wks)
 				tlm = gophy.PCalcLogLikePatternsMul(t, testmodels, testnodemodels, patternval, wks)
 			} else {
-				gophy.OptimizeGTRDNACompSharedRMSingleModel(t, testmodels,
+				gophy.OptimizeGTRCompSharedRMSingleModel(t, testmodels,
 					testnodemodels, true, i.IData["shift"], patternval, false, wks)
 				tlm = gophy.PCalcLikePatternsMul(t, testmodels, testnodemodels, patternval, wks)
 			}
@@ -398,7 +393,7 @@ func uncertaintyExist(modelnodes []*gophy.Node, curmodels []*gophy.DiscreteModel
 		testnodemodels := make(map[*gophy.Node]int)
 		testmodels := []*gophy.DiscreteModel{}
 		for _, j := range curmodels {
-			testmodels = append(testmodels, j.DeepCopyDiscreteModel())
+			testmodels = append(testmodels, j.DeepCopyDNAModel())
 		}
 		for k, j := range curnodemodels {
 			testnodemodels[k] = j
@@ -413,11 +408,11 @@ func uncertaintyExist(modelnodes []*gophy.Node, curmodels []*gophy.DiscreteModel
 		//   go back to the original as well
 		tlm := 0.0
 		if useLog {
-			gophy.OptimizeGTRDNACompSharedRMSingleModel(t, testmodels,
+			gophy.OptimizeGTRCompSharedRMSingleModel(t, testmodels,
 				testnodemodels, true, 0, patternval, true, wks)
 			tlm = gophy.PCalcLogLikePatternsMul(t, testmodels, testnodemodels, patternval, wks)
 		} else {
-			gophy.OptimizeGTRDNACompSharedRMSingleModel(t, testmodels,
+			gophy.OptimizeGTRCompSharedRMSingleModel(t, testmodels,
 				testnodemodels, true, 0, patternval, false, wks)
 			tlm = gophy.PCalcLikePatternsMul(t, testmodels, testnodemodels, patternval, wks)
 		}
@@ -427,7 +422,7 @@ func uncertaintyExist(modelnodes []*gophy.Node, curmodels []*gophy.DiscreteModel
 		fmt.Fprintln(os.Stderr, currentaic, taic, i.FData["uncex"])
 	}
 }
-
+*/
 func writeFigTreeNexus(curmodels []*gophy.DiscreteModel, curnodemodels map[*gophy.Node]int, t *gophy.Tree,
 	outfile string) {
 	f, err := os.Create(outfile)
