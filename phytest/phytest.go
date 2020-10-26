@@ -263,9 +263,9 @@ func main() {
 	l := gophy.PCalcLikePatterns(t, &x, patternval, *wks)
 	fmt.Println("starting lnL:", l)
 	fmt.Println("getting starting branch lengths (parsimony)")
-	s := gophy.PCalcSankParsPatternsMultState(t, x.NumStates, patternval, *wks)
+	s := gophy.PCalcSankParsPatterns(t, x.NumStates, patternval, *wks)
 	fmt.Println("sank:", s)
-	gophy.EstParsBLMultState(t, x.NumStates, patternval, nsites)
+	gophy.EstParsBL(t, x.NumStates, patternval, nsites)
 	fmt.Println("start:\n" + t.Rt.Newick(true) + ";")
 	//os.Exit(0)
 

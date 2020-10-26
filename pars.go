@@ -10,15 +10,15 @@ type ParsResult struct {
 	site  int
 }
 
-//PCalcSankParsPatternsMultState parallel caclulation of fitch parsimony costs with patterns
-func PCalcSankParsPatternsMultState(t *Tree, numstates int, patternval []float64, wks int) (fl float64) {
+// PCalcSankParsPatterns parallel caclulation of fitch parsimony costs with patterns
+func PCalcSankParsPatterns(t *Tree, numstates int, patternval []float64, wks int) (fl float64) {
 	fl = 0.0
 	nsites := len(patternval)
 	jobs := make(chan int, nsites)
 	//results := make(chan float64, nsites)
 	results := make(chan ParsResult, nsites)
 	for i := 0; i < wks; i++ {
-		go CalcSankParsWorkMultState(t, numstates, jobs, results)
+		go CalcSankParsWork(t, numstates, jobs, results)
 	}
 	for i := 0; i < nsites; i++ {
 		jobs <- i
@@ -32,13 +32,13 @@ func PCalcSankParsPatternsMultState(t *Tree, numstates int, patternval []float64
 	return
 }
 
-//CalcSankParsWorkMultState the worker for parallel jobs sent to CalcSankParsNodeMultState
-func CalcSankParsWorkMultState(t *Tree, numstates int, jobs <-chan int, results chan<- ParsResult) { //results chan<- float64) {
+// CalcSankParsWork ...
+func CalcSankParsWork(t *Tree, numstates int, jobs <-chan int, results chan<- ParsResult) { //results chan<- float64) {
 	for j := range jobs {
 		sl := 0.0
 		for _, n := range t.Post {
 			if len(n.Chs) > 0 {
-				CalcSankParsNodeMultState(n, numstates, j)
+				CalcSankParsNode(n, numstates, j)
 			}
 			if t.Rt == n {
 				sl = math.MaxFloat64
@@ -53,8 +53,8 @@ func CalcSankParsWorkMultState(t *Tree, numstates int, jobs <-chan int, results 
 	}
 }
 
-// CalcSankParsNodeMultState calculates Sank parsimony for a node
-func CalcSankParsNodeMultState(nd *Node, numstates int, site int) {
+// CalcSankParsNode ...
+func CalcSankParsNode(nd *Node, numstates int, site int) {
 	for i := 0; i < numstates; i++ {
 		nd.Data[site][i] = 0.
 	}
@@ -99,16 +99,15 @@ func CalcSankParsNodeMultState(nd *Node, numstates int, site int) {
 	}
 }
 
-// EstParsBLMultState estimates the parsimony branch lengths for multistates
-//  this will just pick one when there are equivalent
-func EstParsBLMultState(t *Tree, numstates int, patternval []float64, totalsites int) {
+// EstParsBL estimate the parsimony branch lengths
+func EstParsBL(t *Tree, numstates int, patternval []float64, totalsites int) {
 	nsites := len(patternval)
 	for _, n := range t.Post {
 		n.FData["parsbl"] = 0.0
 	}
 	for i := 0; i < nsites; i++ {
 		for _, n := range t.Pre {
-			if n == t.Rt {
+			if t.Rt == n {
 				minj := 0
 				minv := n.Data[i][0]
 				for j := 1; j < numstates; j++ {
@@ -118,7 +117,6 @@ func EstParsBLMultState(t *Tree, numstates int, patternval []float64, totalsites
 					}
 				}
 				n.IData["anc"] = minj
-				//fmt.Println(n.Newick(false), n.IData["anc"], n.Data[i])
 			} else {
 				from := n.Par.IData["anc"]
 				if len(n.Chs) > 0 {
@@ -149,13 +147,12 @@ func EstParsBLMultState(t *Tree, numstates int, patternval []float64, totalsites
 					if minj != from {
 						n.FData["parsbl"] += 1. * patternval[i]
 					}
-					//fmt.Println(n.Newick(false), n.IData["anc"], n.Data[i])
+
 				}
 			}
 		}
 	}
 	for _, n := range t.Post {
-		//prop or count
 		n.Len = math.Max(10e-10, n.FData["parsbl"]/(float64(totalsites)))
 		//n.Len = math.Max(0.0, n.FData["parsbl"])
 	}
