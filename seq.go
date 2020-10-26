@@ -260,11 +260,12 @@ func ReadPatternsSeqsFromFile(sfn string, nucleotide bool) (seqs map[string]stri
 	// get the site patternas
 	if nucleotide {
 		bf = GetEmpiricalBaseFreqs(seqs)
+		_, patternsint, _, _, _, _ = GetSitePatterns(seqs, nsites, seqnames)
 	} else {
 		bf = GetEmpiricalBaseFreqsProt(seqs)
+		_, patternsint, _, _, _, _ = GetSitePatternsProt(seqs, nsites, seqnames)
 	}
 	//patterns, patternsint, gapsites, constant, uninformative, _ := GetSitePatterns(seqs, nsites, seqnames)
-	_, patternsint, _, _, _, _ = GetSitePatterns(seqs, nsites, seqnames)
 
 	//list of sites
 	//fmt.Fprintln(os.Stderr, "nsites:", nsites)

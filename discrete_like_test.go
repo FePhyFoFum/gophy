@@ -120,9 +120,7 @@ func TestPCalcLogLikePatternsAA(t *testing.T) {
 	x.M.SetBaseFreqs(bf)
 	x.SetRateMatrixJTT()
 	x.M.SetupQGTR()
-	lnl := gophy.PCalcLogLikePatterns(tr, &x.M, patternval, 2)
-	t.Log(x.M.GetPCalc(0.1))
-	t.Log(lnl)
+	lnl := gophy.PCalcLikePatterns(tr, &x.M, patternval, 2)
 	if math.Round(lnl*1000)/1000 != -8394.822 {
 		fmt.Println(lnl)
 		t.Fail()
