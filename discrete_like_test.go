@@ -22,7 +22,7 @@ func TestPCalcLikePatterns(t *testing.T) {
 	}
 	x.M.SetRateMatrix(modelparams)
 	x.M.SetupQGTR()
-	lnl := gophy.PCalcLogLikePatterns(tr, &x.M, patternval, 2)
+	lnl := gophy.PCalcLikePatterns(tr, &x.M, patternval, 2)
 	if math.Round(lnl*1000)/1000 != -4570.796 {
 		fmt.Println(lnl)
 		t.Fail()
@@ -43,7 +43,7 @@ func TestPCalcLogLikePatterns(t *testing.T) {
 	}
 	x.M.SetRateMatrix(modelparams)
 	x.M.SetupQGTR()
-	lnl := gophy.PCalcLikePatterns(tr, &x.M, patternval, 2)
+	lnl := gophy.PCalcLogLikePatterns(tr, &x.M, patternval, 2)
 	fmt.Println(lnl)
 	if math.Round(lnl*1000)/1000 != -4570.796 {
 		fmt.Println(lnl)
@@ -89,6 +89,42 @@ func TestPCalcLogLikePatternsMS(t *testing.T) {
 	x.M.SetupQGTR()
 	lnl := gophy.PCalcLikePatterns(tr, &x.M, patternval, 2)
 	if math.Round(lnl*1000)/1000 != -4570.796 {
+		t.Fail()
+	}
+}
+
+func TestPCalcLikePatternsAA(t *testing.T) {
+	tfn := "test_files/10tips.pep.fa.treefile"
+	tr := gophy.ReadTreeFromFile(tfn)
+	afn := "test_files/10tips.pep.fa"
+	seqs, patternsint, _, bf := gophy.ReadPatternsSeqsFromFile(afn, false)
+	patternval, _ := gophy.PreparePatternVecsProt(tr, patternsint, seqs)
+	x := gophy.NewProteinModel()
+	x.M.SetBaseFreqs(bf)
+	x.SetRateMatrixJTT()
+	x.M.SetupQGTR()
+	lnl := gophy.PCalcLikePatterns(tr, &x.M, patternval, 2)
+	if math.Round(lnl*1000)/1000 != -8394.822 {
+		fmt.Println(lnl)
+		t.Fail()
+	}
+}
+
+func TestPCalcLogLikePatternsAA(t *testing.T) {
+	tfn := "test_files/10tips.pep.fa.treefile"
+	tr := gophy.ReadTreeFromFile(tfn)
+	afn := "test_files/10tips.pep.fa"
+	seqs, patternsint, _, bf := gophy.ReadPatternsSeqsFromFile(afn, false)
+	patternval, _ := gophy.PreparePatternVecsProt(tr, patternsint, seqs)
+	x := gophy.NewProteinModel()
+	x.M.SetBaseFreqs(bf)
+	x.SetRateMatrixJTT()
+	x.M.SetupQGTR()
+	lnl := gophy.PCalcLogLikePatterns(tr, &x.M, patternval, 2)
+	t.Log(x.M.GetPCalc(0.1))
+	t.Log(lnl)
+	if math.Round(lnl*1000)/1000 != -8394.822 {
+		fmt.Println(lnl)
 		t.Fail()
 	}
 }

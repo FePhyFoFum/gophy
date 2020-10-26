@@ -160,7 +160,7 @@ func main() {
 	//root model
 	x := gophy.NewProteinModel()
 	x.M.SetBaseFreqs(bf)
-	x.SetRateMatrixWAG()
+	x.SetRateMatrixJTT()
 	x.M.SetupQGTR()
 	fmt.Fprintln(os.Stderr, "emp:", bf)
 

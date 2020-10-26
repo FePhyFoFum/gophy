@@ -417,7 +417,7 @@ func CalcLogLikeNode(nd *Node, model *DiscreteModel, site int) {
 		nd.Data[site][i] = 0.
 	}
 	x1 := 0.0
-	x2 := []float64{0.0, 0.0, 0.0, 0.0}
+	x2 := make([]float64, numstates)
 	for _, c := range nd.Chs {
 		if math.IsNaN(c.Len) {
 			c.Len = 0.0
@@ -552,6 +552,7 @@ func RVTPconditionals(x *DiscreteModel, node *Node, patternval []float64) {
 
 // CalcLikeFrontBack ...
 func CalcLikeFrontBack(x *DiscreteModel, tree *Tree, patternval []float64) {
+	numstates := x.NumStates
 	for _, n := range tree.Post {
 		if len(n.Chs) != 0 {
 			n.TpConds = make([][]float64, len(patternval))
@@ -561,11 +562,19 @@ func CalcLikeFrontBack(x *DiscreteModel, tree *Tree, patternval []float64) {
 		n.RtConds = make([][]float64, len(patternval))
 		for i := 0; i < len(patternval); i++ {
 			if len(n.Chs) != 0 {
-				n.TpConds[i] = []float64{1.0, 1.0, 1.0, 1.0}
+				n.TpConds[i] = make([]float64, numstates)
+				for j := 0; j < numstates; j++ {
+					n.TpConds[i][j] = 1.0
+				}
 			}
-			n.RvTpConds[i] = []float64{1.0, 1.0, 1.0, 1.0}
-			n.RvConds[i] = []float64{1.0, 1.0, 1.0, 1.0}
-			n.RtConds[i] = []float64{1.0, 1.0, 1.0, 1.0}
+			n.RvTpConds[i] = make([]float64, numstates)
+			n.RvConds[i] = make([]float64, numstates)
+			n.RtConds[i] = make([]float64, numstates)
+			for j := 0; j < numstates; j++ {
+				n.RvTpConds[i][j] = 1.0
+				n.RvConds[i][j] = 1.0
+				n.RtConds[i][j] = 1.0
+			}
 		}
 	}
 	//loglike := 0.
@@ -619,7 +628,7 @@ func CalcAncStates(x *DiscreteModel, tree *Tree, patternval []float64) (retstate
 				continue
 			}
 			//fmt.Println(c.Newick(true))
-			retstates[c][i] = []float64{0.0, 0.0, 0.0, 0.0}
+			retstates[c][i] = make([]float64, numstates)
 			if c == tree.Rt {
 				su := 0.
 				for j, s := range c.RtConds[i] {
@@ -636,7 +645,7 @@ func CalcAncStates(x *DiscreteModel, tree *Tree, patternval []float64) (retstate
 				s1probs := c.TpConds
 				//need subtree 2
 				s2probs := c.RvConds
-				tv := []float64{0.0, 0.0, 0.0, 0.0}
+				tv := make([]float64, numstates)
 				for j := 0; j < numstates; j++ {
 					for k := 0; k < numstates; k++ {
 						tv[j] += (s1probs[i][j] * p.At(j, k) * s2probs[i][k])
