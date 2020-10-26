@@ -508,7 +508,7 @@ func RTconditionals(x *DiscreteModel, node *Node, patternval []float64) {
 	numstates := x.NumStates
 	p := x.GetPCalc(node.Len)
 	for s := range patternval {
-		for j := 0; j < 4; j++ {
+		for j := 0; j < numstates; j++ {
 			templike := 0.0
 			for k := 0; k < numstates; k++ {
 				templike += p.At(j, k) * node.TpConds[s][k]

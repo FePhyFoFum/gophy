@@ -24,7 +24,7 @@ func slidingWindow(x, w float64) float64 {
 }
 
 // MCMC simple MCMC for branch lengths
-func MCMC(t *gophy.Tree, x *gophy.Model, patternval []float64, wks int, outfilename string) {
+func MCMC(t *gophy.Tree, x *gophy.DiscreteModel, patternval []float64, wks int, outfilename string) {
 	f, err := os.Create(outfilename)
 	if err != nil {
 		log.Fatal(err)
@@ -99,7 +99,7 @@ func printModelDNA(modelparams []float64, basefreqs []float64) {
 }
 
 // A,R,N,D,C,Q,E,G,H,I,L,K,M,F,P,S,T,W,Y,V
-func printModelProt(d *gophy.Model) {
+func printModelProt(d *gophy.DiscreteModel) {
 	fmt.Fprintln(os.Stderr, "resfreqs --A:", d.BF[0], "resfreqs --R:", d.BF[1], "resfreqs --N:", d.BF[2], "resfreqs --D:", d.BF[3], "resfreqs --C:", d.BF[4])
 	fmt.Fprintln(os.Stderr, "resfreqs --Q:", d.BF[5], "resfreqs --E:", d.BF[6], "resfreqs --G:", d.BF[7], "resfreqs --H:", d.BF[8], "resfreqs --I:", d.BF[9])
 	fmt.Fprintln(os.Stderr, "resfreqs --L:", d.BF[10], "resfreqs --K:", d.BF[11], "resfreqs --M:", d.BF[12], "resfreqs --F:", d.BF[13], "resfreqs --P:", d.BF[14])
@@ -158,19 +158,6 @@ func main() {
 		pprof.StartCPUProfile(f)
 		defer pprof.StopCPUProfile()
 	}
-	x := gophy.NewModel()
-	if dt == gophy.Nucleotide {
-		x.Alph = dt
-		x.NumStates = 4
-		x.SetMapDNA()
-	} else if dt == gophy.AminoAcid {
-		x.Alph = dt
-		x.NumStates = 20
-		x.SetMapProt()
-	} else if dt == gophy.MultiState {
-		x.SetMapMult()
-	}
-	// x.SetupQJC()
 
 	//read a tree file
 	f, err := os.Open(*tfn)
@@ -193,39 +180,16 @@ func main() {
 	fmt.Println(t.Rt.Newick(true))
 
 	//read a seq file
-	nsites := 0
-	seqs := map[string]string{}
-	seqnames := make([]string, 0)
-	if dt == gophy.Nucleotide || dt == gophy.AminoAcid {
-		for _, i := range gophy.ReadSeqsFromFile(*afn) {
-			seqs[i.NM] = i.SQ
-			seqnames = append(seqnames, i.NM)
-			nsites = len(i.SQ)
-		}
-	} else {
-		mseqs, numstates := gophy.ReadMSeqsFromFile(*afn)
-		x.NumStates = numstates
-		bf := gophy.GetEmpiricalBaseFreqsMS(mseqs, numstates)
-		x.SetBaseFreqs(bf)
-		for _, i := range mseqs {
-			seqs[i.NM] = i.SQ
-			seqnames = append(seqnames, i.NM)
-			nsites = len(i.SQ)
-		}
-	}
-
-	// model things
-	var (
-		patterns      map[string][]int
-		patternsint   map[int]float64
-		gapsites      []int
-		constant      []int
-		uninformative []int
-		patternval    []float64
-	)
+	var nsites int
+	var x gophy.DiscreteModel
+	var patternval []float64
 
 	if dt == gophy.Nucleotide {
-		bf := gophy.GetEmpiricalBaseFreqs(seqs)
+		seqs, patternsint, ns, bf := gophy.ReadPatternsSeqsFromFile(*afn, true)
+		nsites = ns
+		patternval, _ = gophy.PreparePatternVecs(t, patternsint, seqs)
+		y := gophy.NewDNAModel()
+		y.M.SetBaseFreqs(bf)
 		mds := strings.Split(*mdr, ",")
 		modelparams := make([]float64, 5)
 		if len(mds) != 5 {
@@ -241,42 +205,40 @@ func main() {
 				modelparams[i] = f
 			}
 		}
-		x.SetBaseFreqs(bf)
-		x.SetRateMatrix(modelparams)
-		x.SetupQGTR()
-		// get the site patterns
-		patterns, patternsint, gapsites, constant, uninformative, _ = gophy.GetSitePatterns(seqs, nsites, seqnames)
-		patternval, _ = gophy.PreparePatternVecs(t, patternsint, seqs)
+		y.M.SetRateMatrix(modelparams)
+		y.M.SetupQGTR()
+		x = y.M
 	} else if dt == gophy.AminoAcid {
-		bf := gophy.GetEmpiricalBaseFreqsProt(seqs)
+		seqs, patternsint, ns, bf := gophy.ReadPatternsSeqsFromFile(*afn, false)
+		nsites = ns
+		patternval, _ = gophy.PreparePatternVecsProt(t, patternsint, seqs)
+		y := gophy.NewProteinModel()
 		if *m == "JTT" {
-			x.SetRateMatrixJTT()
+			y.SetRateMatrixJTT()
 		} else if *m == "WAG" {
-			x.SetRateMatrixWAG()
+			y.SetRateMatrixWAG()
 		} else if *m == "LG" {
-			x.SetRateMatrixLG()
+			y.SetRateMatrixLG()
 		} else {
 			fmt.Fprintln(os.Stderr, "amino acid model string not recognized, please use [JTT/WAG/LG]")
 			os.Exit(1)
 		}
 		if *mbf == "mod" {
-			x.SetModelBF()
+			y.M.SetModelBF()
 		} else if *mbf == "emp" {
-			x.SetBaseFreqs(bf)
-		} else {
-			fmt.Fprintln(os.Stderr, "amino acid frequency string not recognized, please use [mod/emp]")
-			os.Exit(1)
+			y.M.SetBaseFreqs(bf)
 		}
-		x.SetupQGTR()
-		// get the site patterns
-		patterns, patternsint, gapsites, constant, uninformative, _ = gophy.GetSitePatternsProt(seqs, nsites, seqnames)
-		patternval, _ = gophy.PreparePatternVecsProt(t, patternsint, seqs)
+		y.M.SetupQGTR()
+		x = y.M
 	} else {
+		seqs, patternsint, ns, bf, numstates := gophy.ReadPatternsMSeqsFromFile(*afn)
+		nsites = ns
+		patternval, _ = gophy.PreparePatternVecsMS(t, patternsint, seqs, gophy.GetMap(numstates), numstates)
 		mds := strings.Split(*mdr, ",")
 		modelparams := make([]float64, len(mds))
-		if len(mds) == (((x.NumStates*x.NumStates)-x.NumStates)/2)-1 {
+		if len(mds) == (((numstates*numstates)-numstates)/2)-1 {
 			fmt.Fprintln(os.Stderr, "your model contains ", len(mds), " params, and is symmetric")
-		} else if len(mds) == ((x.NumStates*x.NumStates)-x.NumStates)-1 {
+		} else if len(mds) == ((numstates*numstates)-numstates)-1 {
 			fmt.Fprintln(os.Stderr, "your model contains ", len(mds), " params, and is asymmetric")
 		} else {
 			fmt.Fprintln(os.Stderr, "not enough parameter values for number of states!")
@@ -290,78 +252,33 @@ func main() {
 			}
 			modelparams[i] = f
 		}
-		x.SetRateMatrix(modelparams)
-		x.SetupQGTR()
+		y := gophy.NewMultStateModel(numstates)
+		y.M.SetScaledRateMatrix(modelparams, true)
+		y.M.SetBaseFreqs(bf)
+		y.M.EBF = bf
+		y.M.SetupQGTR()
+		x = y.M
 	}
 
-	//list of sites
-	fmt.Fprintln(os.Stderr, "nsites:", nsites)
-	fmt.Fprintln(os.Stderr, "patterns:", len(patterns), len(patternsint))
-	fmt.Fprintln(os.Stderr, "onlygaps:", len(gapsites))
-	fmt.Fprintln(os.Stderr, "constant:", len(constant))
-	fmt.Fprintln(os.Stderr, "uninformative:", len(uninformative))
+	l := gophy.PCalcLikePatterns(t, &x, patternval, *wks)
+	fmt.Println("starting lnL:", l)
+	fmt.Println("getting starting branch lengths (parsimony)")
+	s := gophy.PCalcSankParsPatternsMultState(t, x.NumStates, patternval, *wks)
+	fmt.Println("sank:", s)
+	gophy.EstParsBLMultState(t, x.NumStates, patternval, nsites)
+	fmt.Println("start:\n" + t.Rt.Newick(true) + ";")
+	//os.Exit(0)
 
-	if dt == gophy.Nucleotide {
-		l := gophy.PCalcLikePatterns(t, x, patternval, *wks)
-		fmt.Println("starting lnL:", l)
-		fmt.Println("getting starting branch lengths (parsimony)")
-		s := gophy.PCalcSankParsPatterns(t, patternval, *wks)
-		fmt.Println("sank:", s)
-		gophy.EstParsBL(t, patternval, nsites)
-		fmt.Println("start:\n" + t.Rt.Newick(true) + ";")
-		//os.Exit(0)
+	// calc likelihood
+	start := time.Now()
+	l = gophy.PCalcLikePatterns(t, &x, patternval, *wks)
+	fmt.Println("lnL:", l)
 
-		// calc likelihood
-		start := time.Now()
-		l = gophy.PCalcLikePatterns(t, x, patternval, *wks)
-		fmt.Println("lnL:", l)
+	gophy.OptimizeBLNR(t, &x, patternval, 10)
+	l = gophy.PCalcLikePatterns(t, &x, patternval, *wks)
+	fmt.Println("final:\n" + t.Rt.Newick(true) + ";")
+	fmt.Println("lnL:", l)
+	end := time.Now()
+	fmt.Fprintln(os.Stderr, end.Sub(start))
 
-		gophy.OptimizeBLNR(t, x, patternval, 10)
-		l = gophy.PCalcLikePatterns(t, x, patternval, *wks)
-		fmt.Println("final:\n" + t.Rt.Newick(true) + ";")
-		fmt.Println("lnL:", l)
-		end := time.Now()
-		fmt.Fprintln(os.Stderr, end.Sub(start))
-
-	} else {
-		l := gophy.PCalcLikePatternsMS(t, x, patternval, *wks)
-		fmt.Println("starting lnL:", l)
-		fmt.Println("getting starting branch lengths (parsimony)")
-		s := gophy.PCalcSankParsPatternsMultState(t, x.NumStates, patternval, *wks)
-		fmt.Println("sank:", s)
-		gophy.EstParsBLMultState(t, x.NumStates, patternval, nsites)
-		fmt.Println("start:\n" + t.Rt.Newick(true) + ";")
-		//os.Exit(0)
-
-		// calc likelihood
-		start := time.Now()
-		l = gophy.PCalcLikePatternsMS(t, x, patternval, *wks)
-		fmt.Println("lnL:", l)
-
-		gophy.OptimizeBLNRMS(t, x, patternval, 10)
-		l = gophy.PCalcLikePatternsMS(t, x, patternval, *wks)
-		fmt.Println("final:\n" + t.Rt.Newick(true) + ";")
-		fmt.Println("lnL:", l)
-		end := time.Now()
-		fmt.Fprintln(os.Stderr, end.Sub(start))
-	}
-	/*
-		//optimize model
-		gophy.OptimizeGTR(t, x, patternval, 10)
-		//MCMC(t, x, patternval, 3, "temp.mcmc.tre")
-		//print the matrix
-		for i := 0; i < 4; i++ {
-			for j := 0; j < 4; j++ {
-				fmt.Print(x.R.At(i, j), " ")
-			}
-			fmt.Print("\n")
-		}
-		//print the basefreqs
-		fmt.Println(x.BF)
-		fmt.Println(t.Rt.Newick(true))
-
-		//fmt.Println(gophy.GetGammaCats(10, 5, false))
-		l = gophy.PCalcLikePatterns(t, x, patternval, *wks)
-		fmt.Println("lnL:", l)
-	*/
 }
