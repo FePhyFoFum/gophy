@@ -172,10 +172,8 @@ func main() {
 		namesrevmap[i.NM] = count
 		count++
 	}
-	x := gophy.NewMultStateModel()
-	x.NumStates = numstates
-	x.SetMap()
-	bf := gophy.GetEmpiricalBaseFreqsMS(mseqs, x.NumStates)
+	x := gophy.NewMultStateModel(numstates)
+	bf := gophy.GetEmpiricalBaseFreqsMS(mseqs, x.M.NumStates)
 	//end read a seq file
 
 	start := time.Now()
@@ -183,7 +181,7 @@ func main() {
 	fmt.Println("BF", bf)
 	// get the site patternas
 	patterns, patternsint, gapsites, constant, uninformative, _ :=
-		gophy.GetSitePatternsMS(mseqs, x.GetCharMap(), x.GetNumStates())
+		gophy.GetSitePatternsMS(mseqs, x.M.GetCharMap(), x.M.GetNumStates())
 
 	fmt.Println(" patterns:", len(patternsint), " gaps:", len(gapsites),
 		" constant:", len(constant), " uninformative:", len(uninformative))

@@ -702,12 +702,12 @@ func (p *PLObj) RunLF(startRate float64, verbose bool) *optimize.Result {
 		paramnodemap[i] = c
 		c++
 	}
-	//fmt.Fprintln(os.Stderr, params)
 	val := p.CalcLF(params, true)
 	if verbose {
 		fmt.Fprintln(os.Stderr, "start LF:", val)
 	}
 	x := p.OptimizeRD(params, p.CalcLF, true, false, false)
+
 	origx := x.X
 	var err error
 	x.X, x.F, err = p.OptimizeRDBOUNDEDIE(x.X, p.CalcLF, true, false, nlopt.LD_AUGLAG, verbose,
@@ -717,6 +717,7 @@ func (p *PLObj) RunLF(startRate float64, verbose bool) *optimize.Result {
 		x.X, x.F, err = p.OptimizeRDBOUNDED(x.X, p.CalcLF, true, false, nlopt.LD_SLSQP, verbose)
 	}
 	//x.X, x.F = p.OptimizeRDBOUNDED(x.X, p.CalcLF, true, false, nlopt.LD_CCSAQ, verbose)
+
 	if verbose {
 		fmt.Fprintln(os.Stderr, "end LF:", x.F)
 	}
