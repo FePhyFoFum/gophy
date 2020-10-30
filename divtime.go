@@ -106,13 +106,14 @@ func (p *PLObj) OptimizeRD(params []float64, likeFunc func([]float64, bool) floa
 	if LF || PL {
 		res, err := optimize.Minimize(ps, p0, &settings, &optimize.LBFGS{})
 		if err != nil {
-			//fmt.Println(err)
+			fmt.Println(err)
 		}
+		fmt.Fprintln(os.Stderr, count)
 		return res
 	}
 	res, err := optimize.Minimize(ps, p0, &settings, nil)
 	if err != nil {
-		//fmt.Println(err)
+		fmt.Println(err)
 	}
 	return res
 	//fmt.Println(res.F)
@@ -707,17 +708,17 @@ func (p *PLObj) RunLF(startRate float64, verbose bool) *optimize.Result {
 		fmt.Fprintln(os.Stderr, "start LF:", val)
 	}
 	x := p.OptimizeRD(params, p.CalcLF, true, false, false)
-
-	origx := x.X
-	var err error
-	x.X, x.F, err = p.OptimizeRDBOUNDEDIE(x.X, p.CalcLF, true, false, nlopt.LD_AUGLAG, verbose,
-		paramnodemap)
-	if err != nil {
-		x.X = origx
-		x.X, x.F, err = p.OptimizeRDBOUNDED(x.X, p.CalcLF, true, false, nlopt.LD_SLSQP, verbose)
-	}
-	//x.X, x.F = p.OptimizeRDBOUNDED(x.X, p.CalcLF, true, false, nlopt.LD_CCSAQ, verbose)
-
+	/*
+		origx := x.X
+		var err error
+		x.X, x.F, err = p.OptimizeRDBOUNDEDIE(x.X, p.CalcLF, true, false, nlopt.LD_AUGLAG, verbose,
+			paramnodemap)
+		if err != nil {
+			x.X = origx
+			x.X, x.F, err = p.OptimizeRDBOUNDED(x.X, p.CalcLF, true, false, nlopt.LD_SLSQP, verbose)
+		}
+		//x.X, x.F = p.OptimizeRDBOUNDED(x.X, p.CalcLF, true, false, nlopt.LD_CCSAQ, verbose)
+	*/
 	if verbose {
 		fmt.Fprintln(os.Stderr, "end LF:", x.F)
 	}
