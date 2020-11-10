@@ -89,6 +89,33 @@ func PCalcLikePatterns(t *Tree, x *DiscreteModel, patternval []float64, wks int)
 	return
 }
 
+//PCalcLikePatternsGamma parallel caclulation of likelihood with patterns with gamma
+func PCalcLikePatternsGamma(t *Tree, x *DiscreteModel, patternval []float64, wks int) (fl float64) {
+	fl = 0.0
+	nsites := len(patternval)
+	jobs := make(chan int, nsites)
+	//results := make(chan float64, nsites)
+	results := make(chan LikeResult, nsites)
+	// populate the P matrix dictionary without problems of race conditions
+	// just the first site
+	x.EmptyPDict()
+	fl += math.Log(CalcLikeOneSiteGamma(t, x, 0)) * patternval[0]
+	for i := 0; i < wks; i++ {
+		go CalcLikeWorkGamma(t, x, jobs, results)
+	}
+	for i := 1; i < nsites; i++ {
+		jobs <- i
+	}
+	close(jobs)
+	rr := LikeResult{}
+	for i := 1; i < nsites; i++ {
+		rr = <-results
+		fl += math.Log(rr.value) * patternval[rr.site]
+		//fl += <-results
+	}
+	return
+}
+
 //PCalcLikePatternsMarked parallel likelihood caclulation with patterns and just update the values
 func PCalcLikePatternsMarked(t *Tree, x *DiscreteModel, patternval []float64, wks int) (fl float64) {
 	fl = 0.0
@@ -130,6 +157,33 @@ func PCalcLogLikePatterns(t *Tree, x *DiscreteModel, patternval []float64, wks i
 	fl += CalcLogLikeOneSite(t, x, 0) * patternval[0]
 	for i := 0; i < wks; i++ {
 		go CalcLogLikeWork(t, x, jobs, results)
+	}
+	for i := 1; i < nsites; i++ {
+		jobs <- i
+	}
+	close(jobs)
+	rr := LikeResult{}
+	for i := 1; i < nsites; i++ {
+		rr = <-results
+		fl += (rr.value * patternval[rr.site])
+	}
+	return
+}
+
+//PCalcLogLikePatternsGamma parallel log likeliohood calculation including patterns
+func PCalcLogLikePatternsGamma(t *Tree, x *DiscreteModel, patternval []float64, wks int) (fl float64) {
+	fl = 0.0
+	nsites := len(patternval)
+	jobs := make(chan int, nsites)
+	//results := make(chan float64, nsites)
+	results := make(chan LikeResult, nsites)
+	// populate the P matrix dictionary without problems of race conditions
+	// just the first site
+	x.EmptyPDict()
+	x.EmptyPLDict()
+	fl += CalcLogLikeOneSiteGamma(t, x, 0) * patternval[0]
+	for i := 0; i < wks; i++ {
+		go CalcLogLikeWorkGamma(t, x, jobs, results)
 	}
 	for i := 1; i < nsites; i++ {
 		jobs <- i
@@ -206,6 +260,25 @@ func CalcLogLikeOneSite(t *Tree, x *DiscreteModel, site int) float64 {
 	return sl
 }
 
+func CalcLogLikeOneSiteGamma(t *Tree, x *DiscreteModel, site int) float64 {
+	numstates := x.NumStates
+	sl := 0.0
+	for _, g := range x.GammaCats {
+		for _, n := range t.Post {
+			if len(n.Chs) > 0 {
+				CalcLogLikeNodeGamma(n, x, site, g)
+			}
+			if t.Rt == n {
+				for i := 0; i < numstates; i++ {
+					t.Rt.Data[site][i] += math.Log(x.BF[i])
+				}
+				sl += (floats.LogSumExp(t.Rt.Data[site]) * (1. / float64(x.GammaNCats)))
+			}
+		}
+	}
+	return sl
+}
+
 //CalcLikeOneSite just one site
 func CalcLikeOneSite(t *Tree, x *DiscreteModel, site int) float64 {
 	numstates := x.NumStates
@@ -219,6 +292,26 @@ func CalcLikeOneSite(t *Tree, x *DiscreteModel, site int) float64 {
 				t.Rt.Data[site][i] *= x.BF[i]
 			}
 			sl = floats.Sum(t.Rt.Data[site])
+		}
+	}
+	return sl
+}
+
+//CalcLikeOneSiteGamma just one site
+func CalcLikeOneSiteGamma(t *Tree, x *DiscreteModel, site int) float64 {
+	numstates := x.NumStates
+	sl := 0.0
+	for _, g := range x.GammaCats {
+		for _, n := range t.Post {
+			if len(n.Chs) > 0 {
+				CalcLikeNodeGamma(n, x, site, g)
+			}
+			if t.Rt == n {
+				for i := 0; i < numstates; i++ {
+					t.Rt.Data[site][i] *= x.BF[i]
+				}
+				sl += floats.Sum(t.Rt.Data[site]) * (1. / float64(x.GammaNCats))
+			}
 		}
 	}
 	return sl
@@ -317,6 +410,28 @@ func CalcLogLikeWork(t *Tree, x *DiscreteModel, jobs <-chan int, results chan<- 
 	}
 }
 
+// CalcLogLikeWorkGamma this is intended for a worker that will be executing this per site
+func CalcLogLikeWorkGamma(t *Tree, x *DiscreteModel, jobs <-chan int, results chan<- LikeResult) { //results chan<- float64) {
+	numstates := x.NumStates
+	for j := range jobs {
+		sl := 0.0
+		for _, g := range x.GammaCats {
+			for _, n := range t.Post {
+				if len(n.Chs) > 0 {
+					CalcLogLikeNodeGamma(n, x, j, g)
+				}
+				if t.Rt == n {
+					for i := 0; i < numstates; i++ {
+						t.Rt.Data[j][i] += math.Log(x.BF[i])
+					}
+					sl += (floats.LogSumExp(t.Rt.Data[j]) * (1. / float64(x.GammaNCats)))
+				}
+			}
+		}
+		results <- LikeResult{value: sl, site: j}
+	}
+}
+
 //CalcLikeWork this is the worker
 func CalcLikeWork(t *Tree, x *DiscreteModel, jobs <-chan int, results chan<- LikeResult) { //results chan<- float64) {
 	numstates := x.NumStates
@@ -331,6 +446,28 @@ func CalcLikeWork(t *Tree, x *DiscreteModel, jobs <-chan int, results chan<- Lik
 					t.Rt.Data[j][i] *= x.BF[i]
 				}
 				sl = floats.Sum(t.Rt.Data[j])
+			}
+		}
+		results <- LikeResult{value: sl, site: j}
+	}
+}
+
+//CalcLikeWorkGamma ...
+func CalcLikeWorkGamma(t *Tree, x *DiscreteModel, jobs <-chan int, results chan<- LikeResult) { //results chan<- float64) {
+	numstates := x.NumStates
+	for j := range jobs {
+		sl := 0.0
+		for _, g := range x.GammaCats {
+			for _, n := range t.Post {
+				if len(n.Chs) > 0 {
+					CalcLikeNodeGamma(n, x, j, g)
+				}
+				if t.Rt == n {
+					for i := 0; i < numstates; i++ {
+						t.Rt.Data[j][i] *= x.BF[i]
+					}
+					sl += floats.Sum(t.Rt.Data[j]) * (1. / float64(x.GammaNCats))
+				}
 			}
 		}
 		results <- LikeResult{value: sl, site: j}
@@ -444,6 +581,40 @@ func CalcLogLikeNode(nd *Node, model *DiscreteModel, site int) {
 	}
 }
 
+// CalcLogLikeNodeGamma calculates likelihood for node
+func CalcLogLikeNodeGamma(nd *Node, model *DiscreteModel, site int, gammav float64) {
+	numstates := model.NumStates
+	for i := 0; i < numstates; i++ {
+		nd.Data[site][i] = 0.
+	}
+	x1 := 0.0
+	x2 := make([]float64, numstates)
+	for _, c := range nd.Chs {
+		if math.IsNaN(c.Len) {
+			c.Len = 0.0
+		}
+		if len(c.Chs) == 0 {
+			P := model.GetPMap(c.Len * gammav)
+			for i := 0; i < numstates; i++ {
+				x1 = 0.0
+				for j := 0; j < numstates; j++ {
+					x1 += P.At(i, j) * c.Data[site][j]
+				}
+				nd.Data[site][i] += math.Log(x1)
+			}
+		} else {
+			PL := model.GetPMapLogged(c.Len * gammav)
+			for i := 0; i < numstates; i++ {
+				for j := 0; j < numstates; j++ {
+					//x2[j] = math.Log(P.At(i, j)) + c.Data[site][j]
+					x2[j] = PL.At(i, j) + c.Data[site][j]
+				}
+				nd.Data[site][i] += floats.LogSumExp(x2)
+			}
+		}
+	}
+}
+
 // CalcLikeNode calculate the likelihood of a node
 func CalcLikeNode(nd *Node, model *DiscreteModel, site int) {
 	numstates := model.NumStates
@@ -454,6 +625,36 @@ func CalcLikeNode(nd *Node, model *DiscreteModel, site int) {
 	x2 := 0.0
 	for _, c := range nd.Chs {
 		P := model.GetPMap(c.Len)
+		if len(c.Chs) == 0 {
+			for i := 0; i < numstates; i++ {
+				x1 = 0.0
+				for j := 0; j < numstates; j++ {
+					x1 += P.At(i, j) * c.Data[site][j]
+				}
+				nd.Data[site][i] *= x1
+			}
+		} else {
+			for i := 0; i < numstates; i++ {
+				x2 = 0.0
+				for j := 0; j < numstates; j++ {
+					x2 += P.At(i, j) * c.Data[site][j]
+				}
+				nd.Data[site][i] *= x2
+			}
+		}
+	}
+}
+
+// CalcLikeNodeGamma calculate the likelihood of a node
+func CalcLikeNodeGamma(nd *Node, model *DiscreteModel, site int, gammav float64) {
+	numstates := model.NumStates
+	for i := 0; i < numstates; i++ {
+		nd.Data[site][i] = 1.
+	}
+	x1 := 0.0
+	x2 := 0.0
+	for _, c := range nd.Chs {
+		P := model.GetPMap(c.Len * gammav) //the only gamma bit, arg
 		if len(c.Chs) == 0 {
 			for i := 0; i < numstates; i++ {
 				x1 = 0.0

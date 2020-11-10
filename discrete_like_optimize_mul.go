@@ -118,7 +118,7 @@ func AdjustBLNRMult(node *Node, models []*DiscreteModel, nodemodels map[*Node]in
 			break
 		}
 	}
-	endL := PCalcLogLikePatterns(t, x, patternvals, wks)
+	endL := PCalcLogLikePatternsMul(t, models, nodemodels, patternvals, wks)
 	//make sure that we actually made the likelihood better
 	if startL > endL {
 		node.Len = startLen

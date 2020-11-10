@@ -41,6 +41,9 @@ type DiscreteModel struct {
 	EigenVecsI *mat.Dense
 	X1         *mat.Dense
 	X2         *mat.Dense
+	GammaAlpha float64
+	GammaNCats int
+	GammaCats  []float64
 }
 
 // NewDiscreteModel get new model pointer
