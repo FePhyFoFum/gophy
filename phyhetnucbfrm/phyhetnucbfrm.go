@@ -172,7 +172,7 @@ func main() {
 		l = gophy.PCalcLogLikePatterns(t, &x.M, patternval, *wks)
 		fmt.Fprintln(os.Stderr, "lnL:", l)
 	}
-	gophy.OptimizeGTRDNA(t, &x.M, patternval, useLog, *wks)
+	modelparams = gophy.OptimizeGTRDNA(t, &x.M, patternval, useLog, *wks)
 	gophy.OptimizeBF(t, &x.M, patternval, useLog, *wks)
 	if useLog {
 		l = gophy.PCalcLogLikePatterns(t, &x.M, patternval, *wks)

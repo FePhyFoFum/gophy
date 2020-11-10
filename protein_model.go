@@ -210,6 +210,18 @@ func (d *ProteinModel) SetRateMatrixLG() {
 	d.M.MBF = res[20]
 }
 
+// DeepCopyProteinModel ...
+func (d *ProteinModel) DeepCopyProteinModel() *ProteinModel {
+	outm := NewProteinModel()
+	outm.M.BF = make([]float64, 20)
+	copy(outm.M.BF, d.M.BF)
+	outm.M.Q = mat.NewDense(20, 20, nil)
+	outm.M.R = mat.NewDense(20, 20, nil)
+	outm.M.R.Copy(d.M.R)
+	outm.M.Q.Copy(d.M.Q)
+	return outm
+}
+
 // SetupQProt set up Q matrix
 // This is scaled (so the branch lengths are going to be proportional to these changes)
 // Use SetRateMatrix* and then do this

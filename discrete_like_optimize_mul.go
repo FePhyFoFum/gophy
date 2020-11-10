@@ -400,6 +400,81 @@ func OptimizeGTRDNACompSharedRM(t *Tree, models []*DiscreteModel, nodemodels map
 	}
 }
 
+// OptimizeAACompSharedRM optimize GTR base composition but share rate matrix for the different parts
+func OptimizeAACompSharedRM(t *Tree, models []*DiscreteModel, nodemodels map[*Node]int,
+	patternvals []float64, log bool, wks int) {
+	var lkfun func(*Tree, []*DiscreteModel, map[*Node]int, []float64, int) float64
+	if log {
+		lkfun = PCalcLogLikePatternsMul
+	} else {
+		lkfun = PCalcLikePatternsMul
+	}
+	count := 0
+	//start := time.Now()
+	fcn := func(mds []float64) float64 {
+		for _, i := range mds {
+			if i < 0 {
+				return 1000000000000
+			}
+		}
+		cur := 0
+		//fmt.Println(" ++", mds)
+		for _, j := range models {
+			bf := make([]float64, 20)
+			for k := 0; k < 19; k++ {
+				bf[k] = mds[cur]
+				cur++
+			}
+			bf[19] = 1 - floats.Sum(bf[0:19])
+			j.SetBaseFreqs(bf)
+			j.SetupQGTR()
+		}
+		//lnl := PCalcLikePatternsMul(t, models, nodemodels, patternvals, wks)
+		lnl := lkfun(t, models, nodemodels, patternvals, wks)
+
+		if count%100 == 0 {
+			//curt := time.Now()
+			//fmt.Println(count, lnl, curt.Sub(start))
+			//start = time.Now()
+		}
+		count++
+		return -lnl
+	}
+	settings := optimize.Settings{}
+	FC := optimize.FunctionConverge{}
+	FC.Absolute = 10e-8 //10e-10
+	FC.Relative = 10e-10
+	FC.Iterations = 100
+	settings.Converger = &FC
+	/*grad := func(grad, x []float64) []float64 {
+		return fd.Gradient(grad, fcn, x, nil)
+	}*/
+	p := optimize.Problem{Func: fcn, Grad: nil, Hess: nil}
+	p0 := make([]float64, 0)
+
+	cur := 0
+	for i := range models {
+		for j := 0; j < 19; j++ { // 20 -1
+			p0 = append(p0, models[i].BF[j])
+			cur++
+		}
+	}
+
+	res, err := optimize.Minimize(p, p0, &settings, nil)
+	if err != nil {
+		//fmt.Println(err)
+	}
+	//fmt.Println("   ", res.F)
+	cur = 0
+	for _, j := range models {
+		bf := []float64{res.X[cur], res.X[cur+1], res.X[cur+2]}
+		cur += 3
+		bf = append(bf, 1-floats.Sum(bf))
+		j.SetBaseFreqs(bf)
+		j.SetupQGTR()
+	}
+}
+
 // OptimizeGTRDNACompSharedRMSingleModel optimize GTR base composition but share rate matrix for the different parts
 //   you send an int that will identify which model can be adjusted and only that one will be
 func OptimizeGTRDNACompSharedRMSingleModel(t *Tree, models []*DiscreteModel,
@@ -568,4 +643,72 @@ func OptimizeGTRDNACompSharedRMSubClade(t *Tree, n *Node, excl bool, models []*D
 		j.SetBaseFreqs(bf)
 		j.SetupQGTR()
 	}
+}
+
+//OptimizeAACompSharedRMSingleModel optimize AA base comp but share rate matrix for different parts
+func OptimizeAACompSharedRMSingleModel(t *Tree, models []*DiscreteModel,
+	nodemodels map[*Node]int, usemodelvals bool, whichmodel int,
+	patternvals []float64, log bool, wks int) {
+	var lkfun func(*Tree, []*DiscreteModel, map[*Node]int, []float64, int) float64
+	if log {
+		lkfun = PCalcLogLikePatternsMul
+	} else {
+		lkfun = PCalcLikePatternsMul
+	}
+	numstates := models[whichmodel].NumStates
+	count := 0
+	//start := time.Now()
+	fcn := func(mds []float64) float64 {
+		mds1 := make([]float64, numstates)
+		tsum := 0.
+		for j, i := range mds {
+			if i < 0 {
+				return 1000000000000
+			}
+			mds1[j] = i
+			tsum += i
+		}
+		if tsum > 1.0 {
+			return 1000000000000
+		}
+		j := models[whichmodel]
+		mds1[numstates-1] = 1. - tsum
+		j.SetBaseFreqs(mds1)
+		j.SetupQGTR()
+		//lnl := PCalcLikePatternsMul(t, models, nodemodels, patternvals, wks)
+		lnl := lkfun(t, models, nodemodels, patternvals, wks)
+		if count%100 == 0 {
+			//curt := time.Now()
+			//fmt.Println(count, lnl, curt.Sub(start))
+			//start = time.Now()
+		}
+		count++
+		return -lnl
+	}
+	settings := optimize.Settings{}
+	FC := optimize.FunctionConverge{}
+	FC.Absolute = 10e-8 //10e-10
+	FC.Relative = 10e-10
+	FC.Iterations = 100
+	settings.Converger = &FC
+
+	p := optimize.Problem{Func: fcn, Grad: nil, Hess: nil}
+	p0 := make([]float64, numstates-1)
+	for i := range p0 {
+		p0[i] = 1. / float64(numstates)
+	}
+	res, err := optimize.Minimize(p, p0, &settings, nil)
+	if err != nil {
+		fmt.Println(err)
+	}
+	mds1 := make([]float64, numstates)
+	tsum := 0.
+	for j, i := range res.X {
+		mds1[j] = i
+		tsum += i
+	}
+	mds1[numstates-1] = 1. - tsum
+	j := models[whichmodel]
+	j.SetBaseFreqs(mds1)
+	j.SetupQGTR()
 }

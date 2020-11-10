@@ -230,7 +230,8 @@ func OptimizeBLS(t *Tree, x *DiscreteModel, patternvals []float64, wks int) {
 }
 
 // OptimizeGTRDNA optimize GTR
-func OptimizeGTRDNA(t *Tree, x *DiscreteModel, patternvals []float64, sup bool, wks int) {
+func OptimizeGTRDNA(t *Tree, x *DiscreteModel, patternvals []float64,
+	sup bool, wks int) []float64 {
 	var lkfun func(*Tree, *DiscreteModel, []float64, int) float64
 	if sup {
 		lkfun = PCalcLogLikePatterns
@@ -262,6 +263,7 @@ func OptimizeGTRDNA(t *Tree, x *DiscreteModel, patternvals []float64, sup bool, 
 	}
 	//fmt.Println(res.F)
 	x.SetRateMatrix(res.X)
+	return res.X
 }
 
 //OptimizeBF optimizing the basefreq model but for a clade
