@@ -143,6 +143,33 @@ func PCalcLikePatternsMarked(t *Tree, x *DiscreteModel, patternval []float64, wk
 	return
 }
 
+//PCalcLikePatternsMarkedGamma parallel likelihood caclulation with patterns and just update the values
+func PCalcLikePatternsMarkedGamma(t *Tree, x *DiscreteModel, patternval []float64, wks int) (fl float64) {
+	fl = 0.0
+	nsites := len(patternval)
+	jobs := make(chan int, nsites)
+	//results := make(chan float64, nsites)
+	results := make(chan LikeResult, nsites)
+	// populate the P matrix dictionary without problems of race conditions
+	// just the first site
+	//x.EmptyPDict()
+	fl += math.Log(CalcLikeOneSiteMarkedGamma(t, x, 0)) * patternval[0]
+	for i := 0; i < wks; i++ {
+		go CalcLikeWorkMarkedGamma(t, x, jobs, results)
+	}
+	for i := 1; i < nsites; i++ {
+		jobs <- i
+	}
+	close(jobs)
+	rr := LikeResult{}
+	for i := 1; i < nsites; i++ {
+		rr = <-results
+		fl += math.Log(rr.value) * patternval[rr.site]
+		//fl += <-results
+	}
+	return
+}
+
 //PCalcLogLikePatterns parallel log likeliohood calculation including patterns
 func PCalcLogLikePatterns(t *Tree, x *DiscreteModel, patternval []float64, wks int) (fl float64) {
 	fl = 0.0
@@ -182,6 +209,7 @@ func PCalcLogLikePatternsGamma(t *Tree, x *DiscreteModel, patternval []float64, 
 	x.EmptyPDict()
 	x.EmptyPLDict()
 	fl += CalcLogLikeOneSiteGamma(t, x, 0) * patternval[0]
+
 	for i := 0; i < wks; i++ {
 		go CalcLogLikeWorkGamma(t, x, jobs, results)
 	}
@@ -260,10 +288,11 @@ func CalcLogLikeOneSite(t *Tree, x *DiscreteModel, site int) float64 {
 	return sl
 }
 
+//CalcLogLikeOneSiteGamma ...
 func CalcLogLikeOneSiteGamma(t *Tree, x *DiscreteModel, site int) float64 {
 	numstates := x.NumStates
-	sl := 0.0
-	for _, g := range x.GammaCats {
+	tsl := make([]float64, x.GammaNCats)
+	for p, g := range x.GammaCats {
 		for _, n := range t.Post {
 			if len(n.Chs) > 0 {
 				CalcLogLikeNodeGamma(n, x, site, g)
@@ -272,11 +301,11 @@ func CalcLogLikeOneSiteGamma(t *Tree, x *DiscreteModel, site int) float64 {
 				for i := 0; i < numstates; i++ {
 					t.Rt.Data[site][i] += math.Log(x.BF[i])
 				}
-				sl += (floats.LogSumExp(t.Rt.Data[site]) * (1. / float64(x.GammaNCats)))
+				tsl[p] = (floats.LogSumExp(t.Rt.Data[site]) + (math.Log(1) - math.Log(float64(x.GammaNCats))))
 			}
 		}
 	}
-	return sl
+	return floats.LogSumExp(tsl)
 }
 
 //CalcLikeOneSite just one site
@@ -390,6 +419,33 @@ func CalcLikeOneSiteMarked(t *Tree, x *DiscreteModel, site int) float64 {
 	return sl
 }
 
+// CalcLikeOneSiteMarkedGamma this uses the marked machinery to recalculate
+func CalcLikeOneSiteMarkedGamma(t *Tree, x *DiscreteModel, site int) float64 {
+	numstates := x.NumStates
+	sl := 0.0
+	for _, g := range x.GammaCats {
+		for _, n := range t.Post {
+			if len(n.Chs) > 0 {
+				if n.Marked == true {
+					CalcLikeNodeGamma(n, x, site, g)
+					if n != t.Rt {
+						n.Par.Marked = true
+					}
+				}
+			}
+			if t.Rt == n && n.Marked == true {
+				for i := 0; i < numstates; i++ {
+					t.Rt.Data[site][i] *= x.BF[i]
+				}
+				sl += floats.Sum(t.Rt.Data[site]) * (1. / float64(x.GammaNCats))
+			} else {
+				sl += floats.Sum(t.Rt.Data[site]) * (1. / float64(x.GammaNCats))
+			}
+		}
+	}
+	return sl
+}
+
 // CalcLogLikeWork this is intended for a worker that will be executing this per site
 func CalcLogLikeWork(t *Tree, x *DiscreteModel, jobs <-chan int, results chan<- LikeResult) { //results chan<- float64) {
 	numstates := x.NumStates
@@ -414,8 +470,9 @@ func CalcLogLikeWork(t *Tree, x *DiscreteModel, jobs <-chan int, results chan<- 
 func CalcLogLikeWorkGamma(t *Tree, x *DiscreteModel, jobs <-chan int, results chan<- LikeResult) { //results chan<- float64) {
 	numstates := x.NumStates
 	for j := range jobs {
-		sl := 0.0
-		for _, g := range x.GammaCats {
+		//sl := 0.0
+		tsl := make([]float64, x.GammaNCats)
+		for p, g := range x.GammaCats {
 			for _, n := range t.Post {
 				if len(n.Chs) > 0 {
 					CalcLogLikeNodeGamma(n, x, j, g)
@@ -424,11 +481,13 @@ func CalcLogLikeWorkGamma(t *Tree, x *DiscreteModel, jobs <-chan int, results ch
 					for i := 0; i < numstates; i++ {
 						t.Rt.Data[j][i] += math.Log(x.BF[i])
 					}
-					sl += (floats.LogSumExp(t.Rt.Data[j]) * (1. / float64(x.GammaNCats)))
+					//sl += (floats.LogSumExp(t.Rt.Data[j]) * (1. / float64(x.GammaNCats)))
+					tsl[p] = (floats.LogSumExp(t.Rt.Data[j]) + (math.Log(1) - math.Log(float64(x.GammaNCats))))
 				}
 			}
 		}
-		results <- LikeResult{value: sl, site: j}
+		//results <- LikeResult{value: sl, site: j}
+		results <- LikeResult{value: floats.LogSumExp(tsl), site: j}
 	}
 }
 
@@ -517,6 +576,32 @@ func CalcLikeWorkMarked(t *Tree, x *DiscreteModel, jobs <-chan int, results chan
 				sl = floats.Sum(t.Rt.Data[j])
 			} else {
 				sl = floats.Sum(t.Rt.Data[j])
+			}
+		}
+		results <- LikeResult{value: sl, site: j}
+	}
+}
+
+// CalcLikeWorkMarkedGamma this is intended to calculate only on the marked nodes back to teh root
+func CalcLikeWorkMarkedGamma(t *Tree, x *DiscreteModel, jobs <-chan int, results chan<- LikeResult) {
+	numstates := x.NumStates
+	for j := range jobs {
+		sl := 0.0
+		for _, g := range x.GammaCats {
+			for _, n := range t.Post {
+				if len(n.Chs) > 0 {
+					if n.Marked == true {
+						CalcLikeNodeGamma(n, x, j, g)
+					}
+				}
+				if t.Rt == n && n.Marked == true {
+					for i := 0; i < numstates; i++ {
+						t.Rt.Data[j][i] *= x.BF[i]
+					}
+					sl += floats.Sum(t.Rt.Data[j]) * (1. / float64(x.GammaNCats))
+				} else {
+					sl += floats.Sum(t.Rt.Data[j]) * (1. / float64(x.GammaNCats))
+				}
 			}
 		}
 		results <- LikeResult{value: sl, site: j}

@@ -178,3 +178,59 @@ func TestGammaLog(t *testing.T) {
 		t.Fail()
 	}
 }
+
+// testing with iqtree -s 10tips.nuc.fa -m F81+F+G -te 10tips.nuc.fa.treefile -pre TEST -blfix -redo
+//aim is to get the Alpha = 12.105 and like of 4569.103
+func TestGammaOpt(t *testing.T) {
+	tfn := "test_files/10tips.nuc.fa.treefile"
+	tr := gophy.ReadTreeFromFile(tfn)
+	afn := "test_files/10tips.nuc.fa"
+	seqs, patternsint, _, bf := gophy.ReadPatternsSeqsFromFile(afn, true)
+	patternval, _ := gophy.PreparePatternVecs(tr, patternsint, seqs)
+	x := gophy.NewDNAModel()
+	x.M.SetBaseFreqs(bf)
+	x.M.GammaNCats = 4
+	x.M.GammaAlpha = 1.
+	x.M.GammaCats = gophy.GetGammaCats(x.M.GammaAlpha, x.M.GammaNCats, false)
+	modelparams := make([]float64, 5)
+	for i := range modelparams {
+		modelparams[i] = 1.0
+	}
+	x.M.SetRateMatrix(modelparams)
+	x.M.SetupQGTR()
+	lnl := gophy.PCalcLogLikePatternsGamma(tr, &x.M, patternval, 2)
+	gophy.OptimizeGamma(tr, &x.M, patternval, false, 10)
+	lnl = gophy.PCalcLogLikePatternsGamma(tr, &x.M, patternval, 2)
+	if math.Round(lnl*1000)/1000 != -4569.103 {
+		fmt.Println(lnl)
+		t.Fail()
+	}
+}
+
+// testing with iqtree -s 10tips.nuc.fa -m F81+F+G -te 10tips.nuc.fa.treefile -pre TEST -redo
+
+func TestGammaBLOpt(t *testing.T) {
+	tfn := "test_files/10tips.nuc.fa.treefile"
+	tr := gophy.ReadTreeFromFile(tfn)
+	afn := "test_files/10tips.nuc.fa"
+	seqs, patternsint, _, bf := gophy.ReadPatternsSeqsFromFile(afn, true)
+	patternval, _ := gophy.PreparePatternVecs(tr, patternsint, seqs)
+	x := gophy.NewDNAModel()
+	x.M.SetBaseFreqs(bf)
+	x.M.GammaNCats = 4
+	x.M.GammaAlpha = 1.
+	x.M.GammaCats = gophy.GetGammaCats(x.M.GammaAlpha, x.M.GammaNCats, false)
+	modelparams := make([]float64, 5)
+	for i := range modelparams {
+		modelparams[i] = 1.0
+	}
+	x.M.SetRateMatrix(modelparams)
+	x.M.SetupQGTR()
+	lnl := gophy.PCalcLogLikePatternsGamma(tr, &x.M, patternval, 2)
+	gophy.OptimizeGammaAndBL(tr, &x.M, patternval, false, 10)
+	lnl = gophy.PCalcLogLikePatternsGamma(tr, &x.M, patternval, 2)
+	if math.Round(lnl*1000)/1000 != -4568.771 {
+		fmt.Println(lnl)
+		t.Fail()
+	}
+}
