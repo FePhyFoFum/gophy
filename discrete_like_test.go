@@ -129,6 +129,26 @@ func TestPCalcLogLikePatternsAA(t *testing.T) {
 	}
 }
 
+func TestAABLOpt(t *testing.T) {
+	tfn := "test_files/10tips.pep.fa.treefile"
+	tr := gophy.ReadTreeFromFile(tfn)
+	afn := "test_files/10tips.pep.fa"
+	seqs, patternsint, _, bf := gophy.ReadPatternsSeqsFromFile(afn, false)
+	patternval, _ := gophy.PreparePatternVecsProt(tr, patternsint, seqs)
+	x := gophy.NewProteinModel()
+	x.M.SetBaseFreqs(bf)
+	x.SetRateMatrixJTT()
+	x.M.SetupQGTR()
+	lnl := gophy.PCalcLogLikePatterns(tr, &x.M, patternval, 2)
+	fmt.Println(lnl)
+	gophy.OptimizeBLS(tr, &x.M, patternval, 10)
+	lnl = gophy.PCalcLogLikePatterns(tr, &x.M, patternval, 2)
+	if math.Round(lnl*1000)/1000 != -4568.771 {
+		fmt.Println(lnl)
+		t.Fail()
+	}
+}
+
 // testing with iqtree -s 10tips.nuc.fa -m F81+F+G -te 10tips.nuc.fa.treefile -pre TEST -blfix -redo
 
 func TestGamma(t *testing.T) {

@@ -305,9 +305,9 @@ func OptimizeBLS(t *Tree, x *DiscreteModel, patternvals []float64, wks int) {
 			}
 		}
 
-		//lnl := PCalcLogLike(t, x, nsites, wks)
+		lnl := PCalcLogLikePatterns(t, x, patternvals, wks)
 		//lnl := PCalcLogLikeMarked(t, x, nsites, wks)
-		lnl := PCalcLikePatternsMarked(t, x, patternvals, wks)
+		//lnl := PCalcLikePatternsMarked(t, x, patternvals, wks)
 		for _, j := range t.Post {
 			j.Marked = false
 		}
