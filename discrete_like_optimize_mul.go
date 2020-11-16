@@ -467,8 +467,10 @@ func OptimizeAACompSharedRM(t *Tree, models []*DiscreteModel, nodemodels map[*No
 	//fmt.Println("   ", res.F)
 	cur = 0
 	for _, j := range models {
-		bf := []float64{res.X[cur], res.X[cur+1], res.X[cur+2]}
-		cur += 3
+		bf := make([]float64, 19)
+		for j := 0; j < 19; j++ {
+			bf[j] = res.X[j]
+		}
 		bf = append(bf, 1-floats.Sum(bf))
 		j.SetBaseFreqs(bf)
 		j.SetupQGTR()
