@@ -254,3 +254,32 @@ func TestGammaBLOpt(t *testing.T) {
 		t.Fail()
 	}
 }
+
+func TestBLDecomp(t *testing.T) {
+	tfn := "test_files/10tips.nuc.fa.treefile"
+	tr := gophy.ReadTreeFromFile(tfn)
+	afn := "test_files/10tips.nuc.fa"
+	seqs, patternsint, _, bf := gophy.ReadPatternsSeqsFromFile(afn, true)
+	patternval, _ := gophy.PreparePatternVecs(tr, patternsint, seqs)
+	x := gophy.NewDNAModel()
+	x.M.SetBaseFreqs(bf)
+	//fmt.Println(bf)
+	modelparams := make([]float64, 5)
+	for i := range modelparams {
+		modelparams[i] = 1.0
+	}
+	x.M.SetRateMatrix(modelparams)
+	x.M.SetupQGTR()
+	//fmt.Println(x.M.Q)
+	lnl := gophy.PCalcLogLikePatterns(tr, &x.M, patternval, 2)
+	fmt.Println(lnl)
+	x.M.DecomposeQ()
+	/*fmt.Println(x.M.EigenVals)
+	fmt.Println(x.M.EigenVecsI)
+	fmt.Println(x.M.EigenVecs)
+	*/
+	gophy.CalcLikeFrontBack(&x.M, tr, patternval)
+	fmt.Println(tr.Pre[1].Newick(false), tr.Pre[1].TpConds[0])
+	fmt.Println(lnl)
+	t.Fail()
+}

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 
+	"github.com/go-nlopt/nlopt"
 	"gonum.org/v1/gonum/floats"
 	"gonum.org/v1/gonum/optimize"
 )
@@ -158,6 +159,167 @@ func OptimizeBLNRMult(t *Tree, models []*DiscreteModel, nodemodels map[*Node]int
 		CalcLikeFrontBackMult(models, nodemodels, t, patternvals)
 		AdjustBLNRMult(c, models, nodemodels, patternvals, t, wks, 10e-20)
 	}
+}
+
+func OptimizeGammaMult(t *Tree, models []*DiscreteModel, nodemodels map[*Node]int,
+	patternvals []float64, log bool, wks int) {
+	var lkfun func(*Tree, []*DiscreteModel, map[*Node]int, []float64, int) float64
+	if log {
+		lkfun = PCalcLogLikePatternsGammaMul
+	} else {
+		lkfun = PCalcLikePatternsGammaMul
+	}
+	count := 0
+	fcn := func(mds []float64) float64 {
+		if mds[0] < 0 {
+			return 1000000000
+		}
+		for i := range mds {
+			models[i].GammaAlpha = mds[i]
+			models[i].GammaCats = GetGammaCats(models[i].GammaAlpha, models[i].GammaNCats, false)
+		}
+		lnl := lkfun(t, models, nodemodels, patternvals, wks)
+		count++
+		return -lnl
+	}
+	settings := optimize.Settings{}
+	FC := optimize.FunctionConverge{}
+	FC.Absolute = 10e-3
+	FC.Iterations = 75
+	settings.Converger = &FC
+	p := optimize.Problem{Func: fcn, Grad: nil, Hess: nil}
+	p0 := make([]float64, len(models))
+	for i := range p0 {
+		p0[i] = 1.0
+	}
+	res, err := optimize.Minimize(p, p0, &settings, nil)
+	if err != nil {
+		fmt.Println(err)
+	}
+	for i := range res.X {
+		models[i].GammaAlpha = res.X[i]
+		models[i].GammaCats = GetGammaCats(models[i].GammaAlpha, models[i].GammaNCats, false)
+	}
+	fmt.Println(res)
+}
+
+// OptimizeGammaBLS optimize all branch lengths
+func OptimizeGammaBLSMult(t *Tree, models []*DiscreteModel, nodemodels map[*Node]int, patternvals []float64, wks int) {
+	count := 0
+	//start := time.Now()
+	fcn := func(bl []float64) float64 {
+		for _, i := range bl {
+			if i < 0 {
+				return 1000000000000
+			}
+		}
+		for x, n := range t.Post {
+			if n.Len != bl[x] {
+				n.Len = bl[x]
+				/*n.Marked = true
+				if len(n.Chs) == 0 {
+					n.Par.Marked = true
+				}*/
+			}
+		}
+		lnl := PCalcLikePatternsGammaMul(t, models, nodemodels, patternvals, wks)
+		count++
+		return -lnl
+	}
+	/*grad := func(grad, x []float64) {
+		fd.Gradient(grad, fcn, x, nil)
+	}*/
+	settings := optimize.Settings{} //DefaultSettings()
+	//settings.MajorIterations = 10
+	settings.Concurrent = 0
+	//settings.FuncEvaluations = 10
+	//settings.GradientThreshold = 0.1
+	settings.Recorder = nil
+	//FC := optimize.FunctionConverge{}
+	//FC.Absolute = 10
+	//FC.Relative = 10
+	//FC.Iterations = 10
+	//settings.FunctionConverge = &FC
+	p := optimize.Problem{Func: fcn, Grad: nil, Hess: nil}
+	var p0 []float64
+	for _, n := range t.Post {
+		p0 = append(p0, n.Len)
+	}
+	res, err := optimize.Minimize(p, p0, nil, nil)
+	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Println(res.F)
+	for x, n := range t.Post {
+		n.Len = res.X[x]
+	}
+}
+
+func OptimizeGammaBLSNLMult(t *Tree, models []*DiscreteModel, nodemodels map[*Node]int,
+	patternvals []float64, wks int) {
+	//start := time.Now()
+	fcn := func(bl, gradient []float64) float64 {
+		for _, i := range bl {
+			if i < 0 {
+				return 1000000000000
+			}
+		}
+		for x, n := range t.Post {
+			if n.Len != bl[x] {
+				n.Len = bl[x]
+				/*n.Marked = true
+				if len(n.Chs) == 0 {
+					n.Par.Marked = true
+				}*/
+			}
+		}
+
+		//lnl := PCalcLogLike(t, x, nsites, wks)
+		//lnl := PCalcLogLikeMarked(t, x, nsites, wks)
+		lnl := PCalcLogLikePatternsGammaMul(t, models, nodemodels, patternvals, wks)
+		/*for _, j := range t.Post {
+			j.Marked = false
+		}*/
+		//if count%100 == 0 {
+		//	curt := time.Now()
+		//	fmt.Println(count, lnl, curt.Sub(start))
+		//	start = time.Now()
+		//}
+		return -lnl
+	}
+	p0 := make([]float64, len(t.Post))
+	lbounds := make([]float64, len(p0))
+	hbounds := make([]float64, len(p0))
+	for i, n := range t.Post {
+		p0[i] = n.Len
+		lbounds[i] = 0.
+		hbounds[i] = 10.
+	}
+
+	opt, err := nlopt.NewNLopt(nlopt.LN_AUGLAG, uint(len(p0)))
+	opt.SetLowerBounds(lbounds)
+	opt.SetUpperBounds(hbounds)
+	opt.SetMaxEval(1000)
+	opt.SetFtolAbs(10e-5)
+	opt.SetMinObjective(fcn)
+	xopt, minf, err := opt.Optimize(p0)
+	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Println(minf)
+	for x, n := range t.Post {
+		n.Len = xopt[x]
+	}
+}
+
+func OptimizeGammaAndBLMult(t *Tree, models []*DiscreteModel, nodemodels map[*Node]int,
+	patternvals []float64, log bool, wks int) {
+	OptimizeGammaMult(t, models, nodemodels, patternvals, log, wks)
+	OptimizeGammaBLSNLMult(t, models, nodemodels, patternvals, wks)
+	OptimizeGammaMult(t, models, nodemodels, patternvals, log, wks)
+	OptimizeGammaBLSNLMult(t, models, nodemodels, patternvals, wks)
+	OptimizeGammaMult(t, models, nodemodels, patternvals, log, wks)
+	OptimizeGammaBLSNLMult(t, models, nodemodels, patternvals, wks)
 }
 
 // OptimizeGTRDNAMul optimize GTR
@@ -467,8 +629,10 @@ func OptimizeAACompSharedRM(t *Tree, models []*DiscreteModel, nodemodels map[*No
 	//fmt.Println("   ", res.F)
 	cur = 0
 	for _, j := range models {
-		bf := []float64{res.X[cur], res.X[cur+1], res.X[cur+2]}
-		cur += 3
+		bf := make([]float64, 19)
+		for j := 0; j < 19; j++ {
+			bf[j] = res.X[j]
+		}
 		bf = append(bf, 1-floats.Sum(bf))
 		j.SetBaseFreqs(bf)
 		j.SetupQGTR()

@@ -18,21 +18,8 @@ import (
 //mrca filename should be
 //name1,name2 date
 
-func main() {
-	tfn := flag.String("t", "", "tree filename")
-	mfn := flag.String("m", "", "mrca filename")
-	flag.Parse()
-	if len(*tfn) == 0 {
-		os.Exit(0)
-	}
-	if len(*mfn) == 0 {
-		os.Exit(0)
-	}
-	fmt.Fprintln(os.Stderr, "treefile:", *tfn)
-	fmt.Fprintln(os.Stderr, "mrcafile:", *mfn)
-
-	// read tree file
-	f, err := os.Open(*tfn)
+func readTreeFile(treefilename string) (gophy.Tree, *gophy.Node) {
+	f, err := os.Open(treefilename)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
@@ -42,18 +29,11 @@ func main() {
 	fmt.Fprintln(os.Stderr, "reading trees")
 	var t gophy.Tree
 	var rt *gophy.Node
-	nmsnds := make(map[string]*gophy.Node)
 	for {
 		ln, err := scanner.ReadString('\n')
 		if len(ln) > 0 {
 			rt = gophy.ReadNewickString(ln)
 			t.Instantiate(rt)
-			for _, i := range t.Post {
-				if len(i.Nam) > 0 {
-					nmsnds[i.Nam] = i
-				}
-				i.Len = 0.0
-			}
 			break
 		}
 		if err == io.EOF {
@@ -63,16 +43,66 @@ func main() {
 			break
 		}
 	}
+	return t, rt
+}
+
+func extractDates(treefilename string, mrcafilename string) {
+	f, err := os.Create(mrcafilename)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+	defer f.Close()
+	t, _ := readTreeFile(treefilename)
+	gophy.SetHeights(&t)
+	for _, i := range t.Pre {
+		if len(i.Chs) > 0 {
+			//fmt.Println(i.Newick(true))
+			lf := i.Chs[0].GetTipNames()[0]
+			rt := i.Chs[1].GetTipNames()[0]
+			f.WriteString(lf + "," + rt + " " + fmt.Sprintf("%f", i.Height) + "\n")
+		}
+	}
+}
+
+func main() {
+	tfn := flag.String("t", "", "tree filename")
+	mfn := flag.String("m", "", "mrca filename")
+	ext := flag.String("e", "", "extract dates from tree")
+	flag.Parse()
+	if len(*tfn) == 0 {
+		os.Exit(0)
+	}
+	if len(*mfn) == 0 && len(*ext) == 0 {
+		os.Exit(0)
+	}
+	fmt.Fprintln(os.Stderr, "treefile:", *tfn)
+	if len(*mfn) > 0 {
+		fmt.Fprintln(os.Stderr, "mrcafile:", *mfn)
+	} else {
+		fmt.Fprintln(os.Stderr, "extract dates from:", *ext)
+		*mfn = "extracted_dates.txt"
+		extractDates(*ext, *mfn)
+	}
+	// read tree file
+	t, rt := readTreeFile(*tfn)
+	nmsnds := make(map[string]*gophy.Node)
+	for _, i := range t.Post {
+		if len(i.Nam) > 0 {
+			nmsnds[i.Nam] = i
+		}
+		i.Len = 0.0
+	}
 	//end tree file reading
 	//read mrca file
-	f, err = os.Open(*mfn)
+	f, err := os.Open(*mfn)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
 	defer f.Close()
 	mrcas := make(map[*gophy.Node]float64) //map is node and float is date
-	scanner = bufio.NewReader(f)
+	scanner := bufio.NewReader(f)
 	fmt.Fprintln(os.Stderr, "reading mrcas")
 	for {
 		ln, err := scanner.ReadString('\n')
