@@ -15,7 +15,7 @@ type SupFlo struct {
 
 //NewSupFlo get a new one
 func NewSupFlo(m float64, e int) *SupFlo {
-	sf := SupFlo{mant: m, exp: e, uplimit: 1e+175, lowlimit: 1e-175}
+	sf := SupFlo{mant: m, exp: e, uplimit: 1e+100, lowlimit: 1e-100}
 	if e == 0 {
 		sf.stilldouble = true
 	} else {
@@ -88,6 +88,12 @@ func (s *SupFlo) Mul(x *SupFlo) *SupFlo {
 			result.adjustDecimal()
 		}*/
 	return result
+}
+
+func (s *SupFlo) SetMantExp(mant float64, exp int) {
+	s.mant = mant
+	s.exp = exp
+	s.adjustDecimal()
 }
 
 // MulFloat s * x return result and x is a float64

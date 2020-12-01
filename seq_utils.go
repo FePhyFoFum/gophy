@@ -249,9 +249,14 @@ func PreparePatternVecs(t *Tree, patternsint map[int]float64, seqs map[string]st
 	charMap := GetNucMap()
 	for _, n := range t.Post {
 		n.Data = make([][]float64, len(patternsint))
+		n.BData = make([][]*SupFlo, len(patternsint))
 		n.TpConds = make([][]float64, len(patternval))
 		for i := 0; i < len(patternsint); i++ {
 			n.Data[i] = []float64{0.0, 0.0, 0.0, 0.0}
+			n.BData[i] = make([]*SupFlo, 4)
+			for k := 0; k < 4; k++ {
+				n.BData[i][k] = NewSupFlo(0.0, 0)
+			}
 			n.TpConds[i] = []float64{0.0, 0.0, 0.0, 0.0}
 		}
 		if len(n.Chs) == 0 {
@@ -265,6 +270,7 @@ func PreparePatternVecs(t *Tree, patternsint map[int]float64, seqs map[string]st
 				}
 				for _, j := range charMap[string(seqs[n.Nam][i])] {
 					n.Data[count][j] = 1.0
+					n.BData[count][j].SetFloat64(1.0)
 					n.TpConds[count][j] = 1.0
 				}
 				count++

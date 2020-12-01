@@ -1,13 +1,14 @@
 package gophy
 
 import (
+	"fmt"
 	"math"
 
 	"gonum.org/v1/gonum/floats"
 )
 
 /*
- This is for calculating likelihoods for nucleotides
+ This is for calculating likelihoods for discrete states
 */
 
 // PCalcLogLike this will calculate log like in parallel
@@ -85,6 +86,31 @@ func PCalcLikePatterns(t *Tree, x *DiscreteModel, patternval []float64, wks int)
 		rr = <-results
 		fl += math.Log(rr.value) * patternval[rr.site]
 		//fl += <-results
+	}
+	return
+}
+
+func PCalcSupLikePatterns(t *Tree, x *DiscreteModel, patternval []float64, wks int) (fl float64) {
+	fl = 0.0
+	nsites := len(patternval)
+	jobs := make(chan int, nsites)
+	//results := make(chan float64, nsites)
+	results := make(chan LikeSupResult, nsites)
+	// populate the P matrix dictionary without problems of race conditions
+	// just the first site
+	x.EmptyPDict()
+	fl += CalcSupLikeOneSite(t, x, 0).GetLn().Float64() * patternval[0]
+	for i := 0; i < wks; i++ {
+		go CalcSupLikeWork(t, x, jobs, results)
+	}
+	for i := 1; i < nsites; i++ {
+		jobs <- i
+	}
+	close(jobs)
+	rr := LikeSupResult{}
+	for i := 1; i < nsites; i++ {
+		rr = <-results
+		fl += rr.value.GetLn().Float64() * patternval[rr.site]
 	}
 	return
 }
@@ -322,6 +348,24 @@ func CalcLikeOneSite(t *Tree, x *DiscreteModel, site int) float64 {
 			}
 			sl = floats.Sum(t.Rt.Data[site])
 		}
+		fmt.Println(n, n.Data)
+	}
+	return sl
+}
+
+func CalcSupLikeOneSite(t *Tree, x *DiscreteModel, site int) *SupFlo {
+	numstates := x.NumStates
+	sl := NewSupFlo(0.0, 0)
+	for _, n := range t.Post {
+		if len(n.Chs) > 0 {
+			CalcSupLikeNode(n, x, site)
+		}
+		if t.Rt == n {
+			for i := 0; i < numstates; i++ {
+				t.Rt.BData[site][i].MulEqFloat(x.BF[i])
+				sl.AddEq(t.Rt.BData[site][i])
+			}
+		}
 	}
 	return sl
 }
@@ -508,6 +552,26 @@ func CalcLikeWork(t *Tree, x *DiscreteModel, jobs <-chan int, results chan<- Lik
 			}
 		}
 		results <- LikeResult{value: sl, site: j}
+	}
+}
+
+//CalcLikeWork this is the worker
+func CalcSupLikeWork(t *Tree, x *DiscreteModel, jobs <-chan int, results chan<- LikeSupResult) { //results chan<- float64) {
+	numstates := x.NumStates
+	for j := range jobs {
+		sl := NewSupFlo(0.0, 0)
+		for _, n := range t.Post {
+			if len(n.Chs) > 0 {
+				CalcSupLikeNode(n, x, j)
+			}
+			if t.Rt == n {
+				for i := 0; i < numstates; i++ {
+					t.Rt.BData[j][i].MulEqFloat(x.BF[i])
+					sl.AddEq(t.Rt.BData[j][i])
+				}
+			}
+		}
+		results <- LikeSupResult{value: sl, site: j}
 	}
 }
 
@@ -725,6 +789,38 @@ func CalcLikeNode(nd *Node, model *DiscreteModel, site int) {
 					x2 += P.At(i, j) * c.Data[site][j]
 				}
 				nd.Data[site][i] *= x2
+			}
+		}
+	}
+}
+
+func CalcSupLikeNode(nd *Node, model *DiscreteModel, site int) {
+	numstates := model.NumStates
+	for i := 0; i < numstates; i++ {
+		nd.BData[site][i].SetFloat64(1.0)
+	}
+	x1 := NewSupFlo(0.0, 0)
+	x2 := NewSupFlo(0.0, 0)
+	tempSup := NewSupFlo(0.0, 0)
+	for _, c := range nd.Chs {
+		P := model.GetPMap(c.Len)
+		if len(c.Chs) == 0 {
+			for i := 0; i < numstates; i++ {
+				x1.SetFloat64(0.0)
+				for j := 0; j < numstates; j++ {
+					tempSup.SetMantExp(c.BData[site][j].GetMant()*P.At(i, j), c.BData[site][j].GetExp())
+					x1.AddEq(tempSup)
+				}
+				nd.BData[site][i].MulEq(x1)
+			}
+		} else {
+			for i := 0; i < numstates; i++ {
+				x2.SetFloat64(0.0)
+				for j := 0; j < numstates; j++ {
+					tempSup.SetMantExp(c.BData[site][j].GetMant()*P.At(i, j), c.BData[site][j].GetExp())
+					x2.AddEq(tempSup)
+				}
+				nd.BData[site][i].MulEq(x2)
 			}
 		}
 	}

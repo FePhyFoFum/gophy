@@ -31,6 +31,11 @@ type LikeResult struct {
 	site  int
 }
 
+type LikeSupResult struct {
+	value *SupFlo
+	site  int
+}
+
 func pointGamma(p float64, a float64, b float64) float64 {
 	c := distuv.ChiSquared{K: 2 * (a)}
 	return ((c.Quantile(p)) / (2 * b))
