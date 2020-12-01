@@ -1,7 +1,6 @@
 package gophy
 
 import (
-	"fmt"
 	"math"
 
 	"gonum.org/v1/gonum/floats"
@@ -348,7 +347,6 @@ func CalcLikeOneSite(t *Tree, x *DiscreteModel, site int) float64 {
 			}
 			sl = floats.Sum(t.Rt.Data[site])
 		}
-		fmt.Println(n, n.Data)
 	}
 	return sl
 }
