@@ -122,14 +122,14 @@ func (d *DiscreteModel) SetupQGTR() {
 	bigpi := mat.NewDiagDense(d.NumStates, d.BF)
 	dQ := mat.NewDense(d.NumStates, d.NumStates, nil)
 	dQ.Mul(d.R, bigpi)
-	var offdSum float64
+	/*var offdSum float64
 	for i := 0; i < d.NumStates; i++ {
 		for j := 0; j < d.NumStates; j++ {
 			if i != j {
 				offdSum += dQ.At(i, j)
 			}
 		}
-	}
+	}*/
 	var dSum float64
 	d.Q = mat.NewDense(d.NumStates, d.NumStates, nil)
 	for i := 0; i < d.NumStates; i++ {

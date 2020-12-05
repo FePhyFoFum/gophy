@@ -113,6 +113,16 @@ func main() {
 			nds := make([]*gophy.Node, 2)
 			nds[0] = nmsnds[spls2[0]]
 			nds[1] = nmsnds[spls2[1]]
+			if nds[0] == nil {
+				fmt.Fprintln(os.Stderr, "Can't find ", spls2[0])
+				//os.Exit(1)
+				continue
+			}
+			if nds[1] == nil {
+				fmt.Fprintln(os.Stderr, "Can't find ", spls2[1])
+				//os.Exit(1)
+				continue
+			}
 			ff, ferr := strconv.ParseFloat(spls1[1], 64)
 			if ferr != nil {
 				fmt.Fprintln(os.Stderr, "problem parsing", spls1[1], "as float64")
