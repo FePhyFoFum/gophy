@@ -1047,6 +1047,51 @@ func CalcAncStates(x *DiscreteModel, tree *Tree, patternval []float64) (retstate
 	return
 }
 
+// CalcStochMap this has been taken from the multistate code so make sure it works for others
+func CalcStochMap(x *DiscreteModel, tree *Tree, patternval []float64, time bool, from int, to int) (retstates map[*Node][][]float64) {
+	CalcLikeFrontBack(x, tree, patternval)
+	retstates = make(map[*Node][][]float64)
+	// initialize the data storage for return
+	for _, c := range tree.Pre {
+		if len(c.Chs) == 0 {
+			//	continue
+		}
+		ndata := make([][]float64, len(patternval))
+		retstates[c] = ndata
+	}
+	// start reconstruction
+	for i := 0; i < len(patternval); i++ {
+		for _, c := range tree.Pre {
+			retstates[c][i] = make([]float64, x.GetNumStates())
+			if c == tree.Rt {
+				continue
+			} else {
+				numM, ratM := x.GetStochMapMatrices(c.Len, from, to) //x.GetPCalc(c.Len)
+				//need subtree 1
+				s1probs := c.TpConds
+				//need subtree 2
+				s2probs := c.RvConds
+				tvN := make([]float64, x.GetNumStates())
+				tvR := make([]float64, x.GetNumStates())
+				for j := 0; j < x.GetNumStates(); j++ {
+					for k := 0; k < x.GetNumStates(); k++ {
+						tvN[j] += (s1probs[i][j] * numM.At(j, k) * s2probs[i][k])
+						tvR[j] += (s1probs[i][j] * ratM.At(j, k) * s2probs[i][k])
+					}
+					tvN[j] *= x.GetBF()[j]
+					tvR[j] *= x.GetBF()[j]
+				}
+				if time { //time
+					retstates[c][i] = tvR
+				} else { //number
+					retstates[c][i] = tvN
+				}
+			}
+		}
+	}
+	return
+}
+
 // Subclade calculators for log and likelihoods
 // these are for just calculating for one clade
 

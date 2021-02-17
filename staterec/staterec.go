@@ -63,18 +63,16 @@ func main() {
 		seqnames = append(seqnames, i.NM)
 		nsites = len(i.SQ)
 	}
-	x := gophy.NewMultStateModel()
-	x.NumStates = numstates
-	x.SetMap()
-	bf := gophy.GetEmpiricalBaseFreqsMS(mseqs, x.NumStates)
-	x.SetBaseFreqs(bf)
-	x.EBF = x.BF
-	fmt.Fprint(lg, x.BF)
+	x := gophy.NewMultStateModel(numstates)
+	bf := gophy.GetEmpiricalBaseFreqsMS(mseqs, numstates)
+	x.M.SetBaseFreqs(bf)
+	x.M.EBF = x.M.BF
+	fmt.Fprint(lg, x.M.BF)
 	// get the site patternas
-	patterns, patternsint, gapsites, constant, uninformative, fullpattern := gophy.GetSitePatternsMS(mseqs, x.GetCharMap(), x.GetNumStates())
+	patterns, patternsint, gapsites, constant, uninformative, fullpattern := gophy.GetSitePatternsMS(mseqs, x.M.GetCharMap(), x.M.GetNumStates())
 
 	for _, t := range trees {
-		patternval, patternvec := gophy.PreparePatternVecsMS(t, patternsint, seqs, x.GetCharMap(), x.GetNumStates())
+		patternval, patternvec := gophy.PreparePatternVecsMS(t, patternsint, seqs, x.M.GetCharMap(), x.M.GetNumStates())
 		//this is necessary to get order of the patters in the patternvec since they have no order
 		// this will be used with fullpattern to reconstruct the sequences
 		sv := gophy.NewSortedIdxSlice(patternvec)
@@ -101,7 +99,7 @@ func main() {
 		patternloglikes := make([]float64, len(patternval))
 		if *stt || *stn {
 			for i := 0; i < len(patternloglikes); i++ {
-				patternloglikes[i] = gophy.CalcLogLikeOneSiteMS(t, x, i)
+				patternloglikes[i] = gophy.CalcLogLikeOneSite(t, &x.M, i)
 			}
 		}
 		//stochastic time
@@ -128,19 +126,19 @@ func main() {
 }
 
 func optimizeThings(t *gophy.Tree, x *gophy.MultStateModel, patternval []float64, wks int) {
-	x.SetupQJC()
-	l := gophy.PCalcLikePatternsMS(t, x, patternval, wks)
+	x.M.SetupQJC()
+	l := gophy.PCalcLikePatterns(t, &x.M, patternval, wks)
 	fmt.Println("starting lnL:", l)
-	gophy.OptimizeMS1R(t, x, patternval, wks)
-	gophy.OptimizeMKMS(t, x, x.Q.At(0, 1), patternval, false, wks)
-	gophy.PrintMatrix(x.Q, false)
-	l = gophy.PCalcLikePatternsMS(t, x, patternval, wks)
+	gophy.OptimizeMS1R(t, &x.M, patternval, wks)
+	gophy.OptimizeMKMS(t, &x.M, x.M.Q.At(0, 1), patternval, false, wks)
+	fmt.Println(mat.Formatted(x.M.Q))
+	l = gophy.PCalcLikePatterns(t, &x.M, patternval, wks)
 	fmt.Println("optimized lnL:", l)
 }
 
 func ancState(t *gophy.Tree, x *gophy.MultStateModel, patternval []float64, sv *gophy.SortedIntIdxSlice, fullpattern []int) {
 	start := time.Now()
-	rets := gophy.CalcAncStatesMS(x, t, patternval)
+	rets := gophy.CalcAncStates(&x.M, t, patternval)
 	for i := range rets {
 		fmt.Println(i)
 		//fmt.Println(rets[i])
@@ -162,12 +160,12 @@ func stochTime(t *gophy.Tree, x *gophy.MultStateModel, patternval []float64, sv 
 		if nd != t.Rt {
 			sttimes[nd] = make([][]float64, len(patternval))
 			for j := range patternval {
-				sttimes[nd][j] = make([]float64, x.NumStates)
+				sttimes[nd][j] = make([]float64, x.M.NumStates)
 			}
 		}
 	}
-	for st := 0; st < x.NumStates; st++ {
-		retsS := gophy.CalcStochMapMS(x, t, patternval, true, st, st)
+	for st := 0; st < x.M.NumStates; st++ {
+		retsS := gophy.CalcStochMap(&x.M, t, patternval, true, st, st)
 		for i := range retsS {
 			if i == t.Rt {
 				continue
@@ -200,17 +198,17 @@ func stochNumber(t *gophy.Tree, x *gophy.MultStateModel, patternval []float64, s
 		if nd != t.Rt {
 			stnum[nd] = make([]*mat.Dense, len(patternval))
 			for j := range patternval {
-				stnum[nd][j] = mat.NewDense(x.NumStates, x.NumStates, nil)
+				stnum[nd][j] = mat.NewDense(x.M.NumStates, x.M.NumStates, nil)
 				stnum[nd][j].Zero()
 			}
 		}
 	}
-	for st := 0; st < x.NumStates; st++ {
-		for st2 := 0; st2 < x.NumStates; st2++ {
+	for st := 0; st < x.M.NumStates; st++ {
+		for st2 := 0; st2 < x.M.NumStates; st2++ {
 			if st == st2 {
 				continue
 			}
-			retsS := gophy.CalcStochMapMS(x, t, patternval, false, st2, st) //this must be reversed, don't get confused
+			retsS := gophy.CalcStochMap(&x.M, t, patternval, false, st2, st) //this must be reversed, don't get confused
 			for i := range retsS {
 				if i == t.Rt {
 					continue
@@ -233,7 +231,7 @@ func stochNumber(t *gophy.Tree, x *gophy.MultStateModel, patternval []float64, s
 		fmt.Println(nd)
 		for _, j := range fullpattern {
 			actj := sv.Idx[j]
-			gophy.PrintMatrix(stnum[nd][actj], true)
+			fmt.Println(mat.Formatted(stnum[nd][actj]))
 		}
 	}
 }

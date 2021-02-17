@@ -3,6 +3,7 @@ package gophy
 import (
 	"fmt"
 	"math"
+	"os"
 	"time"
 
 	"github.com/go-nlopt/nlopt"
@@ -619,4 +620,76 @@ func OptimizeGammaAndBL(t *Tree, x *DiscreteModel, patternvals []float64, log bo
 	OptimizeGammaBLSNL(t, x, patternvals, wks)
 	OptimizeGamma(t, x, patternvals, log, wks)
 	OptimizeGammaBLSNL(t, x, patternvals, wks)
+}
+
+// OptimizeMS1R ...
+// hold over from other things, probably change
+// this is for specific multistate models
+func OptimizeMS1R(t *Tree, x *DiscreteModel, patternvals []float64, wks int) {
+	count := 0
+	//start := time.Now()
+	fcn := func(mds []float64) float64 {
+		if mds[0] < 0 {
+			return 1000000000000
+		}
+		x.SetupQJC1Rate(mds[0])
+		lnl := PCalcLikePatterns(t, x, patternvals, wks)
+		if count%100 == 0 {
+			//curt := time.Now()
+			//fmt.Println(count, lnl, curt.Sub(start))
+			//start = time.Now()
+		}
+		count++
+		return -lnl
+	}
+	settings := optimize.Settings{}
+	//settings.MajorIterations = 100
+	settings.Concurrent = 0
+	//settings.FuncEvaluations = 100
+	//settings.FunctionThreshold = 0.1
+	//settings.GradientThreshold = 0.00001
+	settings.Recorder = nil
+	p := optimize.Problem{Func: fcn, Grad: nil, Hess: nil}
+	p0 := []float64{0.0441} //1. / float64(x.GetNumStates())}
+	res, err := optimize.Minimize(p, p0, nil, nil)
+	if err != nil {
+		fmt.Println(err)
+	}
+	x.SetupQJC1Rate(res.X[0])
+}
+
+// OptimizeMKMS optimize GTR
+//    symmetrical and scale the last rate to 1
+func OptimizeMKMS(t *Tree, x *DiscreteModel, startv float64, patternvals []float64, sym bool, wks int) {
+	count := 0
+	fcn := func(mds []float64) float64 {
+		for _, i := range mds {
+			if i < 0 {
+				return 1000000000000
+			}
+		}
+		x.SetupQMk(mds, sym)
+		lnl := PCalcLikePatterns(t, x, patternvals, wks)
+		count++
+		return -lnl
+	}
+	p := optimize.Problem{Func: fcn, Grad: nil, Hess: nil}
+	if x.GetNumStates() < 3 && sym == true {
+		fmt.Println("NEED TO DO 2 STATES")
+		os.Exit(0)
+	}
+	//p0 := make([]float64, (((x.GetNumStates()*x.GetNumStates())-x.GetNumStates())/2)-1) // scaled
+	p0 := make([]float64, (((x.GetNumStates() * x.GetNumStates()) - x.GetNumStates()) / 2)) //unscaled
+	if sym == false {
+		p0 = make([]float64, ((x.GetNumStates() * x.GetNumStates()) - x.GetNumStates())) // unsym
+	}
+	for i := range p0 {
+		p0[i] = startv
+	}
+	res, err := optimize.Minimize(p, p0, nil, nil)
+	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Println(res.F, res.X)
+	x.SetupQMk(res.X, sym)
 }
