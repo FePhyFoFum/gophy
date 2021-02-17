@@ -33,6 +33,7 @@ func main() {
 	stn := flag.Bool("n", false, "calc stochastic number (states will also be calculated)")
 	//md := flag.Bool("m", false, "model params free")
 	//ebf := flag.Bool("b", true, "use empirical base freqs (alt is estimate)")
+	ma := flag.Int("p", 0, "map the most likely result for the p site to the internal node label")
 	wks := flag.Int("w", 4, "number of threads")
 	cpuprofile := flag.String("cpuprofile", "", "write cpu profile to file")
 	flag.Parse()
@@ -125,10 +126,10 @@ func main() {
 
 		//ancestral states
 		if *anc || *stt || *stn {
-			fmt.Println("--------------------------------")
-			fmt.Println("------------anc states----------")
-			fmt.Println("--------------------------------")
-			ancState(t, x, patternval, sv, fullpattern)
+			fmt.Fprintln(os.Stderr, "--------------------------------")
+			fmt.Fprintln(os.Stderr, "------------anc states----------")
+			fmt.Fprintln(os.Stderr, "--------------------------------")
+			ancState(t, x, patternval, sv, fullpattern, *ma)
 		}
 
 		patternloglikes := make([]float64, len(patternval))
@@ -163,28 +164,43 @@ func main() {
 func optimizeThings(t *gophy.Tree, x *gophy.MultStateModel, patternval []float64, wks int) {
 	x.M.SetupQJC()
 	l := gophy.PCalcLikePatterns(t, &x.M, patternval, wks)
-	fmt.Println("starting lnL:", l)
+	fmt.Fprintln(os.Stderr, "starting lnL:", l)
 	gophy.OptimizeMS1R(t, &x.M, patternval, wks)
 	gophy.OptimizeMKMS(t, &x.M, x.M.Q.At(0, 1), patternval, false, wks)
 	//fmt.Println(mat.Formatted(x.M.Q))
 	l = gophy.PCalcLikePatterns(t, &x.M, patternval, wks)
-	fmt.Println("optimized lnL:", l)
+	fmt.Fprintln(os.Stderr, "optimized lnL:", l)
 }
 
-func ancState(t *gophy.Tree, x *gophy.MultStateModel, patternval []float64, sv *gophy.SortedIntIdxSlice, fullpattern []int) {
+func ancState(t *gophy.Tree, x *gophy.MultStateModel, patternval []float64, sv *gophy.SortedIntIdxSlice,
+	fullpattern []int, printSiteOnTree int) {
 	start := time.Now()
 	rets := gophy.CalcAncStates(&x.M, t, patternval)
 	for i := range rets {
-		fmt.Println(i)
+		fmt.Fprintln(os.Stderr, i)
 		//fmt.Println(rets[i])
-		for _, j := range fullpattern {
-			//fmt.Println(j, sv.Idx[j])
+		for p, j := range fullpattern {
 			actj := sv.Idx[j]
-			fmt.Println(" ", j, rets[i][actj])
+			//fmt.Println(j, sv.Idx[j])
+			fmt.Fprintln(os.Stderr, " ", j, rets[i][actj])
+
+			if p == printSiteOnTree {
+				maxi := 0
+				maxv := 0.
+				for x, v := range rets[i][actj] {
+					if v > maxv {
+						maxv = v
+						maxi = x
+					}
+				}
+				i.Nam = strconv.Itoa(maxi)
+			}
+
 		}
-		fmt.Print("\n")
+		fmt.Fprint(os.Stderr, "\n")
 	}
 	end := time.Now()
+	fmt.Println(t.Rt.Newick(false) + ";")
 	fmt.Fprintln(os.Stderr, end.Sub(start))
 }
 

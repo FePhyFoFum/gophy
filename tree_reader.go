@@ -41,6 +41,8 @@ func ReadTreesFromFile(tfn string) (trees []*Tree) {
 	defer f.Close()
 	trees = make([]*Tree, 0)
 	scanner := bufio.NewScanner(f)
+	buf := make([]byte, 0, 1024*1024)
+	scanner.Buffer(buf, 1024*1024)
 	for scanner.Scan() {
 		var rt *Node
 		tree := NewTree()
