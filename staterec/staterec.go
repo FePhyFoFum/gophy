@@ -9,6 +9,8 @@ import (
 	"os"
 	"runtime/pprof"
 	"sort"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/FePhyFoFum/gophy"
@@ -24,6 +26,8 @@ func main() {
 	lg := bufio.NewWriter(f)
 	tfn := flag.String("t", "", "tree filename")
 	afn := flag.String("s", "", "seq filename")
+	nuc := flag.Bool("u", false, "is this a nucleotide dataset? (will make a multistate one)")
+	aa := flag.Bool("m", false, "is this a aa dataset? (will make a multistate one)")
 	anc := flag.Bool("a", false, "calc anc states")
 	stt := flag.Bool("i", false, "calc stochastic time (states will also be calculated)")
 	stn := flag.Bool("n", false, "calc stochastic number (states will also be calculated)")
@@ -49,6 +53,37 @@ func main() {
 		defer pprof.StopCPUProfile()
 	}
 
+	//read a seq file
+	if *nuc || *aa {
+		nseqs := gophy.ReadSeqsFromFile(*afn)
+		*afn = *afn + ".ms"
+		f, err := os.Create(*afn)
+		if err != nil {
+			panic(err)
+		}
+		defer f.Close()
+		var charmap map[string][]int
+		if *nuc {
+			charmap = gophy.GetNucMap()
+		} else {
+			charmap = gophy.GetProtMap()
+		}
+		var temp []int
+		for _, i := range nseqs {
+			f.WriteString(">" + i.NM + "\n")
+			reg := []string{}
+			for _, j := range i.SQ {
+				temp = charmap[string(j)]
+				if len(temp) > 1 {
+					reg = append(reg, "-")
+				} else {
+					reg = append(reg, strconv.Itoa(temp[0]))
+				}
+			}
+			f.WriteString(strings.Join(reg, " ") + "\n")
+		}
+	}
+
 	//read a tree file
 	trees := gophy.ReadTreesFromFile(*tfn)
 	fmt.Println(len(trees), "trees read")
@@ -67,7 +102,7 @@ func main() {
 	bf := gophy.GetEmpiricalBaseFreqsMS(mseqs, numstates)
 	x.M.SetBaseFreqs(bf)
 	x.M.EBF = x.M.BF
-	fmt.Fprint(lg, x.M.BF)
+	//fmt.Fprint(lg, x.M.BF)
 	// get the site patternas
 	patterns, patternsint, gapsites, constant, uninformative, fullpattern := gophy.GetSitePatternsMS(mseqs, x.M.GetCharMap(), x.M.GetNumStates())
 
@@ -131,7 +166,7 @@ func optimizeThings(t *gophy.Tree, x *gophy.MultStateModel, patternval []float64
 	fmt.Println("starting lnL:", l)
 	gophy.OptimizeMS1R(t, &x.M, patternval, wks)
 	gophy.OptimizeMKMS(t, &x.M, x.M.Q.At(0, 1), patternval, false, wks)
-	fmt.Println(mat.Formatted(x.M.Q))
+	//fmt.Println(mat.Formatted(x.M.Q))
 	l = gophy.PCalcLikePatterns(t, &x.M, patternval, wks)
 	fmt.Println("optimized lnL:", l)
 }

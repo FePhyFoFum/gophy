@@ -690,6 +690,6 @@ func OptimizeMKMS(t *Tree, x *DiscreteModel, startv float64, patternvals []float
 	if err != nil {
 		fmt.Println(err)
 	}
-	fmt.Println(res.F, res.X)
+	//fmt.Println(res.F, res.X)
 	x.SetupQMk(res.X, sym)
 }

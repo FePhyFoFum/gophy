@@ -77,7 +77,7 @@ func (d *DiscreteModel) SetBaseFreqs(basefreq []float64) {
 //    This is scaled so that change is reflected in the branch lengths
 //    You don't need to use the SetScaledRateMatrix
 func (d *DiscreteModel) SetupQJC() {
-	bf := []float64{}
+	bf := make([]float64, d.NumStates)
 	for i := 0; i < d.NumStates; i++ {
 		bf[i] = 1. / float64(d.NumStates)
 	}
