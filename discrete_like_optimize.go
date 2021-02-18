@@ -633,7 +633,7 @@ func OptimizeMS1R(t *Tree, x *DiscreteModel, patternvals []float64, wks int) {
 			return 1000000000000
 		}
 		x.SetupQJC1Rate(mds[0])
-		lnl := PCalcLikePatterns(t, x, patternvals, wks)
+		lnl := PCalcLogLikePatterns(t, x, patternvals, wks)
 		if count%100 == 0 {
 			//curt := time.Now()
 			//fmt.Println(count, lnl, curt.Sub(start))
@@ -669,7 +669,7 @@ func OptimizeMKMS(t *Tree, x *DiscreteModel, startv float64, patternvals []float
 			}
 		}
 		x.SetupQMk(mds, sym)
-		lnl := PCalcLikePatterns(t, x, patternvals, wks)
+		lnl := PCalcLogLikePatterns(t, x, patternvals, wks)
 		count++
 		return -lnl
 	}

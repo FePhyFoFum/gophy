@@ -87,7 +87,7 @@ func main() {
 
 	//read a tree file
 	trees := gophy.ReadTreesFromFile(*tfn)
-	fmt.Println(len(trees), "trees read")
+	fmt.Fprintln(os.Stderr, len(trees), "trees read")
 
 	//read a seq file
 	nsites := 0
@@ -163,12 +163,15 @@ func main() {
 
 func optimizeThings(t *gophy.Tree, x *gophy.MultStateModel, patternval []float64, wks int) {
 	x.M.SetupQJC()
-	l := gophy.PCalcLikePatterns(t, &x.M, patternval, wks)
+	l := gophy.PCalcLogLikePatterns(t, &x.M, patternval, wks)
 	fmt.Fprintln(os.Stderr, "starting lnL:", l)
+	if math.IsInf(l, -1) {
+		os.Exit(0)
+	}
 	gophy.OptimizeMS1R(t, &x.M, patternval, wks)
 	gophy.OptimizeMKMS(t, &x.M, x.M.Q.At(0, 1), patternval, false, wks)
 	//fmt.Println(mat.Formatted(x.M.Q))
-	l = gophy.PCalcLikePatterns(t, &x.M, patternval, wks)
+	l = gophy.PCalcLogLikePatterns(t, &x.M, patternval, wks)
 	fmt.Fprintln(os.Stderr, "optimized lnL:", l)
 }
 
