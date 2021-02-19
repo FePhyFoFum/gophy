@@ -706,11 +706,6 @@ func CalcLogLikeNode(nd *Node, model *DiscreteModel, site int) {
 		if math.IsNaN(c.Len) {
 			c.Len = 0.0
 		}
-		//TODO: REMOVE, this is for some state reconstructor things.
-		if c.Len == 0.0 {
-			c.Len = 10e-100
-		}
-		//
 		if len(c.Chs) == 0 {
 			P := model.GetPMap(c.Len)
 			for i := 0; i < numstates; i++ {

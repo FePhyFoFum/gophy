@@ -190,13 +190,18 @@ func ancState(t *gophy.Tree, x *gophy.MultStateModel, patternval []float64, sv *
 			if p == printSiteOnTree {
 				maxi := 0
 				maxv := 0.
+				vals := ""
 				for x, v := range rets[i][actj] {
 					if v > maxv {
 						maxv = v
 						maxi = x
 					}
+					vals += strconv.FormatFloat(v, 'f', 6, 64)
+					if x+1 != len(rets[i][actj]) {
+						vals += ","
+					}
 				}
-				i.Nam = strconv.Itoa(maxi)
+				i.Nam = "[&state=" + strconv.Itoa(maxi) + ",values={" + vals + "}]"
 			}
 
 		}
