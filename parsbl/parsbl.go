@@ -47,20 +47,17 @@ func createMultiStateFile(infile string) {
 
 func calcPBL(nsites int, numstates int, mseqs []gophy.MSeq, seqs map[string][]string,
 	trees []*gophy.Tree) {
-	x := gophy.NewMultStateModel()
-	x.NumStates = numstates
-	fmt.Println(x.NumStates)
-	x.SetMap()
-	bf := gophy.GetEmpiricalBaseFreqsMS(mseqs, x.NumStates)
-	x.SetBaseFreqs(bf)
-	x.EBF = x.BF
+	x := gophy.NewMultStateModel(numstates)
+	bf := gophy.GetEmpiricalBaseFreqsMS(mseqs, numstates)
+	x.M.SetBaseFreqs(bf)
+	x.M.EBF = x.M.BF
 
 	// get the site patternas
 	patterns, patternsint, gapsites, constant, uninformative, _ :=
-		gophy.GetSitePatternsMS(mseqs, x.GetCharMap(), x.GetNumStates())
+		gophy.GetSitePatternsMS(mseqs, x.M.GetCharMap(), x.M.GetNumStates())
 	for _, t := range trees {
-		patternval, _ := gophy.PreparePatternVecsMS(t, patternsint, seqs, x.GetCharMap(),
-			x.GetNumStates())
+		patternval, _ := gophy.PreparePatternVecsMS(t, patternsint, seqs, x.M.GetCharMap(),
+			x.M.GetNumStates())
 		//this is necessary to get order of the patters in the patternvec since they have no order
 		// this will be used with fullpattern to reconstruct the sequences
 		//list of sites
@@ -70,17 +67,45 @@ func calcPBL(nsites int, numstates int, mseqs []gophy.MSeq, seqs map[string][]st
 		fmt.Fprintln(os.Stderr, "constant:", len(constant))
 		fmt.Fprintln(os.Stderr, "uninformative:", len(uninformative))
 		// model things
-		gophy.PCalcSankParsPatternsMultState(t, x.GetNumStates(), patternval, 1)
-		gophy.EstParsBLMultState(t, x.GetNumStates(), patternval, nsites)
+		gophy.PCalcSankParsPatterns(t, x.M.GetNumStates(), patternval, 1)
+		gophy.EstParsBL(t, x.M.GetNumStates(), patternval, nsites)
 		fmt.Println(t.Rt.Newick(true) + ";")
 	}
+}
 
+func calcPAST(site int, nsites int, numstates int, mseqs []gophy.MSeq, seqs map[string][]string,
+	trees []*gophy.Tree) {
+	x := gophy.NewMultStateModel(numstates)
+	bf := gophy.GetEmpiricalBaseFreqsMS(mseqs, numstates)
+	x.M.SetBaseFreqs(bf)
+	x.M.EBF = x.M.BF
+
+	// get the site patternas
+	patterns, patternsint, gapsites, constant, uninformative, _ :=
+		gophy.GetSitePatternsMS(mseqs, x.M.GetCharMap(), x.M.GetNumStates())
+	for _, t := range trees {
+		patternval, _ := gophy.PreparePatternVecsMS(t, patternsint, seqs, x.M.GetCharMap(),
+			x.M.GetNumStates())
+		//this is necessary to get order of the patters in the patternvec since they have no order
+		// this will be used with fullpattern to reconstruct the sequences
+		//list of sites
+		fmt.Fprintln(os.Stderr, "nsites:", nsites)
+		fmt.Fprintln(os.Stderr, "patterns:", len(patterns), len(patternsint))
+		fmt.Fprintln(os.Stderr, "onlygaps:", len(gapsites))
+		fmt.Fprintln(os.Stderr, "constant:", len(constant))
+		fmt.Fprintln(os.Stderr, "uninformative:", len(uninformative))
+		// model things
+		gophy.PCalcSankParsPatterns(t, x.M.GetNumStates(), patternval, 1)
+		gophy.CalcSankParsAncStateSingleSite(t, numstates, 0)
+		fmt.Println(t.Rt.Newick(true) + ";")
+	}
 }
 
 func main() {
 	tfn := flag.String("t", "", "tree filename")
 	afn := flag.String("s", "", "seq filename")
 	nuc := flag.Bool("n", false, "nucleotide data?")
+	anc := flag.Bool("a", false, "ancestral states instead")
 	flag.Parse()
 	if len(*tfn) == 0 {
 		fmt.Fprintln(os.Stderr, "need a tree filename (-t)")
@@ -112,5 +137,9 @@ func main() {
 	}
 
 	//conduct analysis
-	calcPBL(nsites, numstates, mseqs, seqs, trees)
+	if *anc {
+		calcPAST(0, nsites, numstates, mseqs, seqs, trees)
+	} else {
+		calcPBL(nsites, numstates, mseqs, seqs, trees)
+	}
 }

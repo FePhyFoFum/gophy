@@ -2,6 +2,7 @@ package gophy
 
 import (
 	"math"
+	"strconv"
 )
 
 // ParsResult gives the parsimony score (value) for a site
@@ -10,7 +11,7 @@ type ParsResult struct {
 	site  int
 }
 
-// PCalcSankParsPatterns parallel caclulation of fitch parsimony costs with patterns
+// PCalcSankParsPatterns parallel caclulation of parsimony costs with patterns
 func PCalcSankParsPatterns(t *Tree, numstates int, patternval []float64, wks int) (fl float64) {
 	fl = 0.0
 	nsites := len(patternval)
@@ -95,6 +96,85 @@ func CalcSankParsNode(nd *Node, numstates int, site int) {
 				}
 				nd.Data[site][i] += minh
 			}
+		}
+	}
+}
+
+// CalcSankParsAncStateSingleSite ....
+// assumes bifurcating for now
+func CalcSankParsAncStateSingleSite(t *Tree, numstates int, site int) {
+	ancmaps := make(map[*Node][]int) // ancestral states are stored here
+	for _, n := range t.Pre {
+		if len(n.Chs) == 0 {
+			continue
+		}
+		if t.Rt == n {
+			sl := MinF(n.Data[site])
+			states := make([]int, 0)
+			//things are stored in n.Data[j][i]
+			for i := 0; i < numstates; i++ {
+				if n.Data[site][i] == sl {
+					states = append(states, i)
+				}
+			}
+			ancmaps[n] = states
+		}
+		//
+		c1v := make(map[int]bool)
+		c2v := make(map[int]bool)
+		for m := range ancmaps[n] {
+			v := n.Data[site][m]
+			for i, j := range n.Chs[0].Data[site] {
+				c1 := 0.
+				if m != i {
+					c1 = 1.
+				}
+				if len(n.Chs[0].Chs) == 0 {
+					if j != 1 {
+						c1 += math.MaxFloat64
+					}
+				} else {
+					c1 += j
+				}
+				for k, l := range n.Chs[1].Data[site] {
+					c2 := 0.
+					if m != k {
+						c2 = 1.
+					}
+					if len(n.Chs[1].Chs) == 0 {
+						if l != 1 {
+							c2 += math.MaxFloat64
+						}
+					} else {
+						c2 += l
+					}
+					if c1+c2 == v {
+						c1v[i] = true
+						c2v[k] = true
+					}
+				}
+			}
+		}
+		c1vv := make([]int, 0)
+		for i := range c1v {
+			c1vv = append(c1vv, i)
+		}
+		c2vv := make([]int, 0)
+		for i := range c2v {
+			c2vv = append(c2vv, i)
+		}
+		ancmaps[n.Chs[0]] = c1vv
+		ancmaps[n.Chs[1]] = c2vv
+
+		if len(n.Chs) > 0 {
+			tnam := ""
+			for i, j := range ancmaps[n] {
+				tnam += strconv.Itoa(j)
+				if i+1 != len(ancmaps[n]) {
+					tnam += ","
+				}
+			}
+			n.Nam = "[&values={" + tnam + "}]"
 		}
 	}
 }
