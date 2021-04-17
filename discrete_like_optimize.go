@@ -598,8 +598,8 @@ func OptimizeGamma(t *Tree, x *DiscreteModel, patternvals []float64, log bool, w
 	}
 	settings := optimize.Settings{}
 	FC := optimize.FunctionConverge{}
-	FC.Absolute = 10e-3
-	FC.Iterations = 75
+	FC.Absolute = 10e-4
+	FC.Iterations = 100
 	settings.Converger = &FC
 	p := optimize.Problem{Func: fcn, Grad: nil, Hess: nil}
 	p0 := []float64{1.0}

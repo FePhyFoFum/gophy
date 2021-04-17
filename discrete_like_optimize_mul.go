@@ -184,8 +184,8 @@ func OptimizeGammaMult(t *Tree, models []*DiscreteModel, nodemodels map[*Node]in
 	}
 	settings := optimize.Settings{}
 	FC := optimize.FunctionConverge{}
-	FC.Absolute = 10e-3
-	FC.Iterations = 75
+	FC.Absolute = 10e-5
+	FC.Iterations = 100
 	settings.Converger = &FC
 	p := optimize.Problem{Func: fcn, Grad: nil, Hess: nil}
 	p0 := make([]float64, len(models))
@@ -319,6 +319,13 @@ func OptimizeGammaAndBLMult(t *Tree, models []*DiscreteModel, nodemodels map[*No
 	OptimizeGammaMult(t, models, nodemodels, patternvals, log, wks)
 	OptimizeGammaBLSNLMult(t, models, nodemodels, patternvals, wks)
 	OptimizeGammaMult(t, models, nodemodels, patternvals, log, wks)
+	OptimizeGammaBLSNLMult(t, models, nodemodels, patternvals, wks)
+}
+
+func OptimizeSharedGammaAndBLMult(t *Tree, models []*DiscreteModel, nodemodels map[*Node]int,
+	patternvals []float64, log bool, wks int) {
+	OptimizeGammaBLSNLMult(t, models, nodemodels, patternvals, wks)
+	OptimizeGammaBLSNLMult(t, models, nodemodels, patternvals, wks)
 	OptimizeGammaBLSNLMult(t, models, nodemodels, patternvals, wks)
 }
 
