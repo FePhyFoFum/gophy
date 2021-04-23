@@ -162,6 +162,7 @@ func TestGamma(t *testing.T) {
 	x.M.GammaNCats = 4
 	x.M.GammaAlpha = 12.105
 	x.M.GammaCats = gophy.GetGammaCats(x.M.GammaAlpha, x.M.GammaNCats, false)
+	fmt.Println(x.M.GammaCats)
 	modelparams := make([]float64, 5)
 	for i := range modelparams {
 		modelparams[i] = 1.0
@@ -173,6 +174,7 @@ func TestGamma(t *testing.T) {
 		fmt.Println(lnl)
 		t.Fail()
 	}
+	t.Fail()
 }
 
 func TestGammaLog(t *testing.T) {

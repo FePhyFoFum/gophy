@@ -226,9 +226,6 @@ func AdjustBLNR(node *Node, x *DiscreteModel, patternvals []float64, t *Tree, wk
 			d2 += (((tempd2 / templike) - (math.Pow(tempd1, 2) / math.Pow(templike, 2))) * patternvals[s])
 			like += math.Log(templike)
 		}
-		if len(node.Chs) == 2 && (node.Chs[0].Nam == "taxon_1" || node.Chs[1].Nam == "taxon_1") {
-			//fmt.Println(like, t, t-(d1/d2), d1)
-		}
 		if (t - (d1 / d2)) < 0 {
 			node.Len = 10e-12
 			break
@@ -241,11 +238,8 @@ func AdjustBLNR(node *Node, x *DiscreteModel, patternvals []float64, t *Tree, wk
 	}
 	endL := PCalcLogLikePatterns(t, x, patternvals, wks) // TODO: make sure loglike gets the same, was like. should be the same
 	//make sure that we actually made the likelihood better
-	if startL > endL {
+	if startL > endL || math.IsNaN(endL) {
 		node.Len = startLen
-	}
-	if len(node.Chs) == 2 && (node.Chs[0].Nam == "taxon_1" || node.Chs[1].Nam == "taxon_1") {
-		fmt.Println("-")
 	}
 }
 
@@ -355,9 +349,17 @@ func OptimizeGTRDNA(t *Tree, x *DiscreteModel, patternvals []float64,
 	sup bool, wks int) []float64 {
 	var lkfun func(*Tree, *DiscreteModel, []float64, int) float64
 	if sup {
-		lkfun = PCalcLogLikePatterns
+		if x.GammaNCats != 0 {
+			lkfun = PCalcLogLikePatternsGamma
+		} else {
+			lkfun = PCalcLogLikePatterns
+		}
 	} else {
-		lkfun = PCalcLikePatterns
+		if x.GammaNCats != 0 {
+			lkfun = PCalcLikePatternsGamma
+		} else {
+			lkfun = PCalcLikePatterns
+		}
 	}
 	fcn := func(mds []float64) float64 {
 		for _, i := range mds {
@@ -373,7 +375,8 @@ func OptimizeGTRDNA(t *Tree, x *DiscreteModel, patternvals []float64,
 	}
 	settings := optimize.Settings{}
 	FC := optimize.FunctionConverge{}
-	FC.Absolute = 10e-3
+	FC.Absolute = 10e-4
+
 	FC.Iterations = 75
 	settings.Converger = &FC
 	p := optimize.Problem{Func: fcn, Grad: nil, Hess: nil}
@@ -618,8 +621,8 @@ func OptimizeGammaAndBL(t *Tree, x *DiscreteModel, patternvals []float64, log bo
 	OptimizeGammaBLSNL(t, x, patternvals, wks)
 	OptimizeGamma(t, x, patternvals, log, wks)
 	OptimizeGammaBLSNL(t, x, patternvals, wks)
-	OptimizeGamma(t, x, patternvals, log, wks)
-	OptimizeGammaBLSNL(t, x, patternvals, wks)
+	//OptimizeGamma(t, x, patternvals, log, wks)
+	//OptimizeGammaBLSNL(t, x, patternvals, wks)
 }
 
 // OptimizeMS1R ...

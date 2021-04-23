@@ -48,7 +48,7 @@ type DiscreteModel struct {
 
 // NewDiscreteModel get new model pointer
 func NewDiscreteModel() *DiscreteModel {
-	return &DiscreteModel{}
+	return &DiscreteModel{GammaNCats: 0}
 }
 
 // SetEqualBF set all state frequencies equal

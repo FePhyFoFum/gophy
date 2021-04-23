@@ -23,9 +23,18 @@ func PCalcLikePatternsMul(t *Tree, models []*DiscreteModel, nodemodels map[*Node
 	for _, x := range models {
 		x.EmptyPDict()
 	}
-	fl += math.Log(calcLikeOneSiteMul(t, models, nodemodels, 0)) * patternval[0]
+	var lkfun1 func(t *Tree, models []*DiscreteModel, nodemodels map[*Node]int, site int) float64
+	var lkfun2 func(t *Tree, models []*DiscreteModel, nodemodels map[*Node]int, jobs <-chan int, results chan<- LikeResult)
+	if models[0].GammaNCats != 0 {
+		lkfun1 = CalcLikeOneSiteGammaMul
+		lkfun2 = CalcLikeWorkGammaMul
+	} else {
+		lkfun1 = calcLikeOneSiteMul
+		lkfun2 = calcLikeWorkMul
+	}
+	fl += math.Log(lkfun1(t, models, nodemodels, 0)) * patternval[0]
 	for i := 0; i < wks; i++ {
-		go calcLikeWorkMul(t, models, nodemodels, jobs, results)
+		go lkfun2(t, models, nodemodels, jobs, results)
 	}
 	for i := 1; i < nsites; i++ {
 		jobs <- i
@@ -175,9 +184,18 @@ func PCalcLogLikePatternsMul(t *Tree, models []*DiscreteModel, nodemodels map[*N
 		x.EmptyPDict()
 		x.EmptyPLDict()
 	}
-	fl += CalcLogLikeOneSiteMul(t, models, nodemodels, 0) * patternval[0]
+	var lkfun1 func(t *Tree, models []*DiscreteModel, nodemodels map[*Node]int, site int) float64
+	var lkfun2 func(t *Tree, models []*DiscreteModel, nodemodels map[*Node]int, jobs <-chan int, results chan<- LikeResult)
+	if models[0].GammaNCats != 0 {
+		lkfun1 = CalcLogLikeOneSiteGammaMul
+		lkfun2 = CalcLogLikeWorkGammaMul
+	} else {
+		lkfun1 = CalcLogLikeOneSiteMul
+		lkfun2 = CalcLogLikeWorkMul
+	}
+	fl += lkfun1(t, models, nodemodels, 0) * patternval[0]
 	for i := 0; i < wks; i++ {
-		go CalcLogLikeWorkMul(t, models, nodemodels, jobs, results)
+		go lkfun2(t, models, nodemodels, jobs, results)
 	}
 	for i := 1; i < nsites; i++ {
 		jobs <- i
@@ -195,7 +213,8 @@ func PCalcLogLikePatternsMul(t *Tree, models []*DiscreteModel, nodemodels map[*N
 func CalcLogLikeOneSiteGammaMul(t *Tree, models []*DiscreteModel, nodemodels map[*Node]int, site int) float64 {
 	numstates := models[0].NumStates
 	gammacats := models[0].GammaCats
-	tsl := make([]float64, models[0].GammaNCats)
+	ncats := models[0].GammaNCats
+	tsl := make([]float64, ncats)
 	for p, g := range gammacats {
 		for _, n := range t.Post {
 			x := models[nodemodels[n]]
@@ -206,7 +225,7 @@ func CalcLogLikeOneSiteGammaMul(t *Tree, models []*DiscreteModel, nodemodels map
 				for i := 0; i < numstates; i++ {
 					t.Rt.Data[site][i] += math.Log(x.BF[i])
 				}
-				tsl[p] = floats.LogSumExp(t.Rt.Data[site]) + (math.Log(1.) - math.Log(float64(x.GammaNCats)))
+				tsl[p] = floats.LogSumExp(t.Rt.Data[site]) + (math.Log(1.) - math.Log(float64(ncats)))
 			}
 		}
 	}
@@ -216,8 +235,9 @@ func CalcLogLikeOneSiteGammaMul(t *Tree, models []*DiscreteModel, nodemodels map
 func CalcLogLikeWorkGammaMul(t *Tree, models []*DiscreteModel, nodemodels map[*Node]int, jobs <-chan int, results chan<- LikeResult) { //results chan<- float64) {
 	numstates := models[0].NumStates
 	gammacats := models[0].GammaCats
+	ncats := models[0].GammaNCats
 	for j := range jobs {
-		tsl := make([]float64, models[0].GammaNCats)
+		tsl := make([]float64, ncats)
 		for p, g := range gammacats {
 			for _, n := range t.Post {
 				x := models[nodemodels[n]]
@@ -226,9 +246,9 @@ func CalcLogLikeWorkGammaMul(t *Tree, models []*DiscreteModel, nodemodels map[*N
 				}
 				if t.Rt == n {
 					for i := 0; i < numstates; i++ {
-						t.Rt.Data[j][i] *= x.BF[i]
+						t.Rt.Data[j][i] += math.Log(x.BF[i])
 					}
-					tsl[p] = floats.LogSumExp(t.Rt.Data[j]) + (math.Log(1.) / math.Log(float64(x.GammaNCats)))
+					tsl[p] = floats.LogSumExp(t.Rt.Data[j]) + (math.Log(1.) / math.Log(float64(ncats)))
 				}
 			}
 		}

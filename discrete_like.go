@@ -523,7 +523,6 @@ func CalcLogLikeWorkGamma(t *Tree, x *DiscreteModel, jobs <-chan int, results ch
 					for i := 0; i < numstates; i++ {
 						t.Rt.Data[j][i] += math.Log(x.BF[i])
 					}
-					//sl += (floats.LogSumExp(t.Rt.Data[j]) * (1. / float64(x.GammaNCats)))
 					tsl[p] = (floats.LogSumExp(t.Rt.Data[j]) + (math.Log(1) - math.Log(float64(x.GammaNCats))))
 				}
 			}
@@ -1123,20 +1122,64 @@ func calcLogLikeOneSiteSubClade(t *Tree, inn *Node, excl bool, x *DiscreteModel,
 				sl = floats.LogSumExp(n.Data[site])
 			} else {
 				//needs to get the branch length incorporated
-				p := x.GetPCalc(n.Len)
+				p := x.GetPMapLogged(n.Len)
 				rtconds := make([]float64, x.GetNumStates())
-				for j := 0; j < numstates; j++ {
-					templike := 0.0
+				x2 := make([]float64, x.GetNumStates())
+				for m := 0; m < numstates; m++ {
 					for k := 0; k < numstates; k++ {
-						templike += p.At(j, k) * n.Data[site][k]
+						x2[k] = p.At(m, k) + n.Data[site][k]
 					}
-					rtconds[j] = templike // TODO: this needs to be checked. not log.
+					rtconds[m] = floats.LogSumExp(x2)
 				}
 				sl = floats.LogSumExp(rtconds)
 			}
 		}
 	}
 	return sl
+}
+
+func calcLogLikeOneSiteSubCladeGamma(t *Tree, inn *Node, excl bool, x *DiscreteModel, site int) float64 {
+	numstates := x.NumStates
+	arr := []*Node{}
+	if excl == true {
+		arr = t.Rt.PostorderArrayExcl(inn)
+	} else {
+		arr = inn.PostorderArray()
+	}
+	tsl := make([]float64, x.GammaNCats)
+	for p, g := range x.GammaCats {
+		for _, n := range arr {
+			if len(n.Chs) > 0 {
+				CalcLogLikeNodeGamma(n, x, site, g)
+			}
+			var tn *Node
+			if excl == true { // calc at rt
+				tn = t.Rt
+			} else {
+				tn = inn
+			}
+			if tn == n {
+				if tn == t.Rt { //only happens at the root
+					for i := 0; i < numstates; i++ {
+						n.Data[site][i] += math.Log(x.BF[i])
+					}
+					tsl[p] = (floats.LogSumExp(n.Data[site]) + (math.Log(1) - math.Log(float64(x.GammaNCats))))
+				} else {
+					pc := x.GetPMapLogged(n.Len * g)
+					rtconds := make([]float64, x.GetNumStates())
+					x2 := make([]float64, x.GetNumStates())
+					for m := 0; m < numstates; m++ {
+						for k := 0; k < numstates; k++ {
+							x2[k] = pc.At(m, k) + n.Data[site][k]
+						}
+						rtconds[m] = floats.LogSumExp(x2)
+					}
+					tsl[p] = (floats.LogSumExp(rtconds) + (math.Log(1) - math.Log(float64(x.GammaNCats))))
+				}
+			}
+		}
+	}
+	return floats.LogSumExp(tsl)
 }
 
 // calcLogLikeOneSiteSubClade calc for just a clade, starting at a node
@@ -1183,6 +1226,52 @@ func calcLikeOneSiteSubClade(t *Tree, inn *Node, excl bool, x *DiscreteModel, si
 	return sl
 }
 
+func calcLikeOneSiteSubCladeGamma(t *Tree, inn *Node, excl bool, x *DiscreteModel, site int) float64 {
+	numstates := x.NumStates
+	sl := 0.0
+	arr := []*Node{}
+	if excl == true {
+		arr = t.Rt.PostorderArrayExcl(inn)
+	} else {
+		arr = inn.PostorderArray()
+	}
+	for _, g := range x.GammaCats {
+		for _, n := range arr {
+			if len(n.Chs) > 0 {
+				CalcLikeNodeGamma(n, x, site, g)
+			}
+			var tn *Node
+			if excl == true { // calc at rt
+				tn = t.Rt
+			} else {
+				tn = inn
+			}
+			if tn == n {
+				if tn == t.Rt { //only happens at the root
+					for i := 0; i < numstates; i++ {
+						n.Data[site][i] *= x.BF[i]
+					}
+					//sl = floats.Sum(n.Data[site])
+					sl += floats.Sum(n.Data[site]) * (1. / float64(x.GammaNCats))
+				} else {
+					//needs to get the branch length incorporated
+					p := x.GetPCalc(n.Len * g)
+					rtconds := make([]float64, x.GetNumStates())
+					for j := 0; j < numstates; j++ {
+						templike := 0.0
+						for k := 0; k < numstates; k++ {
+							templike += p.At(j, k) * n.Data[site][k]
+						}
+						rtconds[j] = templike
+					}
+					sl += floats.Sum(rtconds) * (1. / float64(x.GammaNCats))
+				}
+			}
+		}
+	}
+	return sl
+}
+
 //PCalcLogLikePatternsSubClade parallel log likeliohood calculation including patterns
 func PCalcLogLikePatternsSubClade(t *Tree, n *Node, excl bool, x *DiscreteModel, patternval []float64, wks int) (fl float64) {
 	fl = 0.0
@@ -1194,9 +1283,18 @@ func PCalcLogLikePatternsSubClade(t *Tree, n *Node, excl bool, x *DiscreteModel,
 	// just the first site
 	x.EmptyPDict()
 	x.EmptyPLDict()
-	fl += calcLogLikeOneSiteSubClade(t, n, excl, x, 0) * patternval[0]
+	var lkfun1 func(t *Tree, inn *Node, excl bool, x *DiscreteModel, site int) float64
+	var lkfun2 func(t *Tree, inn *Node, excl bool, x *DiscreteModel, jobs <-chan int, results chan<- LikeResult)
+	if x.GammaNCats != 0 { // gamma
+		lkfun1 = calcLogLikeOneSiteSubCladeGamma
+		lkfun2 = calcLogLikeSubCladeWorkGamma
+	} else {
+		lkfun1 = calcLogLikeOneSiteSubClade
+		lkfun2 = calcLogLikeSubCladeWork
+	}
+	fl += lkfun1(t, n, excl, x, 0) * patternval[0]
 	for i := 0; i < wks; i++ {
-		go calcLogLikeSubCladeWork(t, n, excl, x, jobs, results)
+		go lkfun2(t, n, excl, x, jobs, results)
 	}
 	for i := 1; i < nsites; i++ {
 		jobs <- i
@@ -1220,9 +1318,18 @@ func PCalcLikePatternsSubClade(t *Tree, n *Node, excl bool, x *DiscreteModel, pa
 	// populate the P matrix dictionary without problems of race conditions
 	// just the first site
 	x.EmptyPDict()
-	fl += calcLikeOneSiteSubClade(t, n, excl, x, 0) * patternval[0]
+	var lkfun1 func(t *Tree, inn *Node, excl bool, x *DiscreteModel, site int) float64
+	var lkfun2 func(t *Tree, inn *Node, excl bool, x *DiscreteModel, jobs <-chan int, results chan<- LikeResult)
+	if x.GammaNCats != 0 { // gamma
+		lkfun1 = calcLikeOneSiteSubCladeGamma
+		lkfun2 = calcLikeSubCladeWorkGamma
+	} else {
+		lkfun1 = calcLikeOneSiteSubClade
+		lkfun2 = calcLikeSubCladeWork
+	}
+	fl += math.Log(lkfun1(t, n, excl, x, 0)) * patternval[0]
 	for i := 0; i < wks; i++ {
-		go calcLikeSubCladeWork(t, n, excl, x, jobs, results)
+		go lkfun2(t, n, excl, x, jobs, results)
 	}
 	for i := 1; i < nsites; i++ {
 		jobs <- i
@@ -1281,6 +1388,54 @@ func calcLikeSubCladeWork(t *Tree, inn *Node, excl bool, x *DiscreteModel, jobs 
 	}
 }
 
+// calcLikeSubCladeWork this is intended for a worker that will be executing this per site
+func calcLikeSubCladeWorkGamma(t *Tree, inn *Node, excl bool, x *DiscreteModel, jobs <-chan int, results chan<- LikeResult) { //results chan<- float64) {
+	numstates := x.NumStates
+	arr := []*Node{}
+	if excl == true {
+		arr = t.Rt.PostorderArrayExcl(inn)
+	} else {
+		arr = inn.PostorderArray()
+	}
+	for j := range jobs {
+		sl := 0.0
+		for _, g := range x.GammaCats {
+			for _, n := range arr {
+				if len(n.Chs) > 0 {
+					CalcLikeNodeGamma(n, x, j, g)
+				}
+				var tn *Node
+				if excl == true { // calc at rt
+					tn = t.Rt
+				} else {
+					tn = inn
+				}
+				if tn == n {
+					if tn == t.Rt { //only happens at the root
+						for i := 0; i < numstates; i++ {
+							n.Data[j][i] *= x.BF[i]
+						}
+						//sl = floats.Sum(n.Data[j])
+						sl += floats.Sum(n.Data[j]) * (1. / float64(x.GammaNCats))
+					} else {
+						p := x.GetPCalc(n.Len * g)
+						rtconds := make([]float64, x.GetNumStates())
+						for m := 0; m < numstates; m++ {
+							templike := 0.0
+							for k := 0; k < numstates; k++ {
+								templike += p.At(m, k) * n.Data[j][k]
+							}
+							rtconds[m] = templike
+						}
+						sl += floats.Sum(rtconds) * (1. / float64(x.GammaNCats))
+					}
+				}
+			}
+		}
+		results <- LikeResult{value: sl, site: j}
+	}
+}
+
 // CalcLogLikeSubCladeWork this is intended for a worker that will be executing this per site
 func calcLogLikeSubCladeWork(t *Tree, inn *Node, excl bool, x *DiscreteModel, jobs <-chan int, results chan<- LikeResult) { //results chan<- float64) {
 	numstates := x.NumStates
@@ -1309,19 +1464,66 @@ func calcLogLikeSubCladeWork(t *Tree, inn *Node, excl bool, x *DiscreteModel, jo
 					}
 					sl = floats.LogSumExp(n.Data[j])
 				} else {
-					p := x.GetPCalc(n.Len)
+					p := x.GetPMapLogged(n.Len)
 					rtconds := make([]float64, x.GetNumStates())
+					x2 := make([]float64, x.GetNumStates())
 					for m := 0; m < numstates; m++ {
-						templike := 0.0
 						for k := 0; k < numstates; k++ {
-							templike += p.At(m, k) * n.Data[j][k]
+							x2[k] = p.At(m, k) + n.Data[j][k]
 						}
-						rtconds[m] = templike //TODO: make sure this is all correct
+						rtconds[m] = floats.LogSumExp(x2)
 					}
-					sl = floats.LogSumExp(rtconds) //hm, I don't think this is right. should be log
+					sl = floats.LogSumExp(rtconds)
 				}
 			}
 		}
 		results <- LikeResult{value: sl, site: j}
+	}
+}
+
+func calcLogLikeSubCladeWorkGamma(t *Tree, inn *Node, excl bool, x *DiscreteModel, jobs <-chan int, results chan<- LikeResult) { //results chan<- float64) {
+	numstates := x.NumStates
+	arr := []*Node{}
+	if excl == true {
+		arr = t.Rt.PostorderArrayExcl(inn)
+	} else {
+		arr = inn.PostorderArray()
+	}
+	for j := range jobs {
+		tsl := make([]float64, x.GammaNCats)
+		for p, g := range x.GammaCats {
+
+			for _, n := range arr {
+				if len(n.Chs) > 0 {
+					CalcLogLikeNodeGamma(n, x, j, g)
+				}
+				var tn *Node
+				if excl == true { // calc at rt
+					tn = t.Rt
+				} else {
+					tn = inn
+				}
+				if tn == n {
+					if tn == t.Rt { //only happens at the root
+						for i := 0; i < numstates; i++ {
+							n.Data[j][i] += math.Log(x.BF[i])
+						}
+						tsl[p] = (floats.LogSumExp(n.Data[j]) + (math.Log(1) - math.Log(float64(x.GammaNCats))))
+					} else {
+						pc := x.GetPMapLogged(n.Len * g)
+						rtconds := make([]float64, x.GetNumStates())
+						x2 := make([]float64, x.GetNumStates())
+						for m := 0; m < numstates; m++ {
+							for k := 0; k < numstates; k++ {
+								x2[k] = pc.At(m, k) + n.Data[j][k]
+							}
+							rtconds[m] += floats.LogSumExp(x2)
+						}
+						tsl[p] = (floats.LogSumExp(rtconds) + (math.Log(1) - math.Log(float64(x.GammaNCats))))
+					}
+				}
+			}
+		}
+		results <- LikeResult{value: floats.LogSumExp(tsl), site: j}
 	}
 }
