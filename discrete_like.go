@@ -6,6 +6,17 @@ import (
 	"gonum.org/v1/gonum/floats"
 )
 
+/**
+ * There are several different likelihood calculators here.
+ *
+ * General outline:
+ * PCalc* : parallel likelihood calculators.
+ *   LogLike or Like or Sup
+ *   Patterns
+ *   Marked or Back
+ *
+ */
+
 /*
  This is for calculating likelihoods for discrete states
 */
