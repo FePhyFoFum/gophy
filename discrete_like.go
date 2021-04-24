@@ -234,7 +234,6 @@ func PCalcLogLikePatternsGamma(t *Tree, x *DiscreteModel, patternval []float64, 
 	x.EmptyPDict()
 	x.EmptyPLDict()
 	fl += CalcLogLikeOneSiteGamma(t, x, 0) * patternval[0]
-
 	for i := 0; i < wks; i++ {
 		go CalcLogLikeWorkGamma(t, x, jobs, results)
 	}
@@ -512,7 +511,6 @@ func CalcLogLikeWork(t *Tree, x *DiscreteModel, jobs <-chan int, results chan<- 
 func CalcLogLikeWorkGamma(t *Tree, x *DiscreteModel, jobs <-chan int, results chan<- LikeResult) { //results chan<- float64) {
 	numstates := x.NumStates
 	for j := range jobs {
-		//sl := 0.0
 		tsl := make([]float64, x.GammaNCats)
 		for p, g := range x.GammaCats {
 			for _, n := range t.Post {
@@ -527,7 +525,6 @@ func CalcLogLikeWorkGamma(t *Tree, x *DiscreteModel, jobs <-chan int, results ch
 				}
 			}
 		}
-		//results <- LikeResult{value: sl, site: j}
 		results <- LikeResult{value: floats.LogSumExp(tsl), site: j}
 	}
 }

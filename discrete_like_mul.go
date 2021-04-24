@@ -44,7 +44,6 @@ func PCalcLikePatternsMul(t *Tree, models []*DiscreteModel, nodemodels map[*Node
 	for i := 1; i < nsites; i++ {
 		rr = <-results
 		fl += math.Log(rr.value) * patternval[rr.site]
-		//fl += <-results
 	}
 	return
 }
@@ -176,7 +175,6 @@ func PCalcLogLikePatternsMul(t *Tree, models []*DiscreteModel, nodemodels map[*N
 	fl = 0.0
 	nsites := len(patternval)
 	jobs := make(chan int, nsites)
-	//results := make(chan float64, nsites)
 	results := make(chan LikeResult, nsites)
 	// populate the P matrix dictionary without problems of race conditions
 	// just the first site
@@ -225,7 +223,7 @@ func CalcLogLikeOneSiteGammaMul(t *Tree, models []*DiscreteModel, nodemodels map
 				for i := 0; i < numstates; i++ {
 					t.Rt.Data[site][i] += math.Log(x.BF[i])
 				}
-				tsl[p] = floats.LogSumExp(t.Rt.Data[site]) + (math.Log(1.) - math.Log(float64(ncats)))
+				tsl[p] = (floats.LogSumExp(t.Rt.Data[site]) + (math.Log(1) - math.Log(float64(ncats))))
 			}
 		}
 	}
@@ -248,7 +246,7 @@ func CalcLogLikeWorkGammaMul(t *Tree, models []*DiscreteModel, nodemodels map[*N
 					for i := 0; i < numstates; i++ {
 						t.Rt.Data[j][i] += math.Log(x.BF[i])
 					}
-					tsl[p] = floats.LogSumExp(t.Rt.Data[j]) + (math.Log(1.) / math.Log(float64(ncats)))
+					tsl[p] = floats.LogSumExp(t.Rt.Data[j]) + (math.Log(1) - math.Log(float64(ncats)))
 				}
 			}
 		}
