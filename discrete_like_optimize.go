@@ -395,9 +395,17 @@ func OptimizeBF(t *Tree, x *DiscreteModel, patternvals []float64, log bool, wks 
 	numstates := x.NumStates
 	var lkfun func(*Tree, *DiscreteModel, []float64, int) float64
 	if log {
-		lkfun = PCalcLogLikePatterns
+		if x.GammaNCats != 0 {
+			lkfun = PCalcLogLikePatternsGamma
+		} else {
+			lkfun = PCalcLogLikePatterns
+		}
 	} else {
-		lkfun = PCalcLikePatterns
+		if x.GammaNCats != 0 {
+			lkfun = PCalcLikePatternsGamma
+		} else {
+			lkfun = PCalcLikePatterns
+		}
 	}
 	count := 0
 	fcn := func(mds []float64) float64 {
@@ -511,7 +519,6 @@ func OptimizeBFSubClade(t *Tree, n *Node, excl bool, x *DiscreteModel, patternva
 		mds1[numstates-1] = 1. - tsum
 		x.SetBaseFreqs(mds1)
 		x.SetupQGTR()
-		//lnl := PCalcLikePatternsSubClade(t, n, excl, x, patternvals, wks)
 		lnl := lkfun(t, n, excl, x, patternvals, wks)
 		count++
 		return -lnl
