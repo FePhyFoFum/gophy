@@ -344,6 +344,76 @@ func OptimizeBLS(t *Tree, x *DiscreteModel, patternvals []float64, wks int) {
 	}
 }
 
+// OptimizeBLSCLock optimize all branch lengths assuming a clock
+func OptimizeBLSCLock(t *Tree, x *DiscreteModel, patternvals []float64, wks int) {
+	SetHeights(t)
+	count := 0
+	start := time.Now()
+	fcn := func(bl []float64) float64 {
+
+		for _, i := range bl {
+			if i < 0 {
+				return 1000000000000
+			}
+		}
+		pcount := 0
+		for _, n := range t.Post {
+			if len(n.Chs) > 0 {
+				n.Height = bl[pcount]
+				pcount++
+			}
+			for _, j := range n.Chs {
+				if len(j.Chs) == 0 {
+					j.Height = 0
+				}
+				j.Len = n.Height - j.Height
+				if j.Len < 0 {
+					return 1000000000000
+				}
+			}
+		}
+
+		lnl := PCalcLogLikePatterns(t, x, patternvals, wks)
+		if count%1000 == 0 {
+			curt := time.Now()
+			fmt.Println(count, lnl, curt.Sub(start))
+			start = time.Now()
+		}
+		count++
+		return -lnl
+	}
+	settings := optimize.Settings{} //DefaultSettings()
+	settings.MajorIterations = 10
+	settings.Concurrent = 0
+	settings.FuncEvaluations = 10
+	settings.Recorder = nil
+	p := optimize.Problem{Func: fcn, Grad: nil, Hess: nil}
+	var p0 []float64
+	for _, n := range t.Post {
+		if len(n.Chs) > 0 {
+			p0 = append(p0, n.Height)
+		}
+	}
+	res, err := optimize.Minimize(p, p0, nil, nil)
+	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Println(res.F)
+	count = 0
+	for _, n := range t.Post {
+		if len(n.Chs) > 0 {
+			n.Height = res.X[count]
+			count++
+		}
+		for _, j := range n.Chs {
+			if len(j.Chs) == 0 {
+				j.Height = 0
+			}
+			j.Len = n.Height - j.Height
+		}
+	}
+}
+
 // OptimizeGTRDNA optimize GTR
 func OptimizeGTRDNA(t *Tree, x *DiscreteModel, patternvals []float64,
 	sup bool, wks int) []float64 {
