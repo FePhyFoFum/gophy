@@ -344,13 +344,10 @@ func OptimizeBLS(t *Tree, x *DiscreteModel, patternvals []float64, wks int) {
 	}
 }
 
-// OptimizeBLSCLock optimize all branch lengths assuming a clock
-func OptimizeBLSCLock(t *Tree, x *DiscreteModel, patternvals []float64, wks int) {
+// OptimizeBLSCLockNL optimize all branch lengths assuming a clock
+func OptimizeBLSCLockNL(t *Tree, x *DiscreteModel, patternvals []float64, wks int) {
 	SetHeights(t)
-	count := 0
-	start := time.Now()
-	fcn := func(bl []float64) float64 {
-
+	fcn := func(bl, gradient []float64) float64 {
 		for _, i := range bl {
 			if i < 0 {
 				return 1000000000000
@@ -372,8 +369,77 @@ func OptimizeBLSCLock(t *Tree, x *DiscreteModel, patternvals []float64, wks int)
 				}
 			}
 		}
+		lnl := PCalcLikePatterns(t, x, patternvals, wks)
+		return -lnl
+	}
+	var p0 []float64
+	for _, n := range t.Post {
+		if len(n.Chs) > 0 {
+			p0 = append(p0, n.Height)
+		}
+		for _, j := range n.Chs {
+			if len(j.Chs) == 0 {
+				j.Height = 0
+			}
+			j.Len = n.Height - j.Height
+		}
+	}
+	PCalcLikePatterns(t, x, patternvals, wks)
+	//fmt.Println("opt start: ", lnl)
+	opt, err := nlopt.NewNLopt(nlopt.LN_AUGLAG, uint(len(p0)))
+	opt.SetMaxEval(1000)
+	opt.SetFtolAbs(10e-5)
+	opt.SetMinObjective(fcn)
+	res, _, err := opt.Optimize(p0)
+	if err != nil {
+		fmt.Println(err)
+	}
+	//fmt.Println(minf)
+	//fmt.Println(res)
+	count := 0
+	for _, n := range t.Post {
+		if len(n.Chs) > 0 {
+			n.Height = res[count]
+			count++
+		}
+		for _, j := range n.Chs {
+			if len(j.Chs) == 0 {
+				j.Height = 0
+			}
+			j.Len = n.Height - j.Height
+		}
+	}
+	//fmt.Println(t.Rt.Newick(true) + ";")
+}
 
-		lnl := PCalcLogLikePatterns(t, x, patternvals, wks)
+// OptimizeBLSCLock optimize all branch lengths assuming a clock
+func OptimizeBLSCLock(t *Tree, x *DiscreteModel, patternvals []float64, wks int) {
+	SetHeights(t)
+	count := 0
+	start := time.Now()
+	fcn := func(bl []float64) float64 {
+		for _, i := range bl {
+			if i < 0 {
+				return 1000000000000
+			}
+		}
+		pcount := 0
+		for _, n := range t.Post {
+			if len(n.Chs) > 0 {
+				n.Height = bl[pcount]
+				pcount++
+			}
+			for _, j := range n.Chs {
+				if len(j.Chs) == 0 {
+					j.Height = 0
+				}
+				j.Len = n.Height - j.Height
+				if j.Len < 0 {
+					return 1000000000000
+				}
+			}
+		}
+		lnl := PCalcLikePatterns(t, x, patternvals, wks)
 		if count%1000 == 0 {
 			curt := time.Now()
 			fmt.Println(count, lnl, curt.Sub(start))
@@ -383,9 +449,9 @@ func OptimizeBLSCLock(t *Tree, x *DiscreteModel, patternvals []float64, wks int)
 		return -lnl
 	}
 	settings := optimize.Settings{} //DefaultSettings()
-	settings.MajorIterations = 10
+	settings.MajorIterations = 1
 	settings.Concurrent = 0
-	settings.FuncEvaluations = 10
+	settings.FuncEvaluations = 1
 	settings.Recorder = nil
 	p := optimize.Problem{Func: fcn, Grad: nil, Hess: nil}
 	var p0 []float64
@@ -393,12 +459,21 @@ func OptimizeBLSCLock(t *Tree, x *DiscreteModel, patternvals []float64, wks int)
 		if len(n.Chs) > 0 {
 			p0 = append(p0, n.Height)
 		}
+		for _, j := range n.Chs {
+			if len(j.Chs) == 0 {
+				j.Height = 0
+			}
+			j.Len = n.Height - j.Height
+		}
 	}
+	lnl := PCalcLikePatterns(t, x, patternvals, wks)
+	fmt.Println("opt start: ", lnl)
 	res, err := optimize.Minimize(p, p0, nil, nil)
 	if err != nil {
 		fmt.Println(err)
 	}
 	fmt.Println(res.F)
+	fmt.Println(res.X)
 	count = 0
 	for _, n := range t.Post {
 		if len(n.Chs) > 0 {
@@ -412,6 +487,7 @@ func OptimizeBLSCLock(t *Tree, x *DiscreteModel, patternvals []float64, wks int)
 			j.Len = n.Height - j.Height
 		}
 	}
+	fmt.Println(t.Rt.Newick(true) + ";")
 }
 
 // OptimizeGTRDNA optimize GTR
