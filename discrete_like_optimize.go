@@ -398,6 +398,95 @@ func OptimizeBLSNL(t *Tree, x *DiscreteModel, patternvals []float64, wks int) {
 	}
 }
 
+// OptimizeScaleNL scale tree using a single scalar
+func OptimizeScaleNL(t *Tree, x *DiscreteModel, patternvals []float64, wks int) {
+	SetHeights(t)
+	//fmt.Println(t.Rt.Newick(true) + ";")
+	fcn := func(sc, gradient []float64) float64 {
+		for _, i := range sc {
+			if i < 0 {
+				return 1000000000000
+			}
+		}
+		bl := sc[0]
+		//fmt.Println(bl)
+		if bl <= 0 {
+			return 10000000000
+		}
+		//pcount := 0
+		for _, n := range t.Post {
+			if len(n.Chs) > 0 {
+				n.Height = n.Height * bl
+			}
+			for _, j := range n.Chs {
+				if len(j.Chs) == 0 {
+					j.Height = 0
+				}
+				j.Len = n.Height - j.Height
+				if j.Len < 0 {
+					return 1000000000000
+				}
+			}
+			//n.Len = n.Len * bl
+		}
+		//fmt.Println(t.Rt.Height)
+		lnl := PCalcLikePatterns(t, x, patternvals, wks)
+		for _, n := range t.Post {
+			if len(n.Chs) > 0 {
+				n.Height = n.Height / bl
+			}
+			for _, j := range n.Chs {
+				if len(j.Chs) == 0 {
+					j.Height = 0
+				}
+				j.Len = n.Height - j.Height
+				if j.Len < 0 {
+					return 1000000000000
+				}
+			}
+			//n.Len = n.Len * bl
+		}
+
+		return -lnl
+	}
+	p0 := []float64{0.1}
+	/*for _, n := range t.Post {
+		if len(n.Chs) > 0 {
+			p0 = append(p0, n.Height)
+		}
+		for _, j := range n.Chs {
+			if len(j.Chs) == 0 {
+				j.Height = 0
+			}
+			j.Len = n.Height - j.Height
+		}
+	}*/
+	PCalcLikePatterns(t, x, patternvals, wks)
+	//fmt.Println("opt start: ", lnl)
+	opt, _ := nlopt.NewNLopt(nlopt.LN_AUGLAG, uint(len(p0)))
+	opt.SetMaxEval(1000)
+	opt.SetFtolAbs(10e-5)
+	opt.SetMinObjective(fcn)
+	res, _, err := opt.Optimize(p0)
+	//fmt.Println(res, minf)
+	if err != nil {
+		fmt.Println(err)
+	}
+	//count := 0
+	for _, n := range t.Post {
+		if len(n.Chs) > 0 {
+			n.Height = n.Height * res[0]
+		}
+		for _, j := range n.Chs {
+			if len(j.Chs) == 0 {
+				j.Height = 0
+			}
+			j.Len = n.Height - j.Height
+		}
+	}
+	fmt.Println(t.Rt.Newick(true) + ";")
+}
+
 // OptimizeBLSCLockNL optimize all branch lengths assuming a clock
 func OptimizeBLSCLockNL(t *Tree, x *DiscreteModel, patternvals []float64, wks int) {
 	SetHeights(t)
