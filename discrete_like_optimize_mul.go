@@ -260,9 +260,9 @@ func OptimizeGammaBLSNLMult(t *Tree, models []*DiscreteModel, nodemodels map[*No
 	//start := time.Now()
 	var lkfun func(t *Tree, models []*DiscreteModel, nodemodels map[*Node]int,
 		patternval []float64, wks int) (fl float64)
-	if log{
+	if log {
 		lkfun = PCalcLogLikePatternsGammaMul
-	}else{
+	} else {
 		lkfun = PCalcLikePatternsGammaMul
 	}
 	fcn := func(bl, gradient []float64) float64 {
@@ -292,7 +292,7 @@ func OptimizeGammaBLSNLMult(t *Tree, models []*DiscreteModel, nodemodels map[*No
 	opt.SetLowerBounds(lbounds)
 	opt.SetUpperBounds(hbounds)
 	opt.SetMaxEval(500)
-	opt.SetFtolAbs(10e-4)
+	opt.SetFtolAbs(10e-5)
 	opt.SetMinObjective(fcn)
 	xopt, minf, err := opt.Optimize(p0)
 	if err != nil {
@@ -309,15 +309,15 @@ func OptimizeGammaAndBLMult(t *Tree, models []*DiscreteModel, nodemodels map[*No
 	OptimizeGammaMult(t, models, nodemodels, patternvals, log, wks)
 	OptimizeGammaBLSNLMult(t, models, nodemodels, patternvals, log, wks)
 	OptimizeGammaMult(t, models, nodemodels, patternvals, log, wks)
-	OptimizeGammaBLSNLMult(t, models, nodemodels, patternvals, log,wks)
+	OptimizeGammaBLSNLMult(t, models, nodemodels, patternvals, log, wks)
 	//OptimizeGammaMult(t, models, nodemodels, patternvals, log, wks)
 	//OptimizeGammaBLSNLMult(t, models, nodemodels, patternvals, log, wks)
 }
 
 func OptimizeSharedGammaAndBLMult(t *Tree, models []*DiscreteModel, nodemodels map[*Node]int,
 	patternvals []float64, log bool, wks int) {
-	OptimizeGammaBLSNLMult(t, models, nodemodels, patternvals, log,wks)
-	OptimizeGammaBLSNLMult(t, models, nodemodels, patternvals, log,wks)
+	OptimizeGammaBLSNLMult(t, models, nodemodels, patternvals, log, wks)
+	OptimizeGammaBLSNLMult(t, models, nodemodels, patternvals, log, wks)
 	//OptimizeGammaBLSNLMult(t, models, nodemodels, patternvals, log,wks)
 }
 
@@ -512,9 +512,9 @@ func OptimizeGTRDNACompSharedRM(t *Tree, models []*DiscreteModel, nodemodels map
 	}
 	settings := optimize.Settings{}
 	FC := optimize.FunctionConverge{}
-	FC.Absolute = 10e-4 //10e-10
+	FC.Absolute = 10e-5 //10e-10
 	FC.Relative = 10e-6
-	FC.Iterations = 100
+	FC.Iterations = 200
 	settings.Converger = &FC
 	/*grad := func(grad, x []float64) []float64 {
 		return fd.Gradient(grad, fcn, x, nil)
@@ -554,6 +554,91 @@ func OptimizeGTRDNACompSharedRM(t *Tree, models []*DiscreteModel, nodemodels map
 	for _, j := range models {
 		j.SetRateMatrix(res.X[0:5])
 		bf := []float64{res.X[cur], res.X[cur+1], res.X[cur+2]}
+		cur += 3
+		bf = append(bf, 1-floats.Sum(bf))
+		j.SetBaseFreqs(bf)
+		j.SetupQGTR()
+	}
+}
+
+func OptimizeGTRDNACompSharedRMNL(t *Tree, models []*DiscreteModel, nodemodels map[*Node]int,
+	usemodelvals bool, patternvals []float64, log bool, wks int) {
+	var lkfun func(*Tree, []*DiscreteModel, map[*Node]int, []float64, int) float64
+	if log {
+		lkfun = PCalcLogLikePatternsMul
+	} else {
+		lkfun = PCalcLikePatternsMul
+	}
+	count := 0
+	//start := time.Now()
+	fcn := func(mds, gradient []float64) float64 {
+		for _, i := range mds {
+			if i < 0 {
+				return 1000000000000
+			}
+		}
+		cur := 5
+		//fmt.Println(" ++", mds)
+		for _, j := range models {
+			j.SetRateMatrix(mds[0:5])
+			bf := []float64{mds[cur], mds[cur+1], mds[cur+2]}
+			cur += 3
+			bf = append(bf, 1-floats.Sum(bf))
+			for _, k := range bf {
+				if k > 1 || k < 0 {
+					return 1000000000000
+				}
+			}
+			j.SetBaseFreqs(bf)
+			j.SetupQGTR()
+		}
+		lnl := lkfun(t, models, nodemodels, patternvals, wks)
+
+		if count%100 == 0 {
+			//curt := time.Now()
+			//fmt.Println(count, lnl)
+			//start = time.Now()
+		}
+		count++
+		return -lnl
+	}
+	p0 := make([]float64, 0)
+	if usemodelvals == false {
+		for j := 0; j < 5; j++ {
+			p0 = append(p0, 1.0)
+		}
+		for range models {
+			for j := 0; j < 3; j++ {
+				p0 = append(p0, 0.25)
+			}
+		}
+	} else {
+		p0 = append(p0, models[0].R.At(0, 1))
+		p0 = append(p0, models[0].R.At(0, 2))
+		p0 = append(p0, models[0].R.At(0, 3))
+		p0 = append(p0, models[0].R.At(1, 2))
+		p0 = append(p0, models[0].R.At(1, 3))
+		cur := 5
+		for i := range models {
+			for j := 0; j < 3; j++ {
+				p0 = append(p0, models[i].BF[j])
+			}
+			cur += 3
+		}
+	}
+	opt, err := nlopt.NewNLopt(nlopt.LN_AUGLAG, uint(len(p0)))
+	opt.SetMaxEval(1000)
+	opt.SetFtolAbs(10e-5)
+	opt.SetMinObjective(fcn)
+	res, _, err := opt.Optimize(p0)
+	if err != nil {
+		//fmt.Println(err)
+	}
+	//fmt.Println("   ", res.F)
+	cur := 5
+	for _, j := range models {
+		j.SetRateMatrix(res[0:5])
+		bf := []float64{res[cur], res[cur+1], res[cur+2]}
 		cur += 3
 		bf = append(bf, 1-floats.Sum(bf))
 		j.SetBaseFreqs(bf)

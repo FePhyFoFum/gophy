@@ -321,14 +321,8 @@ func OptimizeBLS(t *Tree, x *DiscreteModel, patternvals []float64, wks int) {
 	settings.MajorIterations = 10
 	settings.Concurrent = 0
 	settings.FuncEvaluations = 10
-	//settings.FunctionThreshold = 0.1
 	settings.GradientThreshold = 0.1
 	settings.Recorder = nil
-	//FC := optimize.FunctionConverge{}
-	//FC.Absolute = 10
-	//FC.Relative = 10
-	//FC.Iterations = 10
-	//settings.FunctionConverge = &FC
 	p := optimize.Problem{Func: fcn, Grad: nil, Hess: nil}
 	var p0 []float64
 	for _, n := range t.Post {
@@ -347,7 +341,7 @@ func OptimizeBLS(t *Tree, x *DiscreteModel, patternvals []float64, wks int) {
 // OptimizeBLS optimize all branch lengths
 func OptimizeBLSNL(t *Tree, x *DiscreteModel, patternvals []float64, wks int) {
 	count := 0
-	start := time.Now()
+	//start := time.Now()
 	fcn := func(bl, gradient []float64) float64 {
 		for _, i := range bl {
 			if i < 0 {
@@ -370,10 +364,11 @@ func OptimizeBLSNL(t *Tree, x *DiscreteModel, patternvals []float64, wks int) {
 		for _, j := range t.Post {
 			j.Marked = false
 		}
+
 		if count%100 == 0 {
-			curt := time.Now()
-			fmt.Println(count, lnl, curt.Sub(start))
-			start = time.Now()
+			//curt := time.Now()
+			//fmt.Println(count, lnl) //, curt.Sub(start))
+			//start = time.Now()
 		}
 		count++
 		return -lnl
@@ -387,12 +382,12 @@ func OptimizeBLSNL(t *Tree, x *DiscreteModel, patternvals []float64, wks int) {
 	opt.SetMaxEval(1000)
 	opt.SetFtolAbs(10e-5)
 	opt.SetMinObjective(fcn)
-	res, minf, err := opt.Optimize(p0)
+	res, _, err := opt.Optimize(p0)
 
 	if err != nil {
 		fmt.Println(err)
 	}
-	fmt.Println(minf)
+	//fmt.Println(minf)
 	for x, n := range t.Post {
 		n.Len = res[x]
 	}
@@ -441,7 +436,7 @@ func OptimizeBLSCLockNL(t *Tree, x *DiscreteModel, patternvals []float64, wks in
 	PCalcLikePatterns(t, x, patternvals, wks)
 	//fmt.Println("opt start: ", lnl)
 	opt, err := nlopt.NewNLopt(nlopt.LN_AUGLAG, uint(len(p0)))
-	opt.SetMaxEval(1000)
+	opt.SetMaxEval(2000)
 	opt.SetFtolAbs(10e-5)
 	opt.SetMinObjective(fcn)
 	res, _, err := opt.Optimize(p0)
@@ -561,33 +556,38 @@ func OptimizeGTRDNA(t *Tree, x *DiscreteModel, patternvals []float64,
 			lkfun = PCalcLikePatterns
 		}
 	}
-	fcn := func(mds []float64) float64 {
-		for _, i := range mds {
+	count := 0
+	fcn := func(mds, gradient []float64) float64 {
+		/*for _, i := range mds {
 			if i < 0 {
 				return 1000000000000
 			}
-		}
+		}*/
 		x.SetRateMatrix(mds)
 		x.SetupQGTR()
-		//lnl := PCalcLikePatterns(t, x, patternvals, wks)
 		lnl := lkfun(t, x, patternvals, wks)
+		if count%100 == 0 {
+			//fmt.Println(count, lnl)
+		}
+		count++
 		return -lnl
 	}
-	settings := optimize.Settings{}
-	FC := optimize.FunctionConverge{}
-	FC.Absolute = 10e-4
-
-	FC.Iterations = 75
-	settings.Converger = &FC
-	p := optimize.Problem{Func: fcn, Grad: nil, Hess: nil}
 	p0 := []float64{1.0, 1.0, 1.0, 1.0, 1.0}
-	res, err := optimize.Minimize(p, p0, &settings, nil)
+
+	opt, err := nlopt.NewNLopt(nlopt.LN_COBYLA, uint(len(p0)))
+	opt.SetMaxEval(1000)
+	opt.SetUpperBounds1(100)
+	opt.SetLowerBounds1(10e-8)
+	opt.SetFtolAbs(10e-5)
+	opt.SetMinObjective(fcn)
+	res, _, err := opt.Optimize(p0)
+
 	if err != nil {
 		fmt.Println(err)
 	}
-	//fmt.Println(res.F)
-	x.SetRateMatrix(res.X)
-	return res.X
+	//fmt.Println(minf)
+	x.SetRateMatrix(res)
+	return res
 }
 
 //OptimizeBF optimizing the basefreq model but for a clade
@@ -608,7 +608,7 @@ func OptimizeBF(t *Tree, x *DiscreteModel, patternvals []float64, log bool, wks 
 		}
 	}
 	count := 0
-	fcn := func(mds []float64) float64 {
+	fcn := func(mds, gradient []float64) float64 {
 		mds1 := make([]float64, numstates)
 		tsum := 0.
 		for j, i := range mds {
@@ -624,29 +624,49 @@ func OptimizeBF(t *Tree, x *DiscreteModel, patternvals []float64, log bool, wks 
 		mds1[numstates-1] = 1. - tsum
 		x.SetBaseFreqs(mds1)
 		x.SetupQGTR()
-		//lnl := PCalcLikePatterns(t, x, patternvals, wks)
 		lnl := lkfun(t, x, patternvals, wks)
 		count++
 		return -lnl
 	}
-	settings := optimize.Settings{}
+	confcn := func(mds, gradient []float64) float64 {
+		sum := 0.
+		for _, i := range mds {
+			sum += i
+		}
+		return sum - 1.0
+	}
+
+	/*settings := optimize.Settings{}
 	FC := optimize.FunctionConverge{}
 	FC.Absolute = 10e-3
 	FC.Iterations = 75
 	settings.Converger = &FC
 	p := optimize.Problem{Func: fcn, Grad: nil, Hess: nil}
+	*/
 	//p0 := []float64{0.25, 0.25, 0.25} // 4-1
-	p0 := make([]float64, numstates-1)
-	for i := range p0 {
-		p0[i] = 1. / float64(numstates)
+
+	p0 := make([]float64, numstates-1) // numstates-1)
+	for i, j := range x.BF {
+		p0[i] = j
+		if i == numstates-2 {
+			break
+		}
 	}
-	res, err := optimize.Minimize(p, p0, &settings, nil)
+	//res, err := optimize.Minimize(p, p0, &settings, nil)
+	opt, err := nlopt.NewNLopt(nlopt.LN_AUGLAG, uint(len(p0)))
+	opt.SetMaxEval(1000)
+	opt.SetLowerBounds1(10e-8)
+	opt.SetUpperBounds1(0.9999)
+	opt.SetFtolAbs(10e-5)
+	opt.AddInequalityConstraint(confcn, 10e-8)
+	opt.SetMinObjective(fcn)
+	res, _, err := opt.Optimize(p0)
 	if err != nil {
 		fmt.Println(err)
 	}
 	mds1 := make([]float64, numstates)
 	tsum := 0.
-	for j, i := range res.X {
+	for j, i := range res {
 		mds1[j] = i
 		tsum += i
 	}
@@ -659,7 +679,7 @@ func OptimizeBF(t *Tree, x *DiscreteModel, patternvals []float64, log bool, wks 
 func OptimizeGTRDNASubClade(t *Tree, n *Node, excl bool, x *DiscreteModel, patternvals []float64, wks int) {
 	count := 0
 	start := time.Now()
-	fcn := func(mds []float64) float64 {
+	fcn := func(mds, gradient []float64) float64 {
 		for _, i := range mds {
 			if i < 0 {
 				return 1000000000000
@@ -676,21 +696,28 @@ func OptimizeGTRDNASubClade(t *Tree, n *Node, excl bool, x *DiscreteModel, patte
 		count++
 		return -lnl
 	}
-	settings := optimize.Settings{}
-	settings.MajorIterations = 10
-	settings.Concurrent = 0
-	settings.FuncEvaluations = 10
-	//settings.FunctionThreshold = 0.1
-	settings.GradientThreshold = 0.1
-	settings.Recorder = nil
-	p := optimize.Problem{Func: fcn, Grad: nil, Hess: nil}
+	/*
+		settings := optimize.Settings{}
+		settings.MajorIterations = 10
+		settings.Concurrent = 0
+		settings.FuncEvaluations = 10
+		//settings.FunctionThreshold = 0.1
+		settings.GradientThreshold = 0.1
+		settings.Recorder = nil
+		p := optimize.Problem{Func: fcn, Grad: nil, Hess: nil}
+	*/
 	p0 := []float64{1.0, 1.0, 1.0, 1.0, 1.0}
-	res, err := optimize.Minimize(p, p0, nil, nil)
+	//res, err := optimize.Minimize(p, p0, nil, nil)
+	opt, err := nlopt.NewNLopt(nlopt.LN_AUGLAG, uint(len(p0)))
+	opt.SetMaxEval(1000)
+	opt.SetFtolAbs(10e-5)
+	opt.SetMinObjective(fcn)
+	res, minf, err := opt.Optimize(p0)
 	if err != nil {
 		fmt.Println(err)
 	}
-	fmt.Println(res.F)
-	x.SetRateMatrix(res.X)
+	fmt.Println(minf)
+	x.SetRateMatrix(res)
 }
 
 //OptimizeBFSubClade optimizing the basefreq model but for a subclade
@@ -720,22 +747,25 @@ func OptimizeBFSubClade(t *Tree, n *Node, excl bool, x *DiscreteModel, patternva
 		x.SetBaseFreqs(mds1)
 		x.SetupQGTR()
 		lnl := lkfun(t, n, excl, x, patternvals, wks)
+		//fmt.Println(lnl)
 		count++
 		return -lnl
 	}
+
 	settings := optimize.Settings{}
 	FC := optimize.FunctionConverge{}
-	FC.Absolute = 10e-8
-	FC.Relative = 10e-10
-	FC.Iterations = 100
+	FC.Absolute = 10e-6
+	FC.Iterations = 200
 	settings.Converger = &FC
 	p := optimize.Problem{Func: fcn, Grad: nil, Hess: nil}
+
 	//p0 := []float64{0.25, 0.25, 0.25} // 4-1
 	p0 := make([]float64, numstates-1)
 	for i := range p0 {
 		p0[i] = 1. / float64(numstates)
 	}
 	res, err := optimize.Minimize(p, p0, &settings, nil)
+
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -796,7 +826,7 @@ func OptimizeGamma(t *Tree, x *DiscreteModel, patternvals []float64, log bool, w
 		lkfun = PCalcLikePatternsGamma
 	}
 	count := 0
-	fcn := func(mds []float64) float64 {
+	fcn := func(mds, gradient []float64) float64 {
 		if mds[0] < 0 {
 			return 1000000000
 		}
@@ -806,20 +836,30 @@ func OptimizeGamma(t *Tree, x *DiscreteModel, patternvals []float64, log bool, w
 		count++
 		return -lnl
 	}
-	settings := optimize.Settings{}
-	FC := optimize.FunctionConverge{}
-	FC.Absolute = 10e-4
-	FC.Iterations = 100
-	settings.Converger = &FC
-	p := optimize.Problem{Func: fcn, Grad: nil, Hess: nil}
+	/*
+		settings := optimize.Settings{}
+		FC := optimize.FunctionConverge{}
+		FC.Absolute = 10e-4
+		FC.Iterations = 100
+		settings.Converger = &FC
+		p := optimize.Problem{Func: fcn, Grad: nil, Hess: nil}
+	*/
+
 	p0 := []float64{1.0}
-	res, err := optimize.Minimize(p, p0, &settings, nil)
+	opt, err := nlopt.NewNLopt(nlopt.LN_AUGLAG, uint(len(p0)))
+	opt.SetMaxEval(1000)
+	opt.SetLowerBounds1(10e-8)
+	opt.SetUpperBounds1(100)
+	opt.SetFtolAbs(10e-5)
+	opt.SetMinObjective(fcn)
+	res, _, err := opt.Optimize(p0)
+	//res, err := optimize.Minimize(p, p0, &settings, nil)
 	if err != nil {
 		fmt.Println(err)
 	}
-	x.GammaAlpha = res.X[0]
+	x.GammaAlpha = res[0]
 	x.GammaCats = GetGammaCats(x.GammaAlpha, x.GammaNCats, false)
-	fmt.Println(res)
+	//fmt.Fprintln(os.Stderr, "gamma:", res[0])
 }
 
 //OptimizeGammaAndBL ...
