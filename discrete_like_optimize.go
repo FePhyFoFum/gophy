@@ -868,7 +868,7 @@ func OptimizeBFSubClade(t *Tree, n *Node, excl bool, x *DiscreteModel, patternva
 	mds1[numstates-1] = 1. - tsum
 	x.SetBaseFreqs(mds1)
 	x.SetupQGTR()
-	fmt.Println(res.F)
+	//fmt.Println(res.F)
 }
 
 //OptimizeBFDNARMSubClade optimizing the basefreq model but for a subclade
