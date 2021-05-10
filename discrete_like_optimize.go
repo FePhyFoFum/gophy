@@ -669,12 +669,12 @@ func OptimizeGTRDNA(t *Tree, x *DiscreteModel, patternvals []float64,
 	opt.SetLowerBounds1(10e-8)
 	opt.SetFtolAbs(10e-5)
 	opt.SetMinObjective(fcn)
-	res, _, err := opt.Optimize(p0)
+	res, minf, err := opt.Optimize(p0)
 
 	if err != nil {
 		fmt.Println(err)
 	}
-	//fmt.Println(minf)
+	fmt.Println("gtr:", minf, res)
 	x.SetRateMatrix(res)
 	return res
 }
@@ -749,7 +749,7 @@ func OptimizeBF(t *Tree, x *DiscreteModel, patternvals []float64, log bool, wks 
 	opt.SetFtolAbs(10e-5)
 	opt.AddInequalityConstraint(confcn, 10e-8)
 	opt.SetMinObjective(fcn)
-	res, _, err := opt.Optimize(p0)
+	res, minf, err := opt.Optimize(p0)
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -761,6 +761,7 @@ func OptimizeBF(t *Tree, x *DiscreteModel, patternvals []float64, log bool, wks 
 	}
 	mds1[numstates-1] = 1. - tsum
 	x.SetBaseFreqs(mds1)
+	fmt.Println("end bf:", minf, mds1)
 	x.SetupQGTR()
 }
 
@@ -867,6 +868,7 @@ func OptimizeBFSubClade(t *Tree, n *Node, excl bool, x *DiscreteModel, patternva
 	mds1[numstates-1] = 1. - tsum
 	x.SetBaseFreqs(mds1)
 	x.SetupQGTR()
+	fmt.Println(res.F)
 }
 
 //OptimizeBFDNARMSubClade optimizing the basefreq model but for a subclade
@@ -941,14 +943,14 @@ func OptimizeGamma(t *Tree, x *DiscreteModel, patternvals []float64, log bool, w
 	opt.SetUpperBounds1(100)
 	opt.SetFtolAbs(10e-5)
 	opt.SetMinObjective(fcn)
-	res, _, err := opt.Optimize(p0)
+	res, minf, err := opt.Optimize(p0)
 	//res, err := optimize.Minimize(p, p0, &settings, nil)
 	if err != nil {
 		fmt.Println(err)
 	}
 	x.GammaAlpha = res[0]
 	x.GammaCats = GetGammaCats(x.GammaAlpha, x.GammaNCats, false)
-	//fmt.Fprintln(os.Stderr, "gamma:", res[0])
+	fmt.Fprintln(os.Stderr, "gamma:", minf, res[0])
 }
 
 //OptimizeGammaAndBL ...
