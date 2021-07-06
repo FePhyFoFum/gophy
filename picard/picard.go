@@ -54,8 +54,16 @@ func main() {
 		n.BMLen = r
 	}
 	clustering.InitMissingValues(t.Pre)
-	//gophy.BMOptimBLEM(t, 2) //going to optimize branch lengths to set mean parameter for tree length in dirichlet prior
 	treeOutFile := *runNameArg
+	clustering.BMOptimBLEM(t, 20) //going to optimize branch lengths to set mean parameter for tree length in dirichlet prior
+	if *searchArg == 2 {
+		ll := clustering.PBMLogLikeRt(t.Rt, true, 4)
+		fmt.Println("ll:", ll)
+		for _, n := range t.Pre {
+			n.Len = n.BMLen
+		}
+		fmt.Println(t.Rt.Newick(true) + ";")
+	}
 	if *searchArg == 3 {
 		search := clustering.InitGreedyHC(t, *genArg, *printFreqArg, *critArg, true, *kArg, treeOutFile, *splitGenArg, *clustArg, *minKArg)
 		//fmt.Println(search.ClusterString())
