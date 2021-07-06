@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/FePhyFoFum/gophy"
+	"github.com/FePhyFoFum/gophy/clustering"
 )
 
 func main() {
@@ -26,14 +27,14 @@ func main() {
 	}
 	gophy.MapContinuous(t, *traitfn)
 	//gophy.IterateBMLengths(t, 100)
-	gophy.InitMissingValues(t.Pre)
+	clustering.InitMissingValues(t.Pre)
 	var sites []int
 	for i := range t.Rt.ContData {
 		sites = append(sites, i)
 	}
 	start := time.Now()
-	gophy.BMOptimBLEM(t, 100)
-	fmt.Println(gophy.SubUnrootedLogLikeParallel(t.Rt, sites, 3))
+	clustering.BMOptimBLEM(t, 100)
+	fmt.Println(clustering.SubUnrootedLogLikeParallel(t.Rt, sites, 3))
 	elapsed := time.Since(start)
 	fmt.Println(elapsed)
 	fmt.Println(t.Rt.BMPhylogram())
