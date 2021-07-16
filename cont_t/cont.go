@@ -14,6 +14,7 @@ func main() {
 	rand.Seed(time.Now().UTC().UnixNano())
 	treefn := flag.String("t", "", "input tree")
 	traitfn := flag.String("m", "", "continuous traits")
+	algfn := flag.String("f", "", "0 optimize branch lengths and output loglikelihood\n1 output loglikelihoods for each trait")
 	flag.Parse()
 	nwk := gophy.ReadLine(*treefn)[0]
 	//rt := cophymaru.ReadTree(nwk)
@@ -34,7 +35,14 @@ func main() {
 	}
 	start := time.Now()
 	clustering.BMOptimBLEM(t, 100)
-	fmt.Println(clustering.SubUnrootedLogLikeParallel(t.Rt, sites, 3))
+	if *algfn == "0" {
+		fmt.Println(clustering.SubUnrootedLogLikeParallel(t.Rt, sites, 3))
+	} else if *algfn == "1" {
+		for _, site := range sites {
+			sll := clustering.SingleSiteLL(t.Rt, site)
+			fmt.Println(site, sll)
+		}
+	}
 	elapsed := time.Since(start)
 	fmt.Println(elapsed)
 	fmt.Println(t.Rt.BMPhylogram())
