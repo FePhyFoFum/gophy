@@ -3,6 +3,7 @@ package gophy
 import (
 	"fmt"
 	"math"
+	"time"
 
 	"github.com/go-nlopt/nlopt"
 	"gonum.org/v1/gonum/floats"
@@ -656,7 +657,7 @@ func OptimizeAACompSharedRM(t *Tree, models []*DiscreteModel, nodemodels map[*No
 		lkfun = PCalcLikePatternsMul
 	}
 	count := 0
-	//start := time.Now()
+	start := time.Now()
 	fcn := func(mds []float64) float64 {
 		for _, i := range mds {
 			if i < 0 {
@@ -679,9 +680,9 @@ func OptimizeAACompSharedRM(t *Tree, models []*DiscreteModel, nodemodels map[*No
 		lnl := lkfun(t, models, nodemodels, patternvals, wks)
 
 		if count%100 == 0 {
-			//curt := time.Now()
-			//fmt.Println(count, lnl, curt.Sub(start))
-			//start = time.Now()
+			curt := time.Now()
+			fmt.Println(count, lnl, curt.Sub(start))
+			start = time.Now()
 		}
 		count++
 		return -lnl
@@ -716,6 +717,81 @@ func OptimizeAACompSharedRM(t *Tree, models []*DiscreteModel, nodemodels map[*No
 		bf := make([]float64, 19)
 		for j := 0; j < 19; j++ {
 			bf[j] = res.X[j]
+		}
+		bf = append(bf, 1-floats.Sum(bf))
+		j.SetBaseFreqs(bf)
+		j.SetupQGTR()
+	}
+}
+
+func OptimizeAACompSharedRMNLOPT(t *Tree, models []*DiscreteModel, nodemodels map[*Node]int,
+	patternvals []float64, log bool, wks int) {
+	var lkfun func(*Tree, []*DiscreteModel, map[*Node]int, []float64, int) float64
+	if log {
+		lkfun = PCalcLogLikePatternsMul
+	} else {
+		lkfun = PCalcLikePatternsMul
+	}
+	count := 0
+	start := time.Now()
+	fcn := func(mds, gradient []float64) float64 {
+		for _, i := range mds {
+			if i < 0 {
+				return 1000000000000
+			}
+		}
+		cur := 0
+		fmt.Println(" ++", mds)
+		for _, j := range models {
+			bf := make([]float64, 20)
+			for k := 0; k < 19; k++ {
+				bf[k] = mds[cur]
+				cur++
+			}
+			fs := floats.Sum(bf[0:19])
+			if fs > 1 {
+				return 1000000000000
+			}
+			bf[19] = 1 - fs
+			j.SetBaseFreqs(bf)
+			j.SetupQGTR()
+		}
+		//lnl := PCalcLikePatternsMul(t, models, nodemodels, patternvals, wks)
+		lnl := lkfun(t, models, nodemodels, patternvals, wks)
+
+		if count%100 == 0 {
+			curt := time.Now()
+			fmt.Println(count, lnl, curt.Sub(start))
+			start = time.Now()
+		}
+		count++
+		return -lnl
+	}
+	p0 := make([]float64, 0)
+	cur := 0
+	for i := range models {
+		for j := 0; j < 19; j++ { // 20 -1
+			p0 = append(p0, models[i].BF[j])
+			cur++
+		}
+	}
+	opt, err := nlopt.NewNLopt(nlopt.LN_AUGLAG, uint(len(p0)))
+	opt.SetMaxEval(2000)
+	opt.SetLowerBounds1(10e-8)
+	opt.SetUpperBounds1(0.9999)
+	opt.SetFtolAbs(10e-5)
+	//opt.AddInequalityConstraint(confcn, 10e-8)
+	opt.SetMinObjective(fcn)
+	res, minf, err := opt.Optimize(p0)
+	if err != nil {
+		//fmt.Println(err)
+	}
+	fmt.Println("   ", minf)
+	cur = 0
+	for _, j := range models {
+		bf := make([]float64, 19)
+		for j := 0; j < 19; j++ {
+			bf[j] = res[j]
 		}
 		bf = append(bf, 1-floats.Sum(bf))
 		j.SetBaseFreqs(bf)

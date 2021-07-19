@@ -742,8 +742,12 @@ func OptimizeBF(t *Tree, x *DiscreteModel, patternvals []float64, log bool, wks 
 		}
 	}
 	//res, err := optimize.Minimize(p, p0, &settings, nil)
-	opt, err := nlopt.NewNLopt(nlopt.LN_AUGLAG, uint(len(p0)))
-	opt.SetMaxEval(1000)
+	opt, err := nlopt.NewNLopt(nlopt.LN_NEWUOA_BOUND, uint(len(p0)))
+	if numstates == 4 {
+		opt.SetMaxEval(1000)
+	} else {
+		opt.SetMaxEval(2000)
+	}
 	opt.SetLowerBounds1(10e-8)
 	opt.SetUpperBounds1(0.9999)
 	opt.SetFtolAbs(10e-5)
@@ -869,6 +873,86 @@ func OptimizeBFSubClade(t *Tree, n *Node, excl bool, x *DiscreteModel, patternva
 	x.SetBaseFreqs(mds1)
 	x.SetupQGTR()
 	//fmt.Println(res.F)
+}
+
+func OptimizeBFSubCladeNLOPT(t *Tree, n *Node, excl bool, x *DiscreteModel, patternvals []float64, log bool, wks int) {
+	numstates := x.NumStates
+	var lkfun func(*Tree, *Node, bool, *DiscreteModel, []float64, int) float64
+	if log {
+		lkfun = PCalcLogLikePatternsSubClade
+	} else {
+		lkfun = PCalcLikePatternsSubClade
+	}
+	count := 0
+	fcn := func(mds, gradient []float64) float64 {
+		mds1 := make([]float64, numstates)
+		tsum := 0.
+		for j, i := range mds {
+			if i < 0 {
+				return 1000000000000
+			}
+			mds1[j] = i
+			tsum += i
+		}
+		if tsum > 1.0 {
+			return 1000000000000
+		}
+		mds1[numstates-1] = 1. - tsum
+		x.SetBaseFreqs(mds1)
+		x.SetupQGTR()
+		lnl := lkfun(t, n, excl, x, patternvals, wks)
+		//fmt.Println(lnl)
+		count++
+		return -lnl
+	}
+	confcn := func(mds, gradient []float64) float64 {
+		sum := 0.
+		for _, i := range mds {
+			sum += i
+		}
+		return sum - 1.0
+	}
+
+	p0 := make([]float64, numstates-1)
+	for i, j := range x.BF {
+		p0[i] = j
+		if i == numstates-2 {
+			break
+		}
+	}
+
+	/*settings := optimize.Settings{}
+	FC := optimize.FunctionConverge{}
+	FC.Absolute = 10e-6
+	FC.Iterations = 200
+	settings.Converger = &FC
+	p := optimize.Problem{Func: fcn, Grad: nil, Hess: nil}
+	res, err := optimize.Minimize(p, p0, &settings, nil)
+	*/
+	opt, err := nlopt.NewNLopt(nlopt.LN_NEWUOA_BOUND, uint(len(p0)))
+	if numstates == 4 {
+		opt.SetMaxEval(1000)
+	} else {
+		opt.SetMaxEval(2000)
+	}
+	opt.SetLowerBounds1(10e-8)
+	opt.SetUpperBounds1(0.9999)
+	opt.SetFtolAbs(10e-5)
+	opt.AddInequalityConstraint(confcn, 10e-8)
+	opt.SetMinObjective(fcn)
+	res, _, err := opt.Optimize(p0)
+	if err != nil {
+		fmt.Println(err)
+	}
+	mds1 := make([]float64, numstates)
+	tsum := 0.
+	for j, i := range res {
+		mds1[j] = i
+		tsum += i
+	}
+	mds1[numstates-1] = 1. - tsum
+	x.SetBaseFreqs(mds1)
+	x.SetupQGTR()
 }
 
 //OptimizeBFDNARMSubClade optimizing the basefreq model but for a subclade
