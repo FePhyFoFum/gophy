@@ -641,11 +641,11 @@ func (p *PLObj) SetValues(t Tree, numsites float64, minmap map[*Node]float64,
 		} else {
 			ymin := 0.0
 			for _, j := range n.Chs {
-				if len(j.Chs) > 0 {
-					if p.Mins[j.Num] > ymin {
-						ymin = p.Mins[j.Num]
-					}
+				//if len(j.Chs) > 0 {//internal -- taken out for the tip dates
+				if p.Mins[j.Num] > ymin {
+					ymin = p.Mins[j.Num]
 				}
+				//}
 			}
 			p.Mins[n.Num] = ymin
 		}
@@ -670,9 +670,9 @@ func (p *PLObj) SetValues(t Tree, numsites float64, minmap map[*Node]float64,
 			p.Maxs[n.Num] = ymax
 		}
 	}
-	//fmt.Println(p.Mins)
-	//fmt.Println(p.Maxs)
-	//os.Exit(0)
+	fmt.Println(p.Mins)
+	fmt.Println(p.Maxs)
+	os.Exit(0)
 	//end set min max
 
 	//setup dates

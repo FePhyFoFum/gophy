@@ -741,7 +741,7 @@ func OptimizeAACompSharedRMNLOPT(t *Tree, models []*DiscreteModel, nodemodels ma
 			}
 		}
 		cur := 0
-		fmt.Println(" ++", mds)
+		//fmt.Println(" ++", mds)
 		for _, j := range models {
 			bf := make([]float64, 20)
 			for k := 0; k < 19; k++ {
