@@ -120,6 +120,101 @@ func (p *PLObj) OptimizeRD(params []float64, likeFunc func([]float64, bool) floa
 	//fmt.Println(res)
 }
 
+/**
+preorder move and optimize to get around constraint issues
+*/
+//OptimizePostOrder ...
+func (p *PLObj) OptimizePreOrder(params []float64, likeFunc func([]float64, bool) float64,
+	LF bool, PL bool, alg int, verbose bool) float64 {
+
+	minf := 0.0
+	//one edge at a time
+	for _, fn := range p.FreeNodes {
+		if fn == 0 {
+			continue
+		}
+		opt, err := nlopt.NewNLopt(alg, uint(2))
+		if alg == nlopt.LD_AUGLAG {
+			opt2, _ := nlopt.NewNLopt(nlopt.LD_LBFGS, uint(2))
+			opt.SetLocalOptimizer(opt2)
+		}
+		if err != nil {
+			panic(err)
+		}
+		defer opt.Destroy()
+		tlbounds := make([]float64, 2)
+		tlbounds[0] = 0.0
+		tx := p.Mins[fn]
+		for _, i := range p.ChildrenVec[fn] {
+			if p.Dates[i] > tx {
+				tx = p.Dates[i]
+			}
+		}
+		tlbounds[1] = tx
+		thbounds := make([]float64, 2)
+		thbounds[0] = 10000000.0
+		thbounds[1] = p.Dates[p.ParentsNdsInts[fn]]
+		opt.SetLowerBounds(tlbounds)
+		opt.SetUpperBounds(thbounds)
+		opt.SetMaxEval(100000)
+		opt.SetFtolAbs(10e-5)
+		var evals int
+		curvars := []int{fn, fn}
+		pcount := 0
+		for i := range p.Rates {
+			if i == 0 {
+				continue
+			}
+			if i == fn {
+				curvars[0] = pcount
+			}
+			pcount++
+		}
+		for _, i := range p.FreeNodes {
+			if i == fn {
+				curvars[1] = pcount
+			}
+			pcount++
+		}
+		//fmt.Fprintln(os.Stderr, fn, curvars, tlbounds, thbounds)
+		fcn := func(pa, gradient []float64) float64 {
+			evals++
+			params[curvars[0]] = pa[0]
+			params[curvars[1]] = pa[1]
+			for _, i := range params {
+				if i < 0 {
+					return 1000000000000
+				}
+			}
+			pl := likeFunc(params, true)
+			//fmt.Fprintln(os.Stderr, pl, pa)
+			if evals%10000 == 0 {
+				//	fmt.Println(pl, len(gradient))
+			}
+			if pl == -1 {
+				return 100000000000
+			}
+			if len(gradient) > 0 {
+				/*if LF {
+					p.calcLFGradient(params, &gradient)
+				} else if PL {
+					p.calcPLGradient(params, &gradient)
+				}*/
+			}
+			return pl
+		}
+		opt.SetMinObjective(fcn)
+		tparams := make([]float64, 2)
+		tparams[0] = p.Rates[fn]
+		tparams[1] = p.Dates[fn]
+		//fmt.Fprintln(os.Stderr, tparams)
+		_, tminf, err := opt.Optimize(tparams)
+		minf = tminf
+		//fmt.Fprintln(os.Stderr, minf)
+	}
+	return minf
+}
+
 //OptimizeRDBOUNDED NLOPT
 func (p *PLObj) OptimizeRDBOUNDED(params []float64, likeFunc func([]float64, bool) float64,
 	LF bool, PL bool, alg int, verbose bool) ([]float64, float64, error) {
@@ -791,6 +886,8 @@ func (p *PLObj) RunPL(startRate float64, verbose bool) *optimize.Result {
 	}
 	//x.X, x.F, err = p.OptimizeRDBOUNDED(x.X, p.CalcPL, false, true, nlopt.LD_CCSAQ, verbose)
 	//
+	p.OptimizePreOrder(x.X, p.CalcPL, false, true, nlopt.LD_AUGLAG, verbose)
+
 	if verbose {
 		fmt.Fprintln(os.Stderr, "end PL:", x.F)
 	}
