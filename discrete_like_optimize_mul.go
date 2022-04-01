@@ -797,6 +797,8 @@ func OptimizeAACompSharedRMNLOPT(t *Tree, models []*DiscreteModel, nodemodels ma
 		j.SetBaseFreqs(bf)
 		j.SetupQGTR()
 	}
+	lnl := lkfun(t, models, nodemodels, patternvals, wks)
+	fmt.Println("    ", lnl)
 }
 
 // OptimizeGTRDNACompSharedRMSingleModel optimize GTR base composition but share rate matrix for the different parts
