@@ -143,7 +143,7 @@ func TestAABLOpt(t *testing.T) {
 	fmt.Println(lnl)
 	gophy.OptimizeBLS(tr, &x.M, patternval, 10)
 	lnl = gophy.PCalcLogLikePatterns(tr, &x.M, patternval, 2)
-	if math.Round(lnl*1000)/1000 != -4568.771 {
+	if math.Round(lnl*1000)/1000 != -8394.822 {
 		fmt.Println(lnl)
 		t.Fail()
 	}
@@ -174,7 +174,6 @@ func TestGamma(t *testing.T) {
 		fmt.Println(lnl)
 		t.Fail()
 	}
-	t.Fail()
 }
 
 func TestGammaLog(t *testing.T) {
@@ -251,7 +250,7 @@ func TestGammaBLOpt(t *testing.T) {
 	lnl := gophy.PCalcLogLikePatternsGamma(tr, &x.M, patternval, 2)
 	gophy.OptimizeGammaAndBL(tr, &x.M, patternval, false, 10)
 	lnl = gophy.PCalcLogLikePatternsGamma(tr, &x.M, patternval, 2)
-	if math.Round(lnl*1000)/1000 != -4568.771 {
+	if math.Round(lnl*1000)/1000 != -4568.771 { //it was 773, test again
 		fmt.Println(lnl)
 		t.Fail()
 	}
@@ -282,6 +281,9 @@ func TestBLDecomp(t *testing.T) {
 	*/
 	gophy.CalcLikeFrontBack(&x.M, tr, patternval)
 	fmt.Println(tr.Pre[1].Newick(false), tr.Pre[1].TpConds[0])
+	fmt.Println(lnl)
+	gophy.OptimizeBLNR(tr, &x.M, patternval, 3)
+	lnl = gophy.PCalcLogLikePatterns(tr, &x.M, patternval, 2)
 	fmt.Println(lnl)
 	t.Fail()
 }
