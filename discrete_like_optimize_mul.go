@@ -788,15 +788,19 @@ func OptimizeAACompSharedRMNLOPT(t *Tree, models []*DiscreteModel, nodemodels ma
 	}
 	fmt.Println("   ", minf)
 	cur = 0
+	//fmt.Println(" ++", mds)
 	for _, j := range models {
-		bf := make([]float64, 19)
-		for j := 0; j < 19; j++ {
-			bf[j] = res[j]
+		bf := make([]float64, 20)
+		for k := 0; k < 19; k++ {
+			bf[k] = res[cur]
+			cur++
 		}
-		bf = append(bf, 1-floats.Sum(bf))
+		fs := floats.Sum(bf[0:19])
+		bf[19] = 1 - fs
 		j.SetBaseFreqs(bf)
 		j.SetupQGTR()
 	}
+
 	lnl := lkfun(t, models, nodemodels, patternvals, wks)
 	fmt.Println("    ", lnl)
 }
