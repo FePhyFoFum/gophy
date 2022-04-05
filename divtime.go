@@ -767,7 +767,6 @@ func (p *PLObj) SetValues(t Tree, numsites float64, minmap map[*Node]float64,
 	}
 	fmt.Println(p.Mins)
 	fmt.Println(p.Maxs)
-	os.Exit(0)
 	//end set min max
 
 	//setup dates
