@@ -253,3 +253,9 @@ func TestCalcConfIntLgLike(t *testing.T) {
 		t.Fail()
 	}
 }
+
+func TestCalcNormPDF(t *testing.T) {
+	x := gophy.CalcNormPDF(1.000, 0.1, 0.1)
+	fmt.Println(x)
+	t.Fail()
+}

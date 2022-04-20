@@ -18,29 +18,33 @@ import (
 
 // PLObj things for PL
 type PLObj struct {
-	Rates                []float64
-	Durations            []float64
-	Dates                []float64
-	Mins                 []float64
-	PenMins              []float64
-	PenMaxs              []float64
-	Maxs                 []float64
-	CharDurations        []float64
-	LogFactCharDurations []float64
-	ParentsNdsInts       []int
-	ChildrenVec          [][]int
-	FreeNodes            []int
-	FreeNodesM           map[int]bool
-	NodesMap             map[int]*Node
-	NumNodes             int
-	LogPen               bool
-	PenaltyBoundary      float64
-	Smoothing            float64
-	RateGroups           map[int]int //[nodenum]rategroup
-	NumRateGroups        int
-	CVNode               int
-	Tree                 Tree
-	Logs                 map[float64]float64
+	Rates                 []float64
+	Means                 []float64
+	Stds                  []float64
+	Durations             []float64
+	Dates                 []float64
+	Mins                  []float64
+	PenMins               []float64
+	PenMaxs               []float64
+	Maxs                  []float64
+	CharDurations         []float64
+	CharDurationsM        [][]float64
+	LogFactCharDurations  []float64
+	LogFactCharDurationsM [][]float64
+	ParentsNdsInts        []int
+	ChildrenVec           [][]int
+	FreeNodes             []int
+	FreeNodesM            map[int]bool
+	NodesMap              map[int]*Node
+	NumNodes              int
+	LogPen                bool
+	PenaltyBoundary       float64
+	Smoothing             float64
+	RateGroups            map[int]int //[nodenum]rategroup
+	NumRateGroups         int
+	CVNode                int
+	Tree                  Tree
+	Logs                  map[float64]float64
 }
 
 // OptimizeRD optimization
@@ -118,6 +122,66 @@ func (p *PLObj) OptimizeRD(params []float64, likeFunc func([]float64, bool) floa
 	return res
 	//fmt.Println(res.F)
 	//fmt.Println(res)
+}
+
+// OptimizeRDN optimization
+func (p *PLObj) OptimizeRDN(params []float64, alg int,
+	verbose bool, paramnodemap map[int]int) ([]float64, float64, error) {
+	opt, err := nlopt.NewNLopt(alg, uint(len(params)))
+	if err != nil {
+		panic(err)
+	}
+	defer opt.Destroy()
+
+	//get bounds from mins and maxs
+	lbounds := make([]float64, len(params))
+	hbounds := make([]float64, len(params))
+	c := 0
+	for i := range p.Rates { //every edge has a rate
+		if i == 0 { //root
+			continue
+		}
+		lbounds[c] = 0.0000001
+		hbounds[c] = 10000000.
+		c++
+	}
+	for _, i := range p.FreeNodes {
+		lbounds[c] = p.Mins[i]
+		hbounds[c] = p.Maxs[i]
+		c++
+	}
+	for i := 0; i < p.NumRateGroups; i++ {
+		lbounds[c] = 0.001
+		hbounds[c] = 10.
+		c++
+		lbounds[c] = 0.1
+		hbounds[c] = 10.
+		c++
+	}
+	opt.SetLowerBounds(lbounds)
+	opt.SetUpperBounds(hbounds)
+	opt.SetMaxEval(100000)
+	opt.SetFtolAbs(10e-5)
+	var evals int
+	fcn := func(pa, gradient []float64) float64 {
+		evals++
+		for _, i := range pa {
+			if i < 0 {
+				return 1000000000000
+			}
+		}
+		pl := p.CalcLNorm(pa, true)
+		if evals%10000 == 0 {
+			//fmt.Println(pl)
+		}
+		if pl == -1 {
+			return 100000000000
+		}
+		return pl
+	}
+	opt.SetMinObjective(fcn)
+	xopt, minf, err := opt.Optimize(params)
+	return xopt, minf, err
 }
 
 /**
@@ -682,6 +746,62 @@ func (p *PLObj) CalcPLJustLike(params []float64, free bool) float64 {
 	return ll
 }
 
+//calculate the likelihood with the normal distribution for rates
+func (p *PLObj) CalcLNorm(params []float64, free bool) float64 {
+	for _, i := range params {
+		if i < 0 {
+			return -1.
+		}
+	}
+
+	pcount := 0
+	fcount := 0
+	for i := range p.Rates {
+		if i == 0 { // skip the root
+			continue
+		}
+		p.Rates[i] = params[pcount]
+		pcount++
+		fcount++
+	}
+	if free { // only set the free nodes
+		for _, i := range p.FreeNodes {
+			p.Dates[i] = params[pcount]
+			pcount++
+			fcount++
+		}
+	} else {
+		for i := range p.Dates {
+			p.Dates[i] = params[pcount]
+			pcount++
+			fcount++
+		}
+	}
+	means := make([]float64, p.NumRateGroups)
+	stds := make([]float64, p.NumRateGroups)
+	for i := 0; i < p.NumRateGroups; i++ {
+		means[i] = params[pcount]
+		pcount++
+		stds[i] = params[pcount]
+		pcount++
+	}
+	for i := range p.Means {
+		if i == 0 { // skip the root
+			continue
+		}
+		p.Means[i] = means[p.RateGroups[i]]
+		p.Stds[i] = stds[p.RateGroups[i]]
+	}
+	ret := p.SetDurations()
+	if ret == false {
+		return -1.
+	}
+
+	ll := p.CalcRateLogLike()
+	ll += p.CalcNormRateLogLike()
+	return ll
+}
+
 func minLength(l float64, numsites float64) float64 {
 	return math.Max(l, 1./numsites)
 }
@@ -713,6 +833,8 @@ func (p *PLObj) SetValues(t Tree, numsites float64, minmap map[*Node]float64,
 	p.ChildrenVec = make([][]int, p.NumNodes)
 	p.Dates = make([]float64, p.NumNodes)
 	p.Rates = make([]float64, p.NumNodes)
+	p.Means = make([]float64, p.NumNodes)
+	p.Stds = make([]float64, p.NumNodes)
 	for i, n := range t.Pre {
 		if n.Par != nil {
 			p.ParentsNdsInts[i] = n.Par.Num
@@ -894,6 +1016,41 @@ func (p *PLObj) RunPL(startRate float64, verbose bool) *optimize.Result {
 	return x
 }
 
+//run norm l
+func (p *PLObj) RunLNorm(startRate float64, verbose bool) (float64, []float64) {
+	params := make([]float64, p.NumNodes-1+len(p.FreeNodes)+(2*p.NumRateGroups))
+	paramnodemap := make(map[int]int, 0) //key=freenode i, value = param c
+	c := 0
+	for i := range p.Rates { //every edge has a rate
+		if i == 0 { //root
+			continue
+		}
+		params[c] = startRate
+		c++
+	}
+	for _, i := range p.FreeNodes {
+		params[c] = p.Dates[i]
+		paramnodemap[i] = c
+		c++
+	}
+	for i := 0; i < p.NumRateGroups; i++ {
+		params[c] = startRate //mean
+		c++
+		params[c] = 0.1 //std
+		c++
+	}
+	//p.RateGroups has the key as the node num and the val as the model num
+	val := p.CalcLNorm(params, true)
+	if verbose {
+		fmt.Fprintln(os.Stderr, "start L:", val)
+	}
+	//x := p.OptimizeRDN(params)
+	x, f, _ := p.OptimizeRDN(params, nlopt.LN_SBPLX, verbose, paramnodemap)
+	fmt.Println(f)
+	p.CalcLNorm(x, true)
+	return f, x
+}
+
 //RunMPL penalized likelihood run with a starting float from x.X[0] from LF
 // and mrcagroup -- assuming that p.RateGroups has already been setup
 func (p *PLObj) RunMPL(mrcagroups []*Node, t Tree, verbose bool) *optimize.Result {
@@ -1037,6 +1194,15 @@ func (p *PLObj) CalcRateLogLike() (ll float64) {
 			}
 		}
 		ll += l
+	}
+	return
+}
+
+func (p *PLObj) CalcNormRateLogLike() (ll float64) {
+	ll = 0.0
+	for i := 1; i < p.NumNodes; i++ {
+		x := -math.Log(CalcNormPDF(p.Rates[i], p.Means[i], p.Stds[i]))
+		ll += x
 	}
 	return
 }

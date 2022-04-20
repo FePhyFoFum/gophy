@@ -333,6 +333,13 @@ func CalcBIC(ln float64, k float64, n int) (x float64) {
 	return
 }
 
+func CalcNormPDF(val, mn, std float64) float64 {
+	//x = 1/(st*math.sqrt(6.283185307179586))
+	x := 1 / (std * 2.5066282746310002)
+	y := math.Exp((-0.5) * (math.Pow((val-mn)/std, 2)))
+	return x * y
+}
+
 // NodeSlicePosition take a *[]Node slice and teh get the index of the element node
 func NodeSlicePosition(sl []*Node, nd *Node) (x int) {
 	x = -1
