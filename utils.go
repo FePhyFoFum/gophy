@@ -297,6 +297,15 @@ func SumFloatVec(x []float64) (s float64) {
 	return
 }
 
+func StdFloatVec(x []float64) (s float64) {
+	mn := SumFloatVec(x) / float64(len(x))
+	for j := 0; j < len(x); j++ {
+		s += math.Pow(x[j]-mn, 2)
+	}
+	s = math.Sqrt(s / float64(len(x)))
+	return
+}
+
 // SumLogExp sum log of exps
 func SumLogExp(a, b float64) float64 {
 	return a + Log1exp(b-a)
@@ -338,6 +347,12 @@ func CalcNormPDF(val, mn, std float64) float64 {
 	x := 1 / (std * 2.5066282746310002)
 	y := math.Exp((-0.5) * (math.Pow((val-mn)/std, 2)))
 	return x * y
+}
+
+func CalcNormPDFLog(val, mn, std float64) float64 {
+	x := math.Log(1 / (std * 2.5066282746310002))
+	y := (0.5) * (math.Pow((val-mn)/std, 2))
+	return x - y
 }
 
 // NodeSlicePosition take a *[]Node slice and teh get the index of the element node

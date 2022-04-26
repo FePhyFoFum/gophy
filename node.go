@@ -20,6 +20,7 @@ type Node struct {
 	Data      [][]float64 // [site][states]
 	BData     [][]*SupFlo //[site][states]
 	ContData  []float64   //[site] cont
+	ContData2 []float64   //[site] another cont
 	Mis       []bool      //[site] missing site
 	Marked    bool        //just for like calculations
 	Height    float64

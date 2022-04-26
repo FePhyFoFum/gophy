@@ -48,6 +48,125 @@ type PLObj struct {
 	Logs                  map[float64]float64
 }
 
+// SetValues ...
+func (p *PLObj) SetValues(t Tree, numsites float64, minmap map[*Node]float64,
+	maxmap map[*Node]float64, verbose bool) {
+	p.Tree = t
+	p.CVNode = -1
+	p.LogPen = false
+	p.CharMLogFactM = false
+	p.NumNodes = 0
+	p.FreeNodes = make([]int, 0)
+	p.FreeNodesM = make(map[int]bool)
+	p.NodesMap = make(map[int]*Node)
+	//assign node numbers
+	for i, n := range t.Pre {
+		n.Num = i
+		p.NodesMap[n.Num] = n
+		p.NumNodes++
+		if n != t.Rt && len(n.Chs) > 0 {
+			p.FreeNodes = append(p.FreeNodes, n.Num)
+			p.FreeNodesM[n.Num] = true
+		}
+	}
+	p.CharDurations = make([]float64, p.NumNodes)
+	p.Durations = make([]float64, p.NumNodes)
+	p.LogFactCharDurations = make([]float64, p.NumNodes)
+	p.ParentsNdsInts = make([]int, p.NumNodes)
+	p.ChildrenVec = make([][]int, p.NumNodes)
+	p.Dates = make([]float64, p.NumNodes)
+	p.Rates = make([]float64, p.NumNodes)
+	p.Means = make([]float64, p.NumNodes)
+	p.Stds = make([]float64, p.NumNodes)
+	for i, n := range t.Pre {
+		if n.Par != nil {
+			p.ParentsNdsInts[i] = n.Par.Num
+		}
+		p.ChildrenVec[i] = make([]int, len(n.Chs))
+		for x, m := range n.Chs {
+			p.ChildrenVec[i][x] = m.Num
+		}
+		p.CharDurations[i] = math.Round(minLength(n.Len, numsites) * numsites)
+		p.LogFactCharDurations[i] = LogFact(p.CharDurations[i])
+	}
+	// set min maxs
+	p.Maxs = make([]float64, p.NumNodes)
+	p.Mins = make([]float64, p.NumNodes)
+	p.PenMins = make([]float64, p.NumNodes)
+	p.PenMaxs = make([]float64, p.NumNodes)
+	for _, n := range t.Post {
+		//if len(n.Chs) > 0 { //internal -- taken out for the tip dates
+		if _, ok := minmap[n]; ok {
+			p.Mins[n.Num] = minmap[n]
+		} else {
+			ymin := 0.0
+			for _, j := range n.Chs {
+				//if len(j.Chs) > 0 {//internal -- taken out for the tip dates
+				if p.Mins[j.Num] > ymin {
+					ymin = p.Mins[j.Num]
+				}
+				//}
+			}
+			p.Mins[n.Num] = ymin
+		}
+		if _, ok := maxmap[n]; ok {
+			p.Maxs[n.Num] = maxmap[n]
+		} else {
+			ymax := 10000.0
+			par := n
+			for {
+				par = par.Par
+				tmax := ymax
+				if _, ok := maxmap[par]; ok {
+					tmax = maxmap[par]
+				}
+				if tmax < ymax {
+					ymax = tmax
+				}
+				if par.Par == nil {
+					break
+				}
+			}
+			p.Maxs[n.Num] = ymax
+		}
+	}
+	//fmt.Println(p.Mins)
+	//fmt.Println(p.Maxs)
+	//end set min max
+
+	//setup dates
+	rtDt := minmap[t.Rt]
+	p.Dates[t.Rt.Num] = rtDt
+	for _, n := range t.Rt.Chs {
+		p.feasibleTimes(n, rtDt)
+	}
+	durcheck := p.SetDurations()
+	if verbose {
+		fmt.Println(p.PrintNewickDurations(t) + ";")
+	}
+	if durcheck == false {
+		fmt.Println(p.Durations)
+		os.Exit(0)
+	}
+}
+
+//SetMultTreeData assuming that you have already done the SetValues, this will populate the
+// chardurations and logfact from the node ContData where each index is a datapoint
+func (p *PLObj) SetMultTreeValues(t Tree, numsites []float64) {
+	p.CharMLogFactM = true
+	p.CharDurationsM = make([][]float64, p.NumNodes)
+	p.LogFactCharDurationsM = make([][]float64, p.NumNodes)
+	for i, n := range t.Pre {
+		p.CharDurationsM[i] = make([]float64, len(n.ContData))
+		p.LogFactCharDurationsM[i] = make([]float64, len(n.ContData))
+		for x, m := range n.ContData {
+			//p.CharDurationsM[i][x] = math.Round(minLength(m, numsites) * numsites)
+			p.CharDurationsM[i][x] = math.Round(minLength(m, n.ContData2[x]) * n.ContData2[x])
+			p.LogFactCharDurationsM[i][x] = LogFact(p.CharDurationsM[i][x])
+		}
+	}
+}
+
 // OptimizeRD optimization
 func (p *PLObj) OptimizeRD(params []float64, likeFunc func([]float64, bool) float64,
 	LF bool, PL bool, MULT bool) *optimize.Result {
@@ -142,8 +261,8 @@ func (p *PLObj) OptimizeRDN(params []float64, alg int,
 		if i == 0 { //root
 			continue
 		}
-		lbounds[c] = 0.0000001
-		hbounds[c] = 10000000.
+		lbounds[c] = 0.000001
+		hbounds[c] = 1000000.
 		c++
 	}
 	for _, i := range p.FreeNodes {
@@ -152,11 +271,13 @@ func (p *PLObj) OptimizeRDN(params []float64, alg int,
 		c++
 	}
 	for i := 0; i < p.NumRateGroups; i++ {
-		lbounds[c] = 0.001
-		hbounds[c] = 10.
+		// try not estimating the mean and just calculating it. ML is the mean
+		lbounds[c] = 0.01
+		hbounds[c] = 1000.
 		c++
-		lbounds[c] = 0.1
-		hbounds[c] = 0.2
+
+		lbounds[c] = 0.1 //any lower and you have a singularity problem
+		hbounds[c] = 100.0
 		c++
 	}
 	opt.SetLowerBounds(lbounds)
@@ -797,6 +918,7 @@ func (p *PLObj) CalcLNorm(params []float64, free bool) float64 {
 	if ret == false {
 		return -1.
 	}
+
 	ll := p.CalcNormRateLogLike()
 	if p.CharMLogFactM == false {
 		ll += p.CalcRateLogLike()
@@ -808,124 +930,6 @@ func (p *PLObj) CalcLNorm(params []float64, free bool) float64 {
 
 func minLength(l float64, numsites float64) float64 {
 	return math.Max(l, 1./numsites)
-}
-
-// SetValues ...
-func (p *PLObj) SetValues(t Tree, numsites float64, minmap map[*Node]float64,
-	maxmap map[*Node]float64, verbose bool) {
-	p.Tree = t
-	p.CVNode = -1
-	p.LogPen = false
-	p.CharMLogFactM = false
-	p.NumNodes = 0
-	p.FreeNodes = make([]int, 0)
-	p.FreeNodesM = make(map[int]bool)
-	p.NodesMap = make(map[int]*Node)
-	//assign node numbers
-	for i, n := range t.Pre {
-		n.Num = i
-		p.NodesMap[n.Num] = n
-		p.NumNodes++
-		if n != t.Rt && len(n.Chs) > 0 {
-			p.FreeNodes = append(p.FreeNodes, n.Num)
-			p.FreeNodesM[n.Num] = true
-		}
-	}
-	p.CharDurations = make([]float64, p.NumNodes)
-	p.Durations = make([]float64, p.NumNodes)
-	p.LogFactCharDurations = make([]float64, p.NumNodes)
-	p.ParentsNdsInts = make([]int, p.NumNodes)
-	p.ChildrenVec = make([][]int, p.NumNodes)
-	p.Dates = make([]float64, p.NumNodes)
-	p.Rates = make([]float64, p.NumNodes)
-	p.Means = make([]float64, p.NumNodes)
-	p.Stds = make([]float64, p.NumNodes)
-	for i, n := range t.Pre {
-		if n.Par != nil {
-			p.ParentsNdsInts[i] = n.Par.Num
-		}
-		p.ChildrenVec[i] = make([]int, len(n.Chs))
-		for x, m := range n.Chs {
-			p.ChildrenVec[i][x] = m.Num
-		}
-		p.CharDurations[i] = math.Round(minLength(n.Len, numsites) * numsites)
-		p.LogFactCharDurations[i] = LogFact(p.CharDurations[i])
-	}
-	// set min maxs
-	p.Maxs = make([]float64, p.NumNodes)
-	p.Mins = make([]float64, p.NumNodes)
-	p.PenMins = make([]float64, p.NumNodes)
-	p.PenMaxs = make([]float64, p.NumNodes)
-	for _, n := range t.Post {
-		//if len(n.Chs) > 0 { //internal -- taken out for the tip dates
-		if _, ok := minmap[n]; ok {
-			p.Mins[n.Num] = minmap[n]
-		} else {
-			ymin := 0.0
-			for _, j := range n.Chs {
-				//if len(j.Chs) > 0 {//internal -- taken out for the tip dates
-				if p.Mins[j.Num] > ymin {
-					ymin = p.Mins[j.Num]
-				}
-				//}
-			}
-			p.Mins[n.Num] = ymin
-		}
-		if _, ok := maxmap[n]; ok {
-			p.Maxs[n.Num] = maxmap[n]
-		} else {
-			ymax := 10000.0
-			par := n
-			for {
-				par = par.Par
-				tmax := ymax
-				if _, ok := maxmap[par]; ok {
-					tmax = maxmap[par]
-				}
-				if tmax < ymax {
-					ymax = tmax
-				}
-				if par.Par == nil {
-					break
-				}
-			}
-			p.Maxs[n.Num] = ymax
-		}
-	}
-	//fmt.Println(p.Mins)
-	//fmt.Println(p.Maxs)
-	//end set min max
-
-	//setup dates
-	rtDt := minmap[t.Rt]
-	p.Dates[t.Rt.Num] = rtDt
-	for _, n := range t.Rt.Chs {
-		p.feasibleTimes(n, rtDt)
-	}
-	durcheck := p.SetDurations()
-	if verbose {
-		fmt.Println(p.PrintNewickDurations(t) + ";")
-	}
-	if durcheck == false {
-		fmt.Println(p.Durations)
-		os.Exit(0)
-	}
-}
-
-//SetMultTreeData assuming that you have already done the SetValues, this will populate the
-// chardurations and logfact from the node ContData where each index is a datapoint
-func (p *PLObj) SetMultTreeValues(t Tree, numsites float64) {
-	p.CharMLogFactM = true
-	p.CharDurationsM = make([][]float64, p.NumNodes)
-	p.LogFactCharDurationsM = make([][]float64, p.NumNodes)
-	for i, n := range t.Pre {
-		p.CharDurationsM[i] = make([]float64, len(n.ContData))
-		p.LogFactCharDurationsM[i] = make([]float64, len(n.ContData))
-		for x, m := range n.ContData {
-			p.CharDurationsM[i][x] = math.Round(minLength(m, numsites) * numsites)
-			p.LogFactCharDurationsM[i][x] = LogFact(p.CharDurationsM[i][x])
-		}
-	}
 }
 
 //RunLF langley fitch run with starting float, probably numsites/20.
@@ -1065,7 +1069,6 @@ func (p *PLObj) RunLNorm(startRate float64, verbose bool) (float64, []float64) {
 	if verbose {
 		fmt.Fprintln(os.Stderr, "start L:", val)
 	}
-	//x := p.OptimizeRDN(params)
 	x, f, _ := p.OptimizeRDN(params, nlopt.LN_SBPLX, verbose, paramnodemap)
 	//fmt.Println(f)
 	p.CalcLNorm(x, true)
@@ -1222,7 +1225,8 @@ func (p *PLObj) CalcRateLogLike() (ll float64) {
 func (p *PLObj) CalcNormRateLogLike() (ll float64) {
 	ll = 0.0
 	for i := 1; i < p.NumNodes; i++ {
-		x := -math.Log(CalcNormPDF(p.Rates[i], p.Means[i], p.Stds[i]))
+		//x := -math.Log(CalcNormPDF(p.Rates[i], p.Means[i], p.Stds[i]))
+		x := -CalcNormPDFLog(p.Rates[i], p.Means[i], p.Stds[i])
 		ll += x
 	}
 	return
@@ -1238,11 +1242,13 @@ func (p *PLObj) CalcRateLogLikeMT() (ll float64) {
 			continue
 		}
 		x := p.Rates[i] * p.Durations[i]
+		lx := math.Log(x)
+		l := 0.0
 		for j := range p.CharDurationsM[i] {
 			c := p.CharDurationsM[i][j]
-			l := 0.0
+			l = 0.0
 			if x > 0.0 {
-				l = -(c*math.Log(x) - x - p.LogFactCharDurationsM[i][j])
+				l = -(c*lx - x - p.LogFactCharDurationsM[i][j])
 			} else if x == 0 {
 				if c > 0.0 {
 					l = 1e+15
