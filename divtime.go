@@ -932,6 +932,21 @@ func minLength(l float64, numsites float64) float64 {
 	return math.Max(l, 1./numsites)
 }
 
+func (p *PLObj) CalcRateGroupMean(group int) float64 {
+	cn := 0.0
+	tot := 0.0
+	for i, j := range p.RateGroups {
+		if i == 0 {
+			continue
+		}
+		if j == group {
+			tot += p.Rates[i]
+			cn += 1.0
+		}
+	}
+	return tot / cn
+}
+
 //RunLF langley fitch run with starting float, probably numsites/20.
 func (p *PLObj) RunLF(startRate float64, verbose bool) *optimize.Result {
 	params := make([]float64, len(p.FreeNodes)+1) // lf
