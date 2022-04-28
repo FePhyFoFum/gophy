@@ -172,7 +172,7 @@ func (p *PLObj) SetMultTreeValues(t Tree, numsites []float64) {
 	}
 }
 
-func (p *PLObj) SetupGMM() {
+func (p *PLObj) SetupGMM(startmeans []float64) {
 	p.GMMWeights = make([][]float64, len(p.Rates))
 	for i := range p.Rates {
 		p.GMMWeights[i] = make([]float64, p.NumRateGroups)
@@ -183,7 +183,7 @@ func (p *PLObj) SetupGMM() {
 	}
 	p.GMMMeans = make([]float64, p.NumRateGroups)
 	for i := range p.GMMMix {
-		p.GMMMeans[i] = 1 / float64(p.NumRateGroups)
+		p.GMMMeans[i] = startmeans[i]
 	}
 	p.GMMStds = make([]float64, p.NumRateGroups)
 	for i := range p.GMMMix {
@@ -320,6 +320,58 @@ func (p *PLObj) OptimizeRDN(params []float64, alg int,
 		if evals%10000 == 0 {
 			//fmt.Println(pl)
 		}
+		if pl == -1 {
+			return 100000000000
+		}
+		return pl
+	}
+	opt.SetMinObjective(fcn)
+	xopt, minf, err := opt.Optimize(params)
+	return xopt, minf, err
+}
+
+// OptimizeRDN optimization
+func (p *PLObj) OptimizeRDNGMM(params []float64, alg int,
+	verbose bool, paramnodemap map[int]int) ([]float64, float64, error) {
+	opt, err := nlopt.NewNLopt(alg, uint(len(params)))
+	if err != nil {
+		panic(err)
+	}
+	defer opt.Destroy()
+
+	//get bounds from mins and maxs
+	lbounds := make([]float64, len(params))
+	hbounds := make([]float64, len(params))
+	c := 0
+	for i := range p.Rates { //every edge has a rate
+		if i == 0 { //root
+			continue
+		}
+		lbounds[c] = 0.000001
+		hbounds[c] = 1000000.
+		c++
+	}
+	for _, i := range p.FreeNodes {
+		lbounds[c] = p.Mins[i]
+		hbounds[c] = p.Maxs[i]
+		c++
+	}
+	opt.SetLowerBounds(lbounds)
+	opt.SetUpperBounds(hbounds)
+	opt.SetMaxEval(100000)
+	opt.SetFtolAbs(10e-5)
+	var evals int
+	fcn := func(pa, gradient []float64) float64 {
+		evals++
+		for _, i := range pa {
+			if i < 0 {
+				return 1000000000000
+			}
+		}
+		pl := p.CalcLNormGMM(pa, true)
+		//if evals%10000 == 0 {
+		//fmt.Println("alg", pl)
+		//}
 		if pl == -1 {
 			return 100000000000
 		}
@@ -952,6 +1004,51 @@ func (p *PLObj) CalcLNorm(params []float64, free bool) float64 {
 	return ll
 }
 
+//calculate the likelihood with the normal distribution for rates
+func (p *PLObj) CalcLNormGMM(params []float64, free bool) float64 {
+	for _, i := range params {
+		if i < 0 {
+			return -1.
+		}
+	}
+
+	pcount := 0
+	fcount := 0
+	for i := range p.Rates {
+		if i == 0 { // skip the root
+			continue
+		}
+		p.Rates[i] = params[pcount]
+		pcount++
+		fcount++
+	}
+	if free { // only set the free nodes
+		for _, i := range p.FreeNodes {
+			p.Dates[i] = params[pcount]
+			pcount++
+			fcount++
+		}
+	} else {
+		for i := range p.Dates {
+			p.Dates[i] = params[pcount]
+			pcount++
+			fcount++
+		}
+	}
+	ret := p.SetDurations()
+	if ret == false {
+		return -1.
+	}
+	p.DivTimeGmm() //assume you have already set things up
+	ll := p.CalcNormRateLogLikeMixed()
+	if p.CharMLogFactM == false {
+		ll += p.CalcRateLogLike()
+	} else {
+		ll += p.CalcRateLogLikeMT()
+	}
+	return ll
+}
+
 func minLength(l float64, numsites float64) float64 {
 	return math.Max(l, 1./numsites)
 }
@@ -1111,6 +1208,34 @@ func (p *PLObj) RunLNorm(startRate float64, verbose bool) (float64, []float64) {
 	x, f, _ := p.OptimizeRDN(params, nlopt.LN_SBPLX, verbose, paramnodemap)
 	//fmt.Println(f)
 	p.CalcLNorm(x, true)
+	return f, x
+}
+
+// RunLNormGMM the gmm optimization algorithm
+func (p *PLObj) RunLNormGMM(verbose bool) (float64, []float64) {
+	params := make([]float64, p.NumNodes-1+len(p.FreeNodes))
+	paramnodemap := make(map[int]int, 0) //key=freenode i, value = param c
+	c := 0
+	for i := range p.Rates { //every edge has a rate
+		if i == 0 { //root
+			continue
+		}
+		params[c] = p.Rates[i]
+		c++
+	}
+	for _, i := range p.FreeNodes {
+		params[c] = p.Dates[i]
+		paramnodemap[i] = c
+		c++
+	}
+	p.SetupGMM([]float64{1.0, 2.0}) //generalize
+	val := p.CalcLNormGMM(params, true)
+	if verbose {
+		fmt.Fprintln(os.Stderr, "start L:", val)
+	}
+	x, f, _ := p.OptimizeRDNGMM(params, nlopt.LN_SBPLX, verbose, paramnodemap)
+	//fmt.Println(f)
+	p.CalcLNormGMM(x, true)
 	return f, x
 }
 
@@ -1277,7 +1402,7 @@ func (p *PLObj) CalcNormRateLogLikeMixed() (ll float64) {
 	x := make([]float64, p.NumRateGroups)
 	for i := 1; i < p.NumNodes; i++ {
 		for j := 0; j < p.NumRateGroups; j++ {
-			x[j] = CalcNormPDFLog(p.Rates[i], p.GMMMix[j], p.GMMStds[j]) + math.Log(p.GMMMix[j])
+			x[j] = -CalcNormPDFLog(p.Rates[i], p.GMMMix[j], p.GMMStds[j]) + math.Log(p.GMMMix[j])
 		}
 		ll += floats.LogSumExp(x)
 	}
@@ -1289,7 +1414,7 @@ func (p *PLObj) DivTimeGmm() {
 	for i := 0; i < 5; i++ {
 		l := p.DivTimeGmmEStep()
 		p.DivTimeGmmMStep()
-		fmt.Println(l)
+		//fmt.Println(l)
 		if math.Abs(oldL-l) < 10e-5 {
 			break
 		}
@@ -1305,7 +1430,7 @@ func (p *PLObj) DivTimeGmmEStep() float64 {
 		}
 		tw := make([]float64, p.NumRateGroups)
 		for j := 0; j < p.NumRateGroups; j++ {
-			tw[j] = CalcNormPDFLog(p.Rates[i], p.GMMMeans[j], p.GMMStds[j]) + math.Log(p.GMMMix[j])
+			tw[j] = -CalcNormPDFLog(p.Rates[i], p.GMMMeans[j], p.GMMStds[j]) + math.Log(p.GMMMix[j])
 		}
 		den := floats.LogSumExp(tw)
 		for j, k := range tw {
@@ -1331,6 +1456,17 @@ func (p *PLObj) DivTimeGmmMStep() {
 			p.GMMMeans[j] += (p.GMMWeights[i][j] * p.Rates[i]) / sums[j]
 		}
 	}
+	/*
+		for i := range p.GMMWeights {
+			for j := range p.GMMWeights[i] {
+				//sum(w * ((d - self.one.mu) ** 2) for (w, d) in zip(left, data)) / one_den)
+				p.GMMStds[j] += (p.GMMWeights[i][j] * (math.Pow(p.Rates[i]-p.GMMMeans[j], 2))) / sums[j]
+			}
+		}
+		for i := range p.GMMStds {
+			p.GMMStds[i] = math.Sqrt(p.GMMStds[i])
+		}*/
+
 	for i, j := range sums {
 		p.GMMMix[i] = j / float64(len(p.Rates)-1)
 	}
