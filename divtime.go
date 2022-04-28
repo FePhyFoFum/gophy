@@ -13,6 +13,7 @@ import (
 	"runtime"
 
 	"github.com/go-nlopt/nlopt"
+	"gonum.org/v1/gonum/floats"
 	"gonum.org/v1/gonum/optimize"
 )
 
@@ -31,6 +32,10 @@ type PLObj struct {
 	CharDurationsM        [][]float64
 	LogFactCharDurations  []float64
 	LogFactCharDurationsM [][]float64
+	GMMWeights            [][]float64
+	GMMMix                []float64
+	GMMMeans              []float64
+	GMMStds               []float64
 	CharMLogFactM         bool
 	ParentsNdsInts        []int
 	ChildrenVec           [][]int
@@ -164,6 +169,25 @@ func (p *PLObj) SetMultTreeValues(t Tree, numsites []float64) {
 			p.CharDurationsM[i][x] = math.Round(minLength(m, n.ContData2[x]) * n.ContData2[x])
 			p.LogFactCharDurationsM[i][x] = LogFact(p.CharDurationsM[i][x])
 		}
+	}
+}
+
+func (p *PLObj) SetupGMM() {
+	p.GMMWeights = make([][]float64, len(p.Rates))
+	for i := range p.Rates {
+		p.GMMWeights[i] = make([]float64, p.NumRateGroups)
+	}
+	p.GMMMix = make([]float64, p.NumRateGroups)
+	for i := range p.GMMMix {
+		p.GMMMix[i] = 1 / float64(p.NumRateGroups)
+	}
+	p.GMMMeans = make([]float64, p.NumRateGroups)
+	for i := range p.GMMMix {
+		p.GMMMeans[i] = 1 / float64(p.NumRateGroups)
+	}
+	p.GMMStds = make([]float64, p.NumRateGroups)
+	for i := range p.GMMMix {
+		p.GMMStds[i] = 0.1
 	}
 }
 
@@ -1245,6 +1269,71 @@ func (p *PLObj) CalcNormRateLogLike() (ll float64) {
 		ll += x
 	}
 	return
+}
+
+// CalcNormRateLogLikeMixed for the gmm
+func (p *PLObj) CalcNormRateLogLikeMixed() (ll float64) {
+	ll = 0.0
+	x := make([]float64, p.NumRateGroups)
+	for i := 1; i < p.NumNodes; i++ {
+		for j := 0; j < p.NumRateGroups; j++ {
+			x[j] = CalcNormPDFLog(p.Rates[i], p.GMMMix[j], p.GMMStds[j]) + math.Log(p.GMMMix[j])
+		}
+		ll += floats.LogSumExp(x)
+	}
+	return
+}
+
+func (p *PLObj) DivTimeGmm() {
+	oldL := 0.0
+	for i := 0; i < 5; i++ {
+		l := p.DivTimeGmmEStep()
+		p.DivTimeGmmMStep()
+		fmt.Println(l)
+		if math.Abs(oldL-l) < 10e-5 {
+			break
+		}
+		oldL = l
+	}
+}
+
+func (p *PLObj) DivTimeGmmEStep() float64 {
+	l := 0.0
+	for i := range p.Rates {
+		if i == 0 {
+			continue
+		}
+		tw := make([]float64, p.NumRateGroups)
+		for j := 0; j < p.NumRateGroups; j++ {
+			tw[j] = CalcNormPDFLog(p.Rates[i], p.GMMMeans[j], p.GMMStds[j]) + math.Log(p.GMMMix[j])
+		}
+		den := floats.LogSumExp(tw)
+		for j, k := range tw {
+			p.GMMWeights[i][j] = math.Exp(k - den)
+		}
+		l += den
+	}
+	return l
+}
+
+func (p *PLObj) DivTimeGmmMStep() {
+	sums := make([]float64, p.NumRateGroups)
+	for _, j := range p.GMMWeights {
+		for k, l := range j {
+			sums[k] += l
+		}
+	}
+	for i := range p.GMMMeans {
+		p.GMMMeans[i] = 0.0
+	}
+	for i := range p.GMMWeights {
+		for j := range p.GMMWeights[i] {
+			p.GMMMeans[j] += (p.GMMWeights[i][j] * p.Rates[i]) / sums[j]
+		}
+	}
+	for i, j := range sums {
+		p.GMMMix[i] = j / float64(len(p.Rates)-1)
+	}
 }
 
 /*
