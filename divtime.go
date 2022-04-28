@@ -1402,7 +1402,7 @@ func (p *PLObj) CalcNormRateLogLikeMixed() (ll float64) {
 	x := make([]float64, p.NumRateGroups)
 	for i := 1; i < p.NumNodes; i++ {
 		for j := 0; j < p.NumRateGroups; j++ {
-			x[j] = -CalcNormPDFLog(p.Rates[i], p.GMMMix[j], p.GMMStds[j]) + math.Log(p.GMMMix[j])
+			x[j] = CalcNormPDFLog(p.Rates[i], p.GMMMix[j], p.GMMStds[j]) + math.Log(p.GMMMix[j])
 		}
 		ll += floats.LogSumExp(x)
 	}
