@@ -1228,7 +1228,6 @@ func (p *PLObj) RunLNormGMM(verbose bool) (float64, []float64) {
 		paramnodemap[i] = c
 		c++
 	}
-	p.SetupGMM([]float64{1.0, 2.0}) //generalize
 	val := p.CalcLNormGMM(params, true)
 	if verbose {
 		fmt.Fprintln(os.Stderr, "start L:", val)
