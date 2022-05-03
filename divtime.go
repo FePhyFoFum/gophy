@@ -47,6 +47,7 @@ type PLObj struct {
 	PenaltyBoundary       float64
 	Smoothing             float64
 	RateGroups            map[int]int //[nodenum]rategroup
+	RateGroupsN           []int
 	NumRateGroups         int
 	CVNode                int
 	Tree                  Tree
@@ -75,6 +76,7 @@ func (p *PLObj) SetValues(t Tree, numsites float64, minmap map[*Node]float64,
 		}
 	}
 	p.CharDurations = make([]float64, p.NumNodes)
+	p.RateGroupsN = make([]int, p.NumNodes)
 	p.Durations = make([]float64, p.NumNodes)
 	p.LogFactCharDurations = make([]float64, p.NumNodes)
 	p.ParentsNdsInts = make([]int, p.NumNodes)
@@ -987,16 +989,16 @@ func (p *PLObj) CalcLNorm(params []float64, free bool) float64 {
 		if i == 0 { // skip the root
 			continue
 		}
-		p.Means[i] = means[p.RateGroups[i]]
-		p.Stds[i] = stds[p.RateGroups[i]]
+		p.Means[i] = means[p.RateGroupsN[i]] //means[p.RateGroups[i]] // change these if we can
+		p.Stds[i] = stds[p.RateGroupsN[i]]   //stds[p.RateGroups[i]]   // change these if we can
 	}
 	ret := p.SetDurations()
-	if ret == false {
+	if !ret {
 		return -1.
 	}
 
 	ll := p.CalcNormRateLogLike()
-	if p.CharMLogFactM == false {
+	if !p.CharMLogFactM {
 		ll += p.CalcRateLogLike()
 	} else {
 		ll += p.CalcRateLogLikeMT()
@@ -1309,11 +1311,13 @@ func (p *PLObj) RunCV(params []float64, verbose bool, likeFunc func([]float64, b
 func (p *PLObj) SetRateGroups(tree Tree, mrcagroups []*Node) {
 	for i := 1; i < p.NumNodes; i++ {
 		p.RateGroups[i] = 0
+		p.RateGroupsN[i] = 0
 	}
 	count := 1
 	for _, nd := range mrcagroups {
 		for _, i := range nd.PreorderArray() {
 			p.RateGroups[i.Num] = count
+			p.RateGroupsN[i.Num] = count
 		}
 		count++
 	}

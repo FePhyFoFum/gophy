@@ -350,9 +350,15 @@ func CalcNormPDF(val, mn, std float64) float64 {
 }
 
 func CalcNormPDFLog(val, mn, std float64) float64 {
-	x := math.Log(1 / (std * 2.5066282746310002))
-	y := (0.5) * (math.Pow((val-mn)/std, 2))
+	//x := math.Log(1 / (std * 2.5066282746310002))
+	x := 0.0 - (math.Log(std) + 0.9189385332046727)
+	y := (0.5) * (((val - mn) / std) * ((val - mn) / std)) //(math.Pow((val-mn)/std, 2))
 	return x - y
+}
+
+func CalcExpPDFLog(val, loc, scale float64) float64 {
+	y := (val - loc) / scale //scale = 1/lambda
+	return -y - math.Log(scale)
 }
 
 // NodeSlicePosition take a *[]Node slice and teh get the index of the element node
