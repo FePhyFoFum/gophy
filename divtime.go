@@ -989,8 +989,8 @@ func (p *PLObj) CalcLNorm(params []float64, free bool) float64 {
 		if i == 0 { // skip the root
 			continue
 		}
-		p.Means[i] = means[p.RateGroupsN[i]] //means[p.RateGroups[i]] // change these if we can
-		p.Stds[i] = stds[p.RateGroupsN[i]]   //stds[p.RateGroups[i]]   // change these if we can
+		p.Means[i] = means[p.RateGroupsN[i]]
+		p.Stds[i] = stds[p.RateGroupsN[i]]
 	}
 	ret := p.SetDurations()
 	if !ret {
