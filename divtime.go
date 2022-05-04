@@ -287,8 +287,8 @@ func (p *PLObj) OptimizeRDN(params []float64, alg int,
 		if i == 0 { //root
 			continue
 		}
-		lbounds[c] = 0.000001
-		hbounds[c] = 1000000.
+		lbounds[c] = 0.0001
+		hbounds[c] = 10000.
 		c++
 	}
 	for _, i := range p.FreeNodes {
@@ -303,7 +303,7 @@ func (p *PLObj) OptimizeRDN(params []float64, alg int,
 		c++
 
 		lbounds[c] = 0.1 //any lower and you have a singularity problem
-		hbounds[c] = 100.0
+		hbounds[c] = 10.0
 		c++
 	}
 	opt.SetLowerBounds(lbounds)
@@ -1392,9 +1392,7 @@ func (p *PLObj) CalcRateLogLike() (ll float64) {
 func (p *PLObj) CalcNormRateLogLike() (ll float64) {
 	ll = 0.0
 	for i := 1; i < p.NumNodes; i++ {
-		//x := -math.Log(CalcNormPDF(p.Rates[i], p.Means[i], p.Stds[i]))
-		x := -CalcNormPDFLog(p.Rates[i], p.Means[i], p.Stds[i])
-		ll += x
+		ll += (-CalcNormPDFLog(p.Rates[i], p.Means[i], p.Stds[i]))
 	}
 	return
 }
@@ -1487,8 +1485,8 @@ func (p *PLObj) CalcRateLogLikeMT() (ll float64) {
 		x := p.Rates[i] * p.Durations[i]
 		lx := math.Log(x)
 		l := 0.0
-		for j := range p.CharDurationsM[i] {
-			c := p.CharDurationsM[i][j]
+		for j, c := range p.CharDurationsM[i] {
+			//c := p.CharDurationsM[i][j]
 			l = 0.0
 			if x > 0.0 {
 				l = -(c*lx - x - p.LogFactCharDurationsM[i][j])

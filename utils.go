@@ -352,7 +352,7 @@ func CalcNormPDF(val, mn, std float64) float64 {
 func CalcNormPDFLog(val, mn, std float64) float64 {
 	//x := math.Log(1 / (std * 2.5066282746310002))
 	x := 0.0 - (math.Log(std) + 0.9189385332046727)
-	y := (0.5) * (((val - mn) / std) * ((val - mn) / std)) //(math.Pow((val-mn)/std, 2))
+	y := (0.5) * (((val - mn) / std) * ((val - mn) / std))
 	return x - y
 }
 
