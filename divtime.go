@@ -302,7 +302,7 @@ func (p *PLObj) OptimizeRDN(params []float64, alg int,
 		hbounds[c] = 1000.
 		c++
 
-		lbounds[c] = 0.1 //any lower and you have a singularity problem
+		lbounds[c] = 0.04 //any lower and you have a singularity problem
 		hbounds[c] = 10.0
 		c++
 	}
@@ -323,7 +323,70 @@ func (p *PLObj) OptimizeRDN(params []float64, alg int,
 			//fmt.Println(pl)
 		}
 		if pl == -1 {
-			return 100000000000
+			return 1000000000000
+		}
+		return pl
+	}
+	opt.SetMinObjective(fcn)
+	xopt, minf, err := opt.Optimize(params)
+	return xopt, minf, err
+}
+
+func (p *PLObj) OptimizeRDNClade(params []float64, alg int, group int, root *Node,
+	verbose bool) ([]float64, float64, error) {
+	opt, err := nlopt.NewNLopt(alg, uint(len(params)))
+	if err != nil {
+		panic(err)
+	}
+	defer opt.Destroy()
+
+	//get bounds from mins and maxs
+	lbounds := make([]float64, len(params))
+	hbounds := make([]float64, len(params))
+	c := 0
+	for i := range p.Rates { //every edge has a rate
+		if i == 0 || p.RateGroupsN[i] != group { //root
+			continue
+		}
+		lbounds[c] = 0.0001
+		hbounds[c] = 10000.
+		c++
+	}
+	for _, i := range p.FreeNodes {
+		if p.RateGroupsN[i] == group && i != root.Num {
+			lbounds[c] = p.Mins[i]
+			hbounds[c] = p.Maxs[i]
+			c++
+		}
+	}
+	//mean
+	lbounds[c] = 0.01
+	hbounds[c] = 1000.
+	c++
+	//std
+	lbounds[c] = 0.04 //any lower and you have a singularity problem
+	hbounds[c] = 10.0
+	opt.SetLowerBounds(lbounds)
+	opt.SetUpperBounds(hbounds)
+	opt.SetMaxEval(100000)
+	opt.SetFtolAbs(10e-5)
+	var evals int
+	fcn := func(pa, gradient []float64) float64 {
+		evals++
+		for _, i := range pa {
+			if i < 0 {
+				return 1000000000000
+			}
+		}
+		pl := p.CalcLNormClade(pa, group, root, true)
+		if verbose {
+			fmt.Fprintln(os.Stderr, pl, pa)
+		}
+		if evals%10000 == 0 {
+			//fmt.Println(pl)
+		}
+		if pl == -1 {
+			return 1000000000000
 		}
 		return pl
 	}
@@ -1006,6 +1069,79 @@ func (p *PLObj) CalcLNorm(params []float64, free bool) float64 {
 	return ll
 }
 
+func (p *PLObj) CalcLNormClade(params []float64, group int, root *Node, free bool) float64 {
+	for _, i := range params {
+		if i < 0 {
+			return -1.
+		}
+	}
+	pcount := 0
+	for i, j := range p.RateGroupsN {
+		if i == 0 {
+			continue
+		}
+		if j == group {
+			p.Rates[i] = params[pcount]
+			pcount += 1
+		}
+	}
+	for _, i := range p.FreeNodes {
+		if p.RateGroupsN[i] == group && i != root.Num {
+			p.Dates[i] = params[pcount]
+			pcount += 1
+		}
+	}
+
+	means := params[pcount]
+	pcount += 1
+	stds := params[pcount]
+
+	for i, j := range p.RateGroups {
+		if i == 0 {
+			continue
+		}
+		if j == group {
+			p.Means[i] = means
+			p.Stds[i] = stds
+		}
+	}
+	ret := p.SetDurations()
+	if !ret {
+		return -1.
+	}
+
+	ll := 0.0
+	for i := 1; i < p.NumNodes; i++ {
+		if p.RateGroupsN[i] == group {
+			ll += (-CalcNormPDFLog(p.Rates[i], p.Means[i], p.Stds[i]))
+		}
+	}
+	ll = 0.0
+	for i := 1; i < p.NumNodes; i++ {
+		if p.RateGroupsN[i] != group {
+			continue
+		}
+		x := p.Rates[i] * p.Durations[i]
+		lx := math.Log(x)
+		l := 0.0
+		for j, c := range p.CharDurationsM[i] {
+			//c := p.CharDurationsM[i][j]
+			l = 0.0
+			if x > 0.0 {
+				l = -(c*lx - x - p.LogFactCharDurationsM[i][j])
+			} else if x == 0 {
+				if c > 0.0 {
+					l = 1e+15
+				} else if c == 0 {
+					l = 0.0
+				}
+			}
+			ll += l
+		}
+	}
+	return ll
+}
+
 //calculate the likelihood with the normal distribution for rates
 func (p *PLObj) CalcLNormGMM(params []float64, free bool) float64 {
 	for _, i := range params {
@@ -1210,6 +1346,38 @@ func (p *PLObj) RunLNorm(startRate float64, verbose bool) (float64, []float64) {
 	x, f, _ := p.OptimizeRDN(params, nlopt.LN_SBPLX, verbose, paramnodemap)
 	//fmt.Println(f)
 	p.CalcLNorm(x, true)
+	return f, x
+}
+
+//run norm l
+func (p *PLObj) RunLNormClade(startRate float64, group int, root *Node, verbose bool) (float64, []float64) {
+	oldvals := make([]float64, 0)
+	for i, j := range p.RateGroupsN {
+		if i == 0 {
+			continue
+		}
+		if j == group {
+			oldvals = append(oldvals, p.Rates[i])
+		}
+	}
+	for _, i := range p.FreeNodes {
+		if p.RateGroupsN[i] == group && i != root.Num {
+			oldvals = append(oldvals, p.Dates[i])
+		}
+	}
+
+	params := make([]float64, len(oldvals))
+	copy(params, oldvals)
+	params = append(params, startRate)
+	params = append(params, 0.1)
+	//p.RateGroups has the key as the node num and the val as the model num
+	val := p.CalcLNormClade(params, group, root, true)
+	if verbose {
+		fmt.Fprintln(os.Stderr, "start L:", val)
+	}
+	x, f, _ := p.OptimizeRDNClade(params, nlopt.LN_SBPLX, group, root, verbose)
+	//fmt.Println(f)
+	p.CalcLNormClade(x, group, root, true)
 	return f, x
 }
 
