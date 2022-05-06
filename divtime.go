@@ -1365,10 +1365,10 @@ func (p *PLObj) RunLNormClade(startRate float64, group int, root *Node, verbose 
 			oldvals = append(oldvals, p.Dates[i])
 		}
 	}
-
+	fmt.Println("old", oldvals)
 	params := make([]float64, len(oldvals))
 	copy(params, oldvals)
-	params = append(params, startRate)
+	params = append(params, 1.0)
 	params = append(params, 0.1)
 	//p.RateGroups has the key as the node num and the val as the model num
 	val := p.CalcLNormClade(params, group, root, true)
@@ -1376,7 +1376,7 @@ func (p *PLObj) RunLNormClade(startRate float64, group int, root *Node, verbose 
 		fmt.Fprintln(os.Stderr, "start L:", val)
 	}
 	x, f, _ := p.OptimizeRDNClade(params, nlopt.LN_SBPLX, group, root, verbose)
-	//fmt.Println(f)
+	fmt.Println("after", x, f, val)
 	p.CalcLNormClade(x, group, root, true)
 	return f, x
 }
