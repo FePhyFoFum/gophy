@@ -302,7 +302,7 @@ func (p *PLObj) OptimizeRDN(params []float64, alg int,
 		hbounds[c] = 1000.
 		c++
 
-		lbounds[c] = 0.04 //any lower and you have a singularity problem
+		lbounds[c] = 0.1 //any lower and you have a singularity problem
 		hbounds[c] = 10.0
 		c++
 	}
