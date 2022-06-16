@@ -356,6 +356,24 @@ func CalcNormPDFLog(val, mn, std float64) float64 {
 	return x - y
 }
 
+func CalcLogNormPDF(val, shape float64) float64 {
+	x := 1 / (val * shape * 2.5066282746310002)
+	y := math.Exp(-(math.Log2(val) / (2 * (shape * shape))))
+	return x * y
+}
+
+func CalcLogNormLocScalePDF(val, shape, loc, scale float64) float64 {
+	y := math.Exp(-1 * math.Pow(math.Log((val-loc)/scale), 2) / (2 * (shape * shape)))
+	x := (val - loc) * shape * 2.5066282746310002
+	return y / x
+}
+
+func CalcLogNormPDFLog(val, mn, std float64) float64 {
+	x := 1 / (val * std * 2.5066282746310002)
+	y := -0.5 * (math.Pow(math.Log(val)-mn, 2) / (std))
+	return math.Log(x) + y
+}
+
 func CalcExpPDFLog(val, loc, scale float64) float64 {
 	y := (val - loc) / scale //scale = 1/lambda
 	return -y - math.Log(scale)

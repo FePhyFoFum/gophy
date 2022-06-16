@@ -259,3 +259,21 @@ func TestCalcNormPDF(t *testing.T) {
 	fmt.Println(x)
 	t.Fail()
 }
+
+func TestCalcLogNormPDF(t *testing.T) {
+	x := gophy.CalcLogNormPDF(1.0, 0.25)
+	fmt.Println(x)
+	t.Fail()
+}
+
+func TestCalcLogNormPDFLog(t *testing.T) {
+	x := gophy.CalcLogNormPDFLog(1.900, 0.0, 0.25)
+	fmt.Println(math.Exp(x), gophy.CalcLogNormPDF(1.900, 0.25))
+	t.Fail()
+}
+
+func TestCalcLogNormLogScalePDF(t *testing.T) {
+	x := gophy.CalcLogNormLocScalePDF(1.0, 0.25, 0.3, 1.)
+	fmt.Println(x)
+	t.Fail()
+}

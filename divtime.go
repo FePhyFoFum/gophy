@@ -52,6 +52,7 @@ type PLObj struct {
 	CVNode                int
 	Tree                  Tree
 	Logs                  map[float64]float64
+	Disp                  float64 // dispersion for neg bin
 }
 
 // SetValues ...
@@ -775,7 +776,7 @@ func (sf LikeFunction) EvaluateGradient(point []float64) (gradient []float64) {
 // CalcPL ...
 func (p *PLObj) CalcPL(params []float64, free bool) float64 {
 	for _, i := range params {
-		if i < 0 {
+		if i <= 0 || math.IsNaN(i) {
 			return -1.
 		}
 	}
@@ -803,7 +804,6 @@ func (p *PLObj) CalcPL(params []float64, free bool) float64 {
 			fcount++
 		}
 	}
-
 	ret := p.SetDurations()
 	if ret == false {
 		return -1.
@@ -825,7 +825,9 @@ func (p *PLObj) CalcPL(params []float64, free bool) float64 {
 			ll += <-results
 		}
 	*/
+	p.Disp = 1.23
 	ll := p.CalcRateLogLike()
+	//pl := -p.CalcRateLogLikeNegBin()
 	tp := p.CalcPenalty()
 	rp := p.CalcRoughnessPenalty()
 
@@ -1059,12 +1061,14 @@ func (p *PLObj) CalcLNorm(params []float64, free bool) float64 {
 	if !ret {
 		return -1.
 	}
-
+	p.Disp = 100000.
 	ll := p.CalcNormRateLogLike()
 	if !p.CharMLogFactM {
 		ll += p.CalcRateLogLike()
+		//ll += -p.CalcRateLogLikeNegBin()
 	} else {
 		ll += p.CalcRateLogLikeMT()
+		//ll += -p.CalcRateLogLikeNegBinMT()
 	}
 	return ll
 }
@@ -1317,8 +1321,8 @@ func (p *PLObj) RunPL(startRate float64, verbose bool) *optimize.Result {
 
 //run norm l
 func (p *PLObj) RunLNorm(startRate float64, verbose bool) (float64, []float64) {
-	params := make([]float64, p.NumNodes-1+len(p.FreeNodes)+(2*p.NumRateGroups))
-	paramnodemap := make(map[int]int, 0) //key=freenode i, value = param c
+	params := make([]float64, p.NumNodes-1+len(p.FreeNodes)+(2*p.NumRateGroups)) //negbin +1
+	paramnodemap := make(map[int]int, 0)                                         //key=freenode i, value = param c
 	c := 0
 	for i := range p.Rates { //every edge has a rate
 		if i == 0 { //root
@@ -1557,6 +1561,33 @@ func (p *PLObj) CalcRateLogLike() (ll float64) {
 	return
 }
 
+// CalcRateLogLikeNegBin ...
+func (p *PLObj) CalcRateLogLikeNegBin() (ll float64) {
+	ll = 0.0
+	for i := 1; i < p.NumNodes; i++ {
+		if i == p.CVNode { //skip the cv node
+			continue
+		}
+		x := p.Rates[i] * p.Durations[i]
+		c := p.CharDurations[i]
+		l := 0.0
+		if x > 0.0 {
+			//l = -(c*math.Log(x) - x - p.LogFactCharDurations[i])
+			lgdc, _ := math.Lgamma(p.Disp + c)
+			lgd, _ := math.Lgamma(p.Disp)
+			l = ((c * math.Log(x)) - p.LogFactCharDurations[i]) + lgdc - (lgd + (math.Log(x+p.Disp) * c)) + (0 - math.Log(1+x/p.Disp)*p.Disp)
+		} else if x == 0 {
+			if c > 0.0 {
+				l = 1e+15
+			} else if c == 0 {
+				l = 0.0
+			}
+		}
+		ll += l
+	}
+	return
+}
+
 func (p *PLObj) CalcNormRateLogLike() (ll float64) {
 	ll = 0.0
 	for i := 1; i < p.NumNodes; i++ {
@@ -1658,6 +1689,35 @@ func (p *PLObj) CalcRateLogLikeMT() (ll float64) {
 			l = 0.0
 			if x > 0.0 {
 				l = -(c*lx - x - p.LogFactCharDurationsM[i][j])
+			} else if x == 0 {
+				if c > 0.0 {
+					l = 1e+15
+				} else if c == 0 {
+					l = 0.0
+				}
+			}
+			ll += l
+		}
+	}
+	return
+}
+
+func (p *PLObj) CalcRateLogLikeNegBinMT() (ll float64) {
+	ll = 0.0
+	lgd, _ := math.Lgamma(p.Disp)
+	for i := 1; i < p.NumNodes; i++ {
+		if i == p.CVNode { //skip the cv node
+			continue
+		}
+		x := p.Rates[i] * p.Durations[i]
+		lx := math.Log(x)
+		l := 0.0
+		for j, c := range p.CharDurationsM[i] {
+			//c := p.CharDurationsM[i][j]
+			l = 0.0
+			if x > 0.0 {
+				lgdc, _ := math.Lgamma(p.Disp + c)
+				l = ((c * lx) - p.LogFactCharDurationsM[i][j]) + lgdc - (lgd + (math.Log(x+p.Disp) * c)) + (0 - math.Log(1+x/p.Disp)*p.Disp)
 			} else if x == 0 {
 				if c > 0.0 {
 					l = 1e+15
