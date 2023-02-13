@@ -827,11 +827,67 @@ func (p *PLObj) CalcPL(params []float64, free bool) float64 {
 	*/
 	p.Disp = 1.23
 	ll := p.CalcRateLogLike()
-	//pl := -p.CalcRateLogLikeNegBin()
 	tp := p.CalcPenalty()
 	rp := p.CalcRoughnessPenalty()
 
 	pl := (ll + tp) + p.Smoothing*rp
+	return pl
+}
+
+// CalcNB..
+func (p *PLObj) CalcNB(params []float64, free bool) float64 {
+	for _, i := range params {
+		if i <= 0 || math.IsNaN(i) {
+			return -1.
+		}
+	}
+
+	pcount := 0
+	fcount := 0
+	for i := range p.Rates {
+		if i == 0 { // skip the root
+			continue
+		}
+		p.Rates[i] = params[pcount]
+		pcount++
+		fcount++
+	}
+	if free { // only set the free nodes
+		for _, i := range p.FreeNodes {
+			p.Dates[i] = params[pcount]
+			pcount++
+			fcount++
+		}
+	} else {
+		for i := range p.Dates {
+			p.Dates[i] = params[pcount]
+			pcount++
+			fcount++
+		}
+	}
+	p.Disp = params[pcount]
+	ret := p.SetDurations()
+	if ret == false {
+		return -1.
+	}
+	/*
+		jobs := make(chan int, p.NumNodes-1)
+		results := make(chan float64, p.NumNodes-1)
+		for w := 0; w < 5; w++ {
+			go p.PCalcRateLogLike(jobs, results)
+		}
+		njobs := 0
+		for i := 1; i < p.NumNodes; i++ {
+			jobs <- i
+			njobs++
+		}
+		close(jobs)
+		ll := 0.0
+		for i := 0; i < njobs; i++ {
+			ll += <-results
+		}
+	*/
+	pl := p.CalcRateLogLikeNegBin()
 	return pl
 }
 
@@ -1274,6 +1330,54 @@ func (p *PLObj) RunMLF(startRate float64, mrcagroups []*Node, t Tree,
 	return x
 }
 
+//RunNB penalized likelihood run with a starting float, probably x.X[0] from LF
+func (p *PLObj) RunNB(startRate float64, verbose bool) *optimize.Result {
+	params := make([]float64, p.NumNodes-1+len(p.FreeNodes)+1) //nb needs plus one for the disp
+	paramnodemap := make(map[int]int, 0)                       //key=freenode i, value = param c
+	c := 0
+	for i := range p.Rates { //every edge has a rate
+		if i == 0 { //root
+			continue
+		}
+		params[c] = startRate
+		c++
+	}
+	for _, i := range p.FreeNodes {
+		params[c] = p.Dates[i]
+		paramnodemap[i] = c
+		c++
+	}
+	params[c] = 1000000. //disp
+	p.Disp = params[c]
+	val := p.CalcNB(params, true)
+	if verbose {
+		fmt.Fprintln(os.Stderr, "start NB:", val)
+	}
+	x := p.OptimizeRD(params, p.CalcNB, false, false, false)
+	//origx := x.X
+	//var err error
+	/*x.X, x.F, err = p.OptimizeRDBOUNDEDIE(x.X, p.CalcNB, false, false, nlopt.LD_AUGLAG, verbose,
+		paramnodemap)
+	if err != nil {
+		x.X = origx
+		x.X, x.F, err = p.OptimizeRDBOUNDED(x.X, p.CalcNB, false, false, nlopt.LD_AUGLAG, verbose)
+		if err != nil {
+			x.X = origx
+			x.X, x.F, err = p.OptimizeRDBOUNDED(x.X, p.CalcNB, false, false, nlopt.LD_SLSQP, verbose)
+		}
+	}*/
+	//x.X, x.F, err = p.OptimizeRDBOUNDED(x.X, p.CalcPL, false, true, nlopt.LD_CCSAQ, verbose)
+	//
+	p.OptimizePreOrder(x.X, p.CalcNB, false, false, nlopt.LD_AUGLAG, verbose)
+
+	if verbose {
+		fmt.Fprintln(os.Stderr, "end NB:", x.F)
+	}
+	p.CalcNB(x.X, true)
+	return x
+}
+
+//run norm l
 //RunPL penalized likelihood run with a starting float, probably x.X[0] from LF
 func (p *PLObj) RunPL(startRate float64, verbose bool) *optimize.Result {
 	params := make([]float64, p.NumNodes-1+len(p.FreeNodes)) // pl
@@ -1572,10 +1676,9 @@ func (p *PLObj) CalcRateLogLikeNegBin() (ll float64) {
 		c := p.CharDurations[i]
 		l := 0.0
 		if x > 0.0 {
-			//l = -(c*math.Log(x) - x - p.LogFactCharDurations[i])
 			lgdc, _ := math.Lgamma(p.Disp + c)
 			lgd, _ := math.Lgamma(p.Disp)
-			l = ((c * math.Log(x)) - p.LogFactCharDurations[i]) + lgdc - (lgd + (math.Log(x+p.Disp) * c)) + (0 - math.Log(1+x/p.Disp)*p.Disp)
+			l = ((c * math.Log(x)) - p.LogFactCharDurations[i]) + lgdc - (lgd + (math.Log(x+p.Disp) * c)) + (0. - math.Log(1+x/p.Disp)*p.Disp)
 		} else if x == 0 {
 			if c > 0.0 {
 				l = 1e+15
@@ -1585,6 +1688,7 @@ func (p *PLObj) CalcRateLogLikeNegBin() (ll float64) {
 		}
 		ll += l
 	}
+	ll = -ll
 	return
 }
 
