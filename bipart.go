@@ -410,7 +410,9 @@ func CompareTreeToBiparts(bps []Bipart, comptreebps []Bipart, workers int, mapin
 		}
 	}
 	for x, y := range compconfs {
-		fmt.Print("(", comptreebps[x].Index, ") ", comptreebps[x].NewickWithNames(mapints)+"\n")
+		if !quiet {
+			fmt.Print("(", comptreebps[x].Index, ") ", comptreebps[x].NewickWithNames(mapints)+"\n")
+		}
 		if verbose {
 			fmt.Print("  conctrees [", len(compbpsConcTrees[x]), "]: ", IntMapSetString(compbpsConcTrees[x])+"\n")
 			fmt.Print("  conftrees [", len(compconfstrees[x]), "]: ", IntMapSetString(compconfstrees[x])+"\n")
@@ -443,7 +445,7 @@ func CompareTreeToBiparts(bps []Bipart, comptreebps []Bipart, workers int, mapin
 			for _, s := range n[k] {
 				//s is the bps index, k is the count
 				//fmt.Print(" ", bpsCounts[s], " "+bps[s].NewickWithNames(mapints)+"\n")
-				if quiet == false {
+				if !quiet {
 					fmt.Print("  ", "(", bps[s].Index, ") ", bps[s].Ct, " ", len(bpsConcTrees[s]), " ", bpsConcCounts[s], " "+bps[s].NewickWithNames(mapints)+"\n")
 				}
 				if verbose {
