@@ -274,7 +274,7 @@ func OutputEdges(mapints map[int]string, bps []Bipart, ntrees int, verb bool) {
 
 // CompareTreeToBiparts take biparts from a set , comparetreebps, and compre them to another set bps
 // this one is complicated so keep with it
-func CompareTreeToBiparts(bps []Bipart, comptreebps []Bipart, workers int, mapints map[int]string, verbose bool, treeverbose bool) {
+func CompareTreeToBiparts(bps []Bipart, comptreebps []Bipart, workers int, mapints map[int]string, verbose bool, treeverbose bool, quiet bool) {
 	jobs := make(chan []int, len(bps)*len(comptreebps))
 	results := make(chan []int, len(bps)*len(comptreebps))
 	for w := 1; w <= workers; w++ {
@@ -443,7 +443,9 @@ func CompareTreeToBiparts(bps []Bipart, comptreebps []Bipart, workers int, mapin
 			for _, s := range n[k] {
 				//s is the bps index, k is the count
 				//fmt.Print(" ", bpsCounts[s], " "+bps[s].NewickWithNames(mapints)+"\n")
-				fmt.Print("  ", "(", bps[s].Index, ") ", bps[s].Ct, " ", len(bpsConcTrees[s]), " ", bpsConcCounts[s], " "+bps[s].NewickWithNames(mapints)+"\n")
+				if quiet == false {
+					fmt.Print("  ", "(", bps[s].Index, ") ", bps[s].Ct, " ", len(bpsConcTrees[s]), " ", bpsConcCounts[s], " "+bps[s].NewickWithNames(mapints)+"\n")
+				}
 				if verbose {
 					fmt.Print("    trees [", len(bpsConcTrees[s]), "]:", IntMapSetString(bpsConcTrees[s]), "\n")
 				}
