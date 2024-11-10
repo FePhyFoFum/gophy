@@ -2,6 +2,7 @@ package gophy
 
 import (
 	"math"
+	"sort"
 
 	"gonum.org/v1/gonum/floats"
 )
@@ -47,7 +48,7 @@ func PCalcLogLike(t *Tree, x *DiscreteModel, nsites int, wks int) (fl float64) {
 	return
 }
 
-//PCalcLike parallel calculate likelihood
+// PCalcLike parallel calculate likelihood
 func PCalcLike(t *Tree, x *DiscreteModel, nsites int, wks int) (fl float64) {
 	fl = 0.0
 	jobs := make(chan int, nsites)
@@ -73,7 +74,7 @@ func PCalcLike(t *Tree, x *DiscreteModel, nsites int, wks int) (fl float64) {
 	return
 }
 
-//PCalcLikePatterns parallel caclulation of likelihood with patterns
+// PCalcLikePatterns parallel caclulation of likelihood with patterns
 func PCalcLikePatterns(t *Tree, x *DiscreteModel, patternval []float64, wks int) (fl float64) {
 	fl = 0.0
 	nsites := len(patternval)
@@ -125,7 +126,7 @@ func PCalcSupLikePatterns(t *Tree, x *DiscreteModel, patternval []float64, wks i
 	return
 }
 
-//PCalcLikePatternsGamma parallel caclulation of likelihood with patterns with gamma
+// PCalcLikePatternsGamma parallel caclulation of likelihood with patterns with gamma
 func PCalcLikePatternsGamma(t *Tree, x *DiscreteModel, patternval []float64, wks int) (fl float64) {
 	fl = 0.0
 	nsites := len(patternval)
@@ -152,7 +153,7 @@ func PCalcLikePatternsGamma(t *Tree, x *DiscreteModel, patternval []float64, wks
 	return
 }
 
-//PCalcLikePatternsMarked parallel likelihood caclulation with patterns and just update the values
+// PCalcLikePatternsMarked parallel likelihood caclulation with patterns and just update the values
 func PCalcLikePatternsMarked(t *Tree, x *DiscreteModel, patternval []float64, wks int) (fl float64) {
 	fl = 0.0
 	nsites := len(patternval)
@@ -179,7 +180,7 @@ func PCalcLikePatternsMarked(t *Tree, x *DiscreteModel, patternval []float64, wk
 	return
 }
 
-//PCalcLikePatternsMarkedGamma parallel likelihood caclulation with patterns and just update the values
+// PCalcLikePatternsMarkedGamma parallel likelihood caclulation with patterns and just update the values
 func PCalcLikePatternsMarkedGamma(t *Tree, x *DiscreteModel, patternval []float64, wks int) (fl float64) {
 	fl = 0.0
 	nsites := len(patternval)
@@ -206,7 +207,7 @@ func PCalcLikePatternsMarkedGamma(t *Tree, x *DiscreteModel, patternval []float6
 	return
 }
 
-//PCalcLogLikePatterns parallel log likeliohood calculation including patterns
+// PCalcLogLikePatterns parallel log likeliohood calculation including patterns
 func PCalcLogLikePatterns(t *Tree, x *DiscreteModel, patternval []float64, wks int) (fl float64) {
 	fl = 0.0
 	nsites := len(patternval)
@@ -233,7 +234,7 @@ func PCalcLogLikePatterns(t *Tree, x *DiscreteModel, patternval []float64, wks i
 	return
 }
 
-//PCalcLogLikePatternsGamma parallel log likeliohood calculation including patterns
+// PCalcLogLikePatternsGamma parallel log likeliohood calculation including patterns
 func PCalcLogLikePatternsGamma(t *Tree, x *DiscreteModel, patternval []float64, wks int) (fl float64) {
 	fl = 0.0
 	nsites := len(patternval)
@@ -282,7 +283,7 @@ func PCalcLogLikeBack(t *Tree, n *Node, x *DiscreteModel, nsites int, wks int) (
 	return
 }
 
-//PCalcLogLikeMarked parallel calculation of loglike with just updating
+// PCalcLogLikeMarked parallel calculation of loglike with just updating
 func PCalcLogLikeMarked(t *Tree, x *DiscreteModel, nsites int, wks int) (fl float64) {
 	fl = 0.0
 	jobs := make(chan int, nsites)
@@ -323,7 +324,7 @@ func CalcLogLikeOneSite(t *Tree, x *DiscreteModel, site int) float64 {
 	return sl
 }
 
-//CalcLogLikeOneSiteGamma ...
+// CalcLogLikeOneSiteGamma ...
 func CalcLogLikeOneSiteGamma(t *Tree, x *DiscreteModel, site int) float64 {
 	numstates := x.NumStates
 	tsl := make([]float64, x.GammaNCats)
@@ -343,7 +344,7 @@ func CalcLogLikeOneSiteGamma(t *Tree, x *DiscreteModel, site int) float64 {
 	return floats.LogSumExp(tsl)
 }
 
-//CalcLikeOneSite just one site
+// CalcLikeOneSite just one site
 func CalcLikeOneSite(t *Tree, x *DiscreteModel, site int) float64 {
 	numstates := x.NumStates
 	sl := 0.0
@@ -378,7 +379,7 @@ func CalcSupLikeOneSite(t *Tree, x *DiscreteModel, site int) *SupFlo {
 	return sl
 }
 
-//CalcLikeOneSiteGamma just one site
+// CalcLikeOneSiteGamma just one site
 func CalcLikeOneSiteGamma(t *Tree, x *DiscreteModel, site int) float64 {
 	numstates := x.NumStates
 	sl := 0.0
@@ -540,7 +541,7 @@ func CalcLogLikeWorkGamma(t *Tree, x *DiscreteModel, jobs <-chan int, results ch
 	}
 }
 
-//CalcLikeWork this is the worker
+// CalcLikeWork this is the worker
 func CalcLikeWork(t *Tree, x *DiscreteModel, jobs <-chan int, results chan<- LikeResult) { //results chan<- float64) {
 	numstates := x.NumStates
 	for j := range jobs {
@@ -560,7 +561,7 @@ func CalcLikeWork(t *Tree, x *DiscreteModel, jobs <-chan int, results chan<- Lik
 	}
 }
 
-//CalcLikeWork this is the worker
+// CalcLikeWork this is the worker
 func CalcSupLikeWork(t *Tree, x *DiscreteModel, jobs <-chan int, results chan<- LikeSupResult) { //results chan<- float64) {
 	numstates := x.NumStates
 	for j := range jobs {
@@ -580,7 +581,7 @@ func CalcSupLikeWork(t *Tree, x *DiscreteModel, jobs <-chan int, results chan<- 
 	}
 }
 
-//CalcLikeWorkGamma ...
+// CalcLikeWorkGamma ...
 func CalcLikeWorkGamma(t *Tree, x *DiscreteModel, jobs <-chan int, results chan<- LikeResult) { //results chan<- float64) {
 	numstates := x.NumStates
 	for j := range jobs {
@@ -1054,6 +1055,227 @@ func CalcAncStates(x *DiscreteModel, tree *Tree, patternval []float64) (retstate
 	return
 }
 
+type JointConfig struct {
+	Score  float64
+	Config map[*Node]int
+}
+
+func Max(slice []float64) float64 {
+	if len(slice) == 0 {
+		panic("empty slice") // or handle it as you prefer
+	}
+
+	maxVal := slice[0]
+	for _, value := range slice[1:] {
+		if value > maxVal {
+			maxVal = value
+		}
+	}
+	return maxVal
+}
+
+func CalcJointAncStates(x *DiscreteModel, tree *Tree, patternval []float64) (rootconfigs [][]JointConfig) {
+	numstates := x.NumStates
+	//CalcLikeFrontBack(x, tree, patternval)
+	rootconfigs = make([][]JointConfig, 0, 0)
+	// initialize the data storage for return
+	for _, c := range tree.Pre {
+		if len(c.Chs) == 0 {
+			continue
+		}
+	}
+	// start reconstruction
+	for i := 0; i < len(patternval); i++ { //len(patternval); i++ {
+		curstates := make(map[*Node][]int)
+		jconfigs := make(map[*Node][]JointConfig)
+		//for _, c := range tree.Tips {
+		//	fmt.Println(c.Nam, c.TpConds[i])
+		//}
+		//fmt.Println("p", i, patternval[i])
+		for _, c := range tree.Post {
+			if len(c.Chs) == 0 {
+				for j, k := range c.Data[i] {
+					if k == 1 {
+						curstates[c] = append(curstates[c], j)
+						jc := JointConfig{Score: 1.0, Config: make(map[*Node]int)}
+						jc.Config[c] = j
+						jconfigs[c] = append(jconfigs[c], jc)
+					}
+				}
+				//fmt.Println(c.Data[i], curstates[c])
+				continue
+			}
+			//assume you are calaculating log like marginals
+			maxv := Max(c.Data[i])
+			//insert skipping things, use c.data
+			for j := 0; j < numstates; j++ {
+				if maxv-c.Data[i][j] < 2 {
+					curstates[c] = append(curstates[c], j)
+				}
+			}
+			//fmt.Println(c, c.Data[i], curstates[c])
+			//end skipping things
+			for _, k := range curstates[c] {
+				//bifurcating
+				jchsc0 := []JointConfig{}
+				jchsc1 := []JointConfig{}
+				for c1, cc := range c.Chs {
+					p := x.GetPCalc(cc.Len)
+					for _, l := range jconfigs[cc] {
+						jc := JointConfig{Score: 1.0, Config: make(map[*Node]int)}
+						jc.Score = l.Score * p.At(k, l.Config[cc])
+						for x, y := range l.Config {
+							jc.Config[x] = y
+						}
+						if c1 == 0 {
+							jchsc0 = append(jchsc0, jc)
+						} else {
+							jchsc1 = append(jchsc1, jc)
+						}
+					}
+				}
+				for _, l := range jchsc0 {
+					for _, m := range jchsc1 {
+						//fmt.Println(" l", l)
+						//fmt.Println(" m", m)
+						tc := JointConfig{Score: 1.0, Config: make(map[*Node]int)}
+						if c == tree.Rt {
+							tc.Score = l.Score * m.Score * x.BF[k]
+						} else {
+							tc.Score = l.Score * m.Score
+						}
+						tc.Config[c] = k
+						for n, mm := range l.Config {
+							tc.Config[n] = mm
+						}
+						for n, mm := range m.Config {
+							tc.Config[n] = mm
+						}
+						//fmt.Println(" tc", tc.Config)
+						jconfigs[c] = append(jconfigs[c], tc)
+					}
+				}
+			}
+			if c == tree.Rt {
+				//get them in the right order
+				//only include < 2lnL
+				sort.Slice(jconfigs[tree.Rt], func(x, y int) bool {
+					return jconfigs[tree.Rt][x].Score > jconfigs[tree.Rt][y].Score // Descending order
+				})
+				//fmt.Println(jconfigs[tree.Rt])
+				maxV := math.Log(jconfigs[tree.Rt][0].Score)
+				lastV := 0
+				for j := range jconfigs[tree.Rt] {
+					jconfigs[tree.Rt][j].Score = math.Log(jconfigs[tree.Rt][j].Score)
+					//fmt.Println(jconfigs[tree.Rt][j].Score)
+					if maxV-jconfigs[tree.Rt][j].Score < 2 {
+						lastV = j
+					}
+				}
+				lastV += 1
+				rootconfigs = append(rootconfigs, jconfigs[tree.Rt][0:lastV])
+			}
+		}
+	}
+	return
+}
+
+// CalcJointAncStatesGamma same as above but with gamma, slower, given gamma vals
+func CalcJointAncStatesGamma(x *DiscreteModel, tree *Tree, patternval []float64) (rootconfigs [][]JointConfig) {
+	numstates := x.NumStates
+	//CalcLikeFrontBack(x, tree, patternval)
+	rootconfigs = make([][]JointConfig, 0, 0)
+	// initialize the data storage for return
+	for _, c := range tree.Pre {
+		if len(c.Chs) == 0 {
+			continue
+		}
+	}
+	// start reconstruction
+	for i := 0; i < len(patternval); i++ { //len(patternval); i++ {
+		curstates := make(map[*Node][]int)
+		jconfigs := make(map[*Node][]JointConfig)
+		//for _, c := range tree.Tips {
+		//	fmt.Println(c.Nam, c.TpConds[i])
+		//}
+		//fmt.Println("p", i, patternval[i])
+		//THIS IS THE GAMMA BIT, NEED TO FIGURE OUT WHERE TO PUT IT
+		//tsl := make([]float64, x.GammaNCats)
+		//for p, g := range x.GammaCats {
+
+		for _, c := range tree.Post {
+			if len(c.Chs) == 0 {
+				for j, k := range c.Data[i] {
+					if k == 1 {
+						curstates[c] = append(curstates[c], j)
+						jc := JointConfig{Score: 1.0, Config: make(map[*Node]int)}
+						jc.Config[c] = j
+						jconfigs[c] = append(jconfigs[c], jc)
+					}
+				}
+				//fmt.Println(c.Data[i], curstates[c])
+				continue
+			}
+			//assume you are calaculating log like marginals
+			maxv := Max(c.Data[i])
+			//insert skipping things, use c.data
+			for j := 0; j < numstates; j++ {
+				if maxv-c.Data[i][j] < 2 {
+					curstates[c] = append(curstates[c], j)
+				}
+			}
+			//fmt.Println(c, c.Data[i], curstates[c])
+			//end skipping things
+			for _, k := range curstates[c] {
+				//bifurcating
+				jchsc0 := []JointConfig{}
+				jchsc1 := []JointConfig{}
+				for c1, cc := range c.Chs {
+					p := x.GetPCalc(cc.Len)
+					for _, l := range jconfigs[cc] {
+						jc := JointConfig{Score: 1.0, Config: make(map[*Node]int)}
+						jc.Score = l.Score * p.At(k, l.Config[cc])
+						for x, y := range l.Config {
+							jc.Config[x] = y
+						}
+						if c1 == 0 {
+							jchsc0 = append(jchsc0, jc)
+						} else {
+							jchsc1 = append(jchsc1, jc)
+						}
+					}
+				}
+				for _, l := range jchsc0 {
+					for _, m := range jchsc1 {
+						//fmt.Println(" l", l)
+						//fmt.Println(" m", m)
+						tc := JointConfig{Score: 1.0, Config: make(map[*Node]int)}
+						if c == tree.Rt {
+							tc.Score = l.Score * m.Score * x.BF[k]
+						} else {
+							tc.Score = l.Score * m.Score
+						}
+						tc.Config[c] = k
+						for n, mm := range l.Config {
+							tc.Config[n] = mm
+						}
+						for n, mm := range m.Config {
+							tc.Config[n] = mm
+						}
+						//fmt.Println(" tc", tc.Config)
+						jconfigs[c] = append(jconfigs[c], tc)
+					}
+				}
+			}
+			if c == tree.Rt {
+				//fmt.Println(jconfigs[tree.Rt])
+				rootconfigs = append(rootconfigs, jconfigs[tree.Rt])
+			}
+		}
+	}
+	return
+}
+
 // CalcStochMap this has been taken from the multistate code so make sure it works for others
 func CalcStochMap(x *DiscreteModel, tree *Tree, patternval []float64, time bool, from int, to int) (retstates map[*Node][][]float64) {
 	CalcLikeFrontBack(x, tree, patternval)
@@ -1280,7 +1502,7 @@ func calcLikeOneSiteSubCladeGamma(t *Tree, inn *Node, excl bool, x *DiscreteMode
 	return sl
 }
 
-//PCalcLogLikePatternsSubClade parallel log likeliohood calculation including patterns
+// PCalcLogLikePatternsSubClade parallel log likeliohood calculation including patterns
 func PCalcLogLikePatternsSubClade(t *Tree, n *Node, excl bool, x *DiscreteModel, patternval []float64, wks int) (fl float64) {
 	fl = 0.0
 	nsites := len(patternval)
@@ -1316,7 +1538,7 @@ func PCalcLogLikePatternsSubClade(t *Tree, n *Node, excl bool, x *DiscreteModel,
 	return
 }
 
-//PCalcLikePatternsSubClade parallel log likeliohood calculation including patterns
+// PCalcLikePatternsSubClade parallel log likeliohood calculation including patterns
 func PCalcLikePatternsSubClade(t *Tree, n *Node, excl bool, x *DiscreteModel, patternval []float64, wks int) (fl float64) {
 	fl = 0.0
 	nsites := len(patternval)
