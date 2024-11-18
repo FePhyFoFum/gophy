@@ -1,7 +1,9 @@
 package gophy
 
 import (
+	"fmt"
 	"math"
+	"os"
 	"sort"
 
 	"gonum.org/v1/gonum/floats"
@@ -1057,6 +1059,7 @@ func CalcAncStates(x *DiscreteModel, tree *Tree, patternval []float64) (retstate
 
 type JointConfig struct {
 	Score  float64
+	Prop   float64
 	Config map[*Node]int
 }
 
@@ -1074,20 +1077,229 @@ func Max(slice []float64) float64 {
 	return maxVal
 }
 
-func CalcJointAncStates(x *DiscreteModel, tree *Tree, patternval []float64) (rootconfigs [][]JointConfig) {
-	numstates := x.NumStates
-	//CalcLikeFrontBack(x, tree, patternval)
-	rootconfigs = make([][]JointConfig, 0, 0)
-	// initialize the data storage for return
-	for _, c := range tree.Pre {
-		if len(c.Chs) == 0 {
-			continue
+func MaxIndex(slice []float64) (float64, int) {
+	if len(slice) == 0 {
+		panic("empty slice") // or handle it as you prefer
+	}
+
+	maxVal := slice[0]
+	ind := 0
+	for i, value := range slice[1:] {
+		if value > maxVal {
+			maxVal = value
+			ind = i + 1
 		}
 	}
+	return maxVal, ind
+}
+
+func CalcJointLogLikelihoodValue(x *DiscreteModel, tree *Tree, patternval []float64, site int) (res float64) {
+	res = 0.0
+	s := site
+	for _, c := range tree.Post {
+		c.ContData = []float64{1.0, 1.0, 1.0, 1.0}
+		if len(c.Chs) > 0 { //this is an internal node
+			for j := range x.BF {
+				for _, i := range c.Chs {
+					p := x.GetPCalc(i.Len)
+					templike := []float64{0.0, 0.0, 0.0, 0.0}
+					for k := range x.BF {
+						templike[k] = p.At(j, k) * i.ContData[k]
+					}
+					c.ContData[j] *= Max(templike)
+				}
+			}
+		} else {
+			for j, k := range c.Data[s] {
+				if k == 1 {
+					c.ContData[j] = 1.0
+				} else {
+					c.ContData[j] = 0.0
+				}
+			}
+		}
+	}
+	td := []float64{1.0, 1.0, 1.0, 1.0}
+	for c, d := range x.BF {
+		td[c] = tree.Rt.ContData[c] * d
+	}
+	res = math.Log(Max(td))
+	return
+}
+
+func CalcJointLogLikelihoodValueGamma(x *DiscreteModel, tree *Tree, patternval []float64, site int) (res float64) {
+	res = 0.0
+	s := site
+	for _, c := range tree.Post {
+		c.ContData = []float64{1.0, 1.0, 1.0, 1.0}
+		if len(c.Chs) > 0 { //this is an internal node
+			for j := range x.BF {
+				for _, i := range c.Chs {
+					templike := []float64{0.0, 0.0, 0.0, 0.0}
+					for _, g := range x.GammaCats {
+						p := x.GetPCalc(i.Len * g)
+						for k := range x.BF {
+							templike[k] += p.At(j, k) * i.ContData[k] * 1 / float64(x.GammaNCats)
+						}
+					}
+					c.ContData[j] *= Max(templike)
+				}
+			}
+		} else {
+			for j, k := range c.Data[s] {
+				if k == 1 {
+					c.ContData[j] = 1.0
+				} else {
+					c.ContData[j] = 0.0
+				}
+			}
+		}
+	}
+	td := []float64{1.0, 1.0, 1.0, 1.0}
+	for c, d := range x.BF {
+		td[c] = tree.Rt.ContData[c] * d
+	}
+	res = math.Log(Max(td))
+	//fmt.Println(res)
+	return
+}
+
+func CalcJointBestConfig(x *DiscreteModel, tree *Tree, value float64) JointConfig {
+	jconfig := JointConfig{Score: value, Config: make(map[*Node]int)}
+	for _, c := range tree.Pre {
+		if len(c.Chs) > 0 {
+			if c != tree.Rt {
+				cc := []float64{0.0, 0.0, 0.0, 0.0}
+				p := x.GetPCalc(c.Len)
+				for j := range x.BF {
+					cc[j] = c.ContData[j] * p.At(jconfig.Config[c.Par], j)
+				}
+				_, i := MaxIndex(cc)
+				jconfig.Config[c] = i
+			} else {
+				td := []float64{1.0, 1.0, 1.0, 1.0}
+				for c, d := range x.BF {
+					td[c] = tree.Rt.ContData[c] * d
+				}
+				_, i := MaxIndex(td)
+				jconfig.Config[c] = i
+			}
+		} else {
+			_, jconfig.Config[c] = MaxIndex(c.ContData)
+		}
+	}
+	//fmt.Println("jc", jconfig)
+	return jconfig
+}
+
+func CalcJointBestConfigGamma(x *DiscreteModel, tree *Tree, value float64) JointConfig {
+	jconfig := JointConfig{Score: value, Config: make(map[*Node]int)}
+	for _, c := range tree.Pre {
+		if len(c.Chs) > 0 {
+			if c != tree.Rt {
+				cc := []float64{0.0, 0.0, 0.0, 0.0}
+				for _, g := range x.GammaCats { //TODO: test
+					p := x.GetPCalc(c.Len * g)
+					for j := range x.BF {
+						cc[j] += c.ContData[j] * p.At(jconfig.Config[c.Par], j) * 1 / float64(x.GammaNCats)
+					}
+				}
+				_, i := MaxIndex(cc)
+				jconfig.Config[c] = i
+			} else {
+				td := []float64{1.0, 1.0, 1.0, 1.0}
+				for c, d := range x.BF {
+					td[c] = tree.Rt.ContData[c] * d
+				}
+				_, i := MaxIndex(td)
+				jconfig.Config[c] = i
+			}
+		} else {
+			_, jconfig.Config[c] = MaxIndex(c.ContData)
+		}
+	}
+	//fmt.Println("jc", jconfig)
+	return jconfig
+}
+
+func CalcJointConfigScore(x *DiscreteModel, tree *Tree, patternval []float64, site int, jc JointConfig) float64 {
+	vals := make(map[*Node]float64)
+	for _, c := range tree.Post {
+		if len(c.Chs) > 0 { //this is an internal node
+			v := 1.0
+			for _, i := range c.Chs {
+				p := x.GetPCalc(i.Len)
+				templike := p.At(jc.Config[c], jc.Config[i]) * vals[i]
+				v *= templike
+			}
+			vals[c] = v
+		} else {
+			vals[c] = 1.0
+		}
+	}
+	finalv := math.Log(vals[tree.Rt] * x.BF[jc.Config[tree.Rt]])
+	return finalv
+}
+
+func CalcJointConfigScoreGamma(x *DiscreteModel, tree *Tree, patternval []float64, site int, jc JointConfig) float64 {
+	vals := make(map[*Node]float64)
+	for _, c := range tree.Post {
+		if len(c.Chs) > 0 { //this is an internal node
+			v := 1.0
+			for _, i := range c.Chs {
+				templike := 0.0
+				for _, g := range x.GammaCats { //TODO: test
+					p := x.GetPCalc(i.Len * g)
+					templike += p.At(jc.Config[c], jc.Config[i]) * vals[i] * 1 / float64(x.GammaNCats)
+				}
+				v *= templike
+			}
+			vals[c] = v
+		} else {
+			vals[c] = 1.0
+		}
+	}
+	finalv := math.Log(vals[tree.Rt] * x.BF[jc.Config[tree.Rt]])
+	return finalv
+}
+
+func JointConfigsAreEqual(jc1, jc2 JointConfig) bool {
+	// Check if their lengths are the same
+	if len(jc1.Config) != len(jc2.Config) {
+		return false
+	}
+
+	// Compare keys and values
+	for key, val1 := range jc1.Config {
+		val2, ok := jc2.Config[key]
+		if !ok || val1 != val2 {
+			return false
+		}
+	}
+
+	return true
+}
+
+func CalcJointAncStates(x *DiscreteModel, tree *Tree, patternval []float64) (rootconfigs [][]JointConfig) {
+	numstates := x.NumStates
+	rootconfigs = make([][]JointConfig, 0, 0)
 	// start reconstruction
-	for i := 0; i < len(patternval); i++ { //len(patternval); i++ {
+	for i := 0; i < len(patternval); i++ {
 		curstates := make(map[*Node][]int)
 		jconfigs := make(map[*Node][]JointConfig)
+		maxV := CalcJointLogLikelihoodValue(x, tree, patternval, i)
+		//fmt.Println(i, maxV)
+		bjc := CalcJointBestConfig(x, tree, maxV)
+		finalv := CalcJointConfigScore(x, tree, patternval, i, bjc)
+		if maxV != finalv {
+			fmt.Println(maxV, finalv)
+			fmt.Println(bjc)
+			fmt.Println("there is a problem with the joint calculation")
+			os.Exit(0)
+		}
+		//bjc.Score = math.Exp(bjc.Score)
+		//jconfigs[tree.Rt] = append(jconfigs[tree.Rt], bjc)
+
 		//for _, c := range tree.Tips {
 		//	fmt.Println(c.Nam, c.TpConds[i])
 		//}
@@ -1134,6 +1346,7 @@ func CalcJointAncStates(x *DiscreteModel, tree *Tree, patternval []float64) (roo
 						}
 					}
 				}
+				//fmt.Println(len(jchsc0), len(jchsc1))
 				for _, l := range jchsc0 {
 					for _, m := range jchsc1 {
 						//fmt.Println(" l", l)
@@ -1151,23 +1364,49 @@ func CalcJointAncStates(x *DiscreteModel, tree *Tree, patternval []float64) (roo
 						for n, mm := range m.Config {
 							tc.Config[n] = mm
 						}
-						//fmt.Println(" tc", tc.Config)
-						jconfigs[c] = append(jconfigs[c], tc)
+						//fmt.Println(maxV, maxV-math.Log(tc.Score), math.Log(tc.Score))
+						if maxV-math.Log(tc.Score) <= 2 && len(jconfigs[c]) < 100 {
+							//why is this not working?
+							//if len(jconfigs[c]) < 1000 {
+							//fmt.Println(" tc", tc.Config)
+							jconfigs[c] = append(jconfigs[c], tc)
+						}
 					}
 				}
+				sort.Slice(jconfigs[c], func(x, y int) bool {
+					return jconfigs[c][x].Score > jconfigs[c][y].Score // Descending order
+				})
 			}
 			if c == tree.Rt {
+				//check to make sure that the max is there - bjc is the max
+				check := false
+				for jj := range jconfigs[tree.Rt] {
+					if JointConfigsAreEqual(jconfigs[tree.Rt][jj], bjc) {
+						check = true
+						break
+					}
+				}
+				if !check { //add the best
+					bjc.Score = math.Exp(bjc.Score)
+					jconfigs[tree.Rt] = append(jconfigs[tree.Rt], bjc)
+				}
 				//get them in the right order
 				//only include < 2lnL
 				sort.Slice(jconfigs[tree.Rt], func(x, y int) bool {
 					return jconfigs[tree.Rt][x].Score > jconfigs[tree.Rt][y].Score // Descending order
 				})
-				//fmt.Println(jconfigs[tree.Rt])
+				sumV := 0.0
+				for j := range jconfigs[tree.Rt] {
+					sumV += jconfigs[tree.Rt][j].Score
+				}
+				for j := range jconfigs[tree.Rt] {
+					jconfigs[tree.Rt][j].Prop = jconfigs[tree.Rt][j].Score / sumV
+				}
 				maxV := math.Log(jconfigs[tree.Rt][0].Score)
 				lastV := 0
 				for j := range jconfigs[tree.Rt] {
 					jconfigs[tree.Rt][j].Score = math.Log(jconfigs[tree.Rt][j].Score)
-					//fmt.Println(jconfigs[tree.Rt][j].Score)
+					//fmt.Println("sc", jconfigs[tree.Rt][j].Score, jconfigs[tree.Rt][j].Config)
 					if maxV-jconfigs[tree.Rt][j].Score < 2 {
 						lastV = j
 					}
@@ -1183,26 +1422,21 @@ func CalcJointAncStates(x *DiscreteModel, tree *Tree, patternval []float64) (roo
 // CalcJointAncStatesGamma same as above but with gamma, slower, given gamma vals
 func CalcJointAncStatesGamma(x *DiscreteModel, tree *Tree, patternval []float64) (rootconfigs [][]JointConfig) {
 	numstates := x.NumStates
-	//CalcLikeFrontBack(x, tree, patternval)
 	rootconfigs = make([][]JointConfig, 0, 0)
-	// initialize the data storage for return
-	for _, c := range tree.Pre {
-		if len(c.Chs) == 0 {
-			continue
-		}
-	}
 	// start reconstruction
-	for i := 0; i < len(patternval); i++ { //len(patternval); i++ {
+	for i := 0; i < len(patternval); i++ {
 		curstates := make(map[*Node][]int)
 		jconfigs := make(map[*Node][]JointConfig)
-		//for _, c := range tree.Tips {
-		//	fmt.Println(c.Nam, c.TpConds[i])
-		//}
-		//fmt.Println("p", i, patternval[i])
-		//THIS IS THE GAMMA BIT, NEED TO FIGURE OUT WHERE TO PUT IT
-		//tsl := make([]float64, x.GammaNCats)
-		//for p, g := range x.GammaCats {
-
+		maxV := CalcJointLogLikelihoodValueGamma(x, tree, patternval, i)
+		//fmt.Println(i, maxV)
+		bjc := CalcJointBestConfigGamma(x, tree, maxV)
+		finalv := CalcJointConfigScoreGamma(x, tree, patternval, i, bjc)
+		if maxV != finalv {
+			fmt.Println(maxV, finalv)
+			fmt.Println(bjc)
+			fmt.Println("there is a problem with the joint calculation")
+			os.Exit(0)
+		}
 		for _, c := range tree.Post {
 			if len(c.Chs) == 0 {
 				for j, k := range c.Data[i] {
@@ -1213,7 +1447,6 @@ func CalcJointAncStatesGamma(x *DiscreteModel, tree *Tree, patternval []float64)
 						jconfigs[c] = append(jconfigs[c], jc)
 					}
 				}
-				//fmt.Println(c.Data[i], curstates[c])
 				continue
 			}
 			//assume you are calaculating log like marginals
@@ -1231,10 +1464,12 @@ func CalcJointAncStatesGamma(x *DiscreteModel, tree *Tree, patternval []float64)
 				jchsc0 := []JointConfig{}
 				jchsc1 := []JointConfig{}
 				for c1, cc := range c.Chs {
-					p := x.GetPCalc(cc.Len)
 					for _, l := range jconfigs[cc] {
-						jc := JointConfig{Score: 1.0, Config: make(map[*Node]int)}
-						jc.Score = l.Score * p.At(k, l.Config[cc])
+						jc := JointConfig{Score: 0.0, Config: make(map[*Node]int)}
+						for _, g := range x.GammaCats { //TODO: test
+							p := x.GetPCalc(cc.Len * g)
+							jc.Score += l.Score * p.At(k, l.Config[cc]) * 1 / float64(x.GammaNCats)
+						}
 						for x, y := range l.Config {
 							jc.Config[x] = y
 						}
@@ -1245,6 +1480,7 @@ func CalcJointAncStatesGamma(x *DiscreteModel, tree *Tree, patternval []float64)
 						}
 					}
 				}
+				//fmt.Println(len(jchsc0), len(jchsc1))
 				for _, l := range jchsc0 {
 					for _, m := range jchsc1 {
 						//fmt.Println(" l", l)
@@ -1262,14 +1498,55 @@ func CalcJointAncStatesGamma(x *DiscreteModel, tree *Tree, patternval []float64)
 						for n, mm := range m.Config {
 							tc.Config[n] = mm
 						}
-						//fmt.Println(" tc", tc.Config)
-						jconfigs[c] = append(jconfigs[c], tc)
+						//fmt.Println(maxV, maxV-math.Log(tc.Score), math.Log(tc.Score))
+						if maxV-math.Log(tc.Score) <= 2 && len(jconfigs[c]) < 100 {
+							//why is this not working?
+							//if len(jconfigs[c]) < 1000 {
+							//fmt.Println(" tc", tc.Config)
+							jconfigs[c] = append(jconfigs[c], tc)
+						}
 					}
 				}
+				sort.Slice(jconfigs[c], func(x, y int) bool {
+					return jconfigs[c][x].Score > jconfigs[c][y].Score // Descending order
+				})
 			}
 			if c == tree.Rt {
-				//fmt.Println(jconfigs[tree.Rt])
-				rootconfigs = append(rootconfigs, jconfigs[tree.Rt])
+				//check to make sure that the max is there - bjc is the max
+				check := false
+				for jj := range jconfigs[tree.Rt] {
+					if JointConfigsAreEqual(jconfigs[tree.Rt][jj], bjc) {
+						check = true
+						break
+					}
+				}
+				if !check { //add the best
+					bjc.Score = math.Exp(bjc.Score)
+					jconfigs[tree.Rt] = append(jconfigs[tree.Rt], bjc)
+				}
+				//get them in the right order
+				//only include < 2lnL
+				sort.Slice(jconfigs[tree.Rt], func(x, y int) bool {
+					return jconfigs[tree.Rt][x].Score > jconfigs[tree.Rt][y].Score // Descending order
+				})
+				sumV := 0.0
+				for j := range jconfigs[tree.Rt] {
+					sumV += jconfigs[tree.Rt][j].Score
+				}
+				for j := range jconfigs[tree.Rt] {
+					jconfigs[tree.Rt][j].Prop = jconfigs[tree.Rt][j].Score / sumV
+				}
+				maxV := math.Log(jconfigs[tree.Rt][0].Score)
+				lastV := 0
+				for j := range jconfigs[tree.Rt] {
+					jconfigs[tree.Rt][j].Score = math.Log(jconfigs[tree.Rt][j].Score)
+					//fmt.Println("sc", jconfigs[tree.Rt][j].Score, jconfigs[tree.Rt][j].Config)
+					if maxV-jconfigs[tree.Rt][j].Score < 2 {
+						lastV = j
+					}
+				}
+				lastV += 1
+				rootconfigs = append(rootconfigs, jconfigs[tree.Rt][0:lastV])
 			}
 		}
 	}
