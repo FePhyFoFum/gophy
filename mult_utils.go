@@ -5,7 +5,7 @@ import (
 	"os"
 )
 
-//GetSitePatternsMS return site pattens when the datatype for the alignment is a map[string]string
+// GetSitePatternsMS return site pattens when the datatype for the alignment is a map[string]string
 func GetSitePatternsMS(seqs []MSeq, charMap map[string][]int, numstates int) (patterns map[string][]int,
 	patternsint map[int]float64, gapsites []int, constant []int, uninformative []int, fullpattern []int) {
 	nsites := len(seqs[0].SQs)

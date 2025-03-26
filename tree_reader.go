@@ -4,11 +4,13 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"strconv"
+	"strings"
 )
 
-//ReadTreeFromFile read a single tree from a file
+// ReadTreeFromFile read a single tree from a file
 func ReadTreeFromFile(tfn string) (tree *Tree) {
 	f, err := os.Open(tfn)
 	if err != nil {
@@ -32,7 +34,7 @@ func ReadTreeFromFile(tfn string) (tree *Tree) {
 	return
 }
 
-//ReadTreesFromFile read multi single tree from a file
+// ReadTreesFromFile read multi single tree from a file
 func ReadTreesFromFile(tfn string) (trees []*Tree) {
 	f, err := os.Open(tfn)
 	if err != nil {
@@ -40,20 +42,43 @@ func ReadTreesFromFile(tfn string) (trees []*Tree) {
 	}
 	defer f.Close()
 	trees = make([]*Tree, 0)
-	scanner := bufio.NewScanner(f)
-	buf := make([]byte, 0, 1024*1024)
-	scanner.Buffer(buf, 1024*1024)
-	for scanner.Scan() {
-		var rt *Node
-		tree := NewTree()
-		ln := scanner.Text()
+	reader := bufio.NewReader(f)
+	for {
+		line, err := reader.ReadString('\n')
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			fmt.Println("Read error:", err)
+			break
+		}
+		ln := strings.TrimSpace(line)
 		if len(ln) < 2 {
 			continue
 		}
-		rt = ReadNewickString(ln)
+		tree := NewTree()
+		rt := ReadNewickString(ln)
 		tree.Instantiate(rt)
 		trees = append(trees, tree)
 	}
+	/*
+		scanner := bufio.NewScanner(f)
+		buf := make([]byte, 0, 1024*1024)
+		scanner.Buffer(buf, 1024*1024)
+		for scanner.Scan() {
+			var rt *Node
+			tree := NewTree()
+			ln := scanner.Text()
+			if len(ln) < 2 {
+				continue
+			}
+			rt = ReadNewickString(ln)
+			tree.Instantiate(rt)
+			trees = append(trees, tree)
+		}
+		if err := scanner.Err(); err != nil {
+			fmt.Println("Scanner error:", err)
+		}*/
 	return
 }
 

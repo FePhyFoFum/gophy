@@ -893,6 +893,20 @@ func TPconditionals(x *DiscreteModel, node *Node, patternval []float64) {
 	}
 }
 
+func TPconditionalsLog(x *DiscreteModel, node *Node, patternval []float64) {
+	numstates := x.NumStates
+	if len(node.Chs) > 0 {
+		for s := range patternval {
+			for j := 0; j < numstates; j++ {
+				node.TpConds[s][j] = 0.0
+				for _, i := range node.Chs {
+					node.TpConds[s][j] += i.RtConds[s][j]
+				}
+			}
+		}
+	}
+}
+
 // RTconditionals tipconds calculated to the rt (including BL)
 func RTconditionals(x *DiscreteModel, node *Node, patternval []float64) {
 	numstates := x.NumStates
@@ -904,6 +918,28 @@ func RTconditionals(x *DiscreteModel, node *Node, patternval []float64) {
 				templike += p.At(j, k) * node.TpConds[s][k]
 			}
 			node.RtConds[s][j] = templike
+		}
+	}
+}
+
+func RTconditionalsLog(x *DiscreteModel, node *Node, patternval []float64) {
+	numstates := x.NumStates
+	p := x.GetPCalc(node.Len)
+	for s := range patternval {
+		for j := 0; j < numstates; j++ {
+			if len(node.Chs) > 0 {
+				vals := make([]float64, numstates)
+				for k := 0; k < numstates; k++ {
+					vals[k] = math.Log(p.At(j, k)) + node.TpConds[s][k]
+				}
+				node.RtConds[s][j] = floats.LogSumExp(vals)
+			} else {
+				templike := 0.0
+				for k := 0; k < numstates; k++ {
+					templike += p.At(j, k) * node.TpConds[s][k]
+				}
+				node.RtConds[s][j] = math.Log(templike)
+			}
 		}
 	}
 }
@@ -922,6 +958,20 @@ func RVconditionals(x *DiscreteModel, node *Node, patternval []float64) {
 	}
 }
 
+func RVconditionalsLog(x *DiscreteModel, node *Node, patternval []float64) {
+	numstates := x.NumStates
+	p := x.GetPCalc(node.Par.Len)
+	for s := range patternval {
+		for j := 0; j < numstates; j++ {
+			vals := make([]float64, numstates)
+			for k := 0; k < numstates; k++ {
+				vals[k] = math.Log(p.At(j, k)) + node.Par.RvConds[s][k]
+			}
+			node.Par.RvTpConds[s][j] = floats.LogSumExp(vals)
+		}
+	}
+}
+
 // RVTPconditionals ...
 func RVTPconditionals(x *DiscreteModel, node *Node, patternval []float64) {
 	numstates := x.NumStates
@@ -935,6 +985,23 @@ func RVTPconditionals(x *DiscreteModel, node *Node, patternval []float64) {
 			}
 			for j := 0; j < numstates; j++ {
 				node.RvConds[s][j] *= oc.RtConds[s][j]
+			}
+		}
+	}
+}
+
+func RVTPconditionalsLog(x *DiscreteModel, node *Node, patternval []float64) {
+	numstates := x.NumStates
+	for s := range patternval {
+		for j := 0; j < numstates; j++ {
+			node.RvConds[s][j] = node.Par.RvTpConds[s][j]
+		}
+		for _, oc := range node.Par.Chs {
+			if node == oc {
+				continue
+			}
+			for j := 0; j < numstates; j++ {
+				node.RvConds[s][j] += oc.RtConds[s][j] // log-space multiply
 			}
 		}
 	}
@@ -994,6 +1061,41 @@ func CalcLikeFrontBack(x *DiscreteModel, tree *Tree, patternval []float64) {
 	}
 }
 
+func CalcLikeFrontBackLog(x *DiscreteModel, tree *Tree, patternval []float64) {
+	numstates := x.NumStates
+	for _, n := range tree.Post {
+		if len(n.Chs) != 0 {
+			n.TpConds = make([][]float64, len(patternval))
+		}
+		n.RvTpConds = make([][]float64, len(patternval))
+		n.RvConds = make([][]float64, len(patternval))
+		n.RtConds = make([][]float64, len(patternval))
+		for i := 0; i < len(patternval); i++ {
+			if len(n.Chs) != 0 {
+				n.TpConds[i] = make([]float64, numstates)
+			}
+			n.RvTpConds[i] = make([]float64, numstates)
+			n.RvConds[i] = make([]float64, numstates)
+			n.RtConds[i] = make([]float64, numstates)
+			for j := 0; j < numstates; j++ {
+				n.RvTpConds[i][j] = 0.0
+				n.RvConds[i][j] = 0.0
+				n.RtConds[i][j] = 0.0
+			}
+		}
+	}
+	for _, c := range tree.Post {
+		TPconditionalsLog(x, c, patternval)
+		RTconditionalsLog(x, c, patternval)
+	}
+	for _, c := range tree.Pre {
+		if c != tree.Rt {
+			RVconditionalsLog(x, c, patternval)
+			RVTPconditionalsLog(x, c, patternval)
+		}
+	}
+}
+
 // CalcAncStates for each node based on the calculations above
 func CalcAncStates(x *DiscreteModel, tree *Tree, patternval []float64) (retstates map[*Node][][]float64) {
 	numstates := x.NumStates
@@ -1017,7 +1119,6 @@ func CalcAncStates(x *DiscreteModel, tree *Tree, patternval []float64) (retstate
 			if len(c.Chs) == 0 {
 				continue
 			}
-			//fmt.Println(c.Newick(true))
 			retstates[c][i] = make([]float64, numstates)
 			if c == tree.Rt {
 				su := 0.
@@ -1055,6 +1156,66 @@ func CalcAncStates(x *DiscreteModel, tree *Tree, patternval []float64) (retstate
 		}
 	}
 	return
+}
+
+func CalcAncStatesLog(x *DiscreteModel, tree *Tree, patternval []float64) map[*Node][][]float64 {
+	numstates := x.NumStates
+	CalcLikeFrontBackLog(x, tree, patternval)
+
+	retstates := make(map[*Node][][]float64)
+
+	// Initialize result containers
+	for _, c := range tree.Pre {
+		if len(c.Chs) == 0 {
+			continue
+		}
+		ndata := make([][]float64, len(patternval))
+		retstates[c] = ndata
+	}
+
+	for i := 0; i < len(patternval); i++ {
+		//for _, c := range tree.Tips {
+		//	fmt.Println(c.Nam, c.TpConds[i])
+		//}
+		//fmt.Println("p", i, patternval[i])
+		for _, c := range tree.Pre {
+			if len(c.Chs) == 0 {
+				continue
+			}
+			retstates[c][i] = make([]float64, numstates)
+			if c == tree.Rt {
+				// Root node: combine RtConds and base frequencies in log-space
+				vals := make([]float64, numstates)
+				for j := 0; j < numstates; j++ {
+					vals[j] = c.RtConds[i][j] + math.Log(x.BF[j])
+				}
+				logZ := floats.LogSumExp(vals)
+				for j := 0; j < numstates; j++ {
+					retstates[c][i][j] = math.Exp(vals[j] - logZ)
+				}
+			} else {
+				p := x.GetPCalc(c.Len)
+				s1probs := c.TpConds
+				s2probs := c.RvConds
+				tv := make([]float64, numstates)
+
+				for j := 0; j < numstates; j++ {
+					logsum := make([]float64, numstates)
+					for k := 0; k < numstates; k++ {
+						logsum[k] = s1probs[i][j] + math.Log(p.At(j, k)) + s2probs[i][k]
+					}
+					tv[j] = floats.LogSumExp(logsum) + math.Log(x.BF[j])
+				}
+
+				logZ := floats.LogSumExp(tv)
+				for j := 0; j < numstates; j++ {
+					retstates[c][i][j] = math.Exp(tv[j] - logZ)
+				}
+			}
+		}
+	}
+
+	return retstates
 }
 
 type JointConfig struct {
@@ -1097,12 +1258,15 @@ func CalcJointLogLikelihoodValue(x *DiscreteModel, tree *Tree, patternval []floa
 	res = 0.0
 	s := site
 	for _, c := range tree.Post {
-		c.ContData = []float64{1.0, 1.0, 1.0, 1.0}
+		c.ContData = make([]float64, x.NumStates)
+		for i := range c.ContData {
+			c.ContData[i] = 1.0
+		}
 		if len(c.Chs) > 0 { //this is an internal node
 			for j := range x.BF {
 				for _, i := range c.Chs {
 					p := x.GetPCalc(i.Len)
-					templike := []float64{0.0, 0.0, 0.0, 0.0}
+					templike := make([]float64, x.NumStates)
 					for k := range x.BF {
 						templike[k] = p.At(j, k) * i.ContData[k]
 					}
@@ -1119,7 +1283,10 @@ func CalcJointLogLikelihoodValue(x *DiscreteModel, tree *Tree, patternval []floa
 			}
 		}
 	}
-	td := []float64{1.0, 1.0, 1.0, 1.0}
+	td := make([]float64, x.NumStates)
+	for i := range td {
+		td[i] = 1.0
+	}
 	for c, d := range x.BF {
 		td[c] = tree.Rt.ContData[c] * d
 	}
@@ -1169,7 +1336,7 @@ func CalcJointBestConfig(x *DiscreteModel, tree *Tree, value float64) JointConfi
 	for _, c := range tree.Pre {
 		if len(c.Chs) > 0 {
 			if c != tree.Rt {
-				cc := []float64{0.0, 0.0, 0.0, 0.0}
+				cc := make([]float64, x.NumStates)
 				p := x.GetPCalc(c.Len)
 				for j := range x.BF {
 					cc[j] = c.ContData[j] * p.At(jconfig.Config[c.Par], j)
@@ -1177,7 +1344,10 @@ func CalcJointBestConfig(x *DiscreteModel, tree *Tree, value float64) JointConfi
 				_, i := MaxIndex(cc)
 				jconfig.Config[c] = i
 			} else {
-				td := []float64{1.0, 1.0, 1.0, 1.0}
+				td := make([]float64, x.NumStates)
+				for i := range td {
+					td[i] = 1.0
+				}
 				for c, d := range x.BF {
 					td[c] = tree.Rt.ContData[c] * d
 				}
@@ -1197,7 +1367,7 @@ func CalcJointBestConfigGamma(x *DiscreteModel, tree *Tree, value float64) Joint
 	for _, c := range tree.Pre {
 		if len(c.Chs) > 0 {
 			if c != tree.Rt {
-				cc := []float64{0.0, 0.0, 0.0, 0.0}
+				cc := make([]float64, x.NumStates)
 				for _, g := range x.GammaCats { //TODO: test
 					p := x.GetPCalc(c.Len * g)
 					for j := range x.BF {
@@ -1207,7 +1377,10 @@ func CalcJointBestConfigGamma(x *DiscreteModel, tree *Tree, value float64) Joint
 				_, i := MaxIndex(cc)
 				jconfig.Config[c] = i
 			} else {
-				td := []float64{1.0, 1.0, 1.0, 1.0}
+				td := make([]float64, x.NumStates)
+				for i := range td {
+					td[i] = 1.0
+				}
 				for c, d := range x.BF {
 					td[c] = tree.Rt.ContData[c] * d
 				}
@@ -1288,7 +1461,6 @@ func CalcJointAncStates(x *DiscreteModel, tree *Tree, patternval []float64) (roo
 		curstates := make(map[*Node][]int)
 		jconfigs := make(map[*Node][]JointConfig)
 		maxV := CalcJointLogLikelihoodValue(x, tree, patternval, i)
-		//fmt.Println(i, maxV)
 		bjc := CalcJointBestConfig(x, tree, maxV)
 		finalv := CalcJointConfigScore(x, tree, patternval, i, bjc)
 		if maxV != finalv {

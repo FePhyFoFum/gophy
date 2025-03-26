@@ -187,7 +187,7 @@ func OptimizeGammaBLSNL(t *Tree, x *DiscreteModel, patternvals []float64, wks in
 	}
 }
 
-//AdjustBLNR This is a single edge NR
+// AdjustBLNR This is a single edge NR
 func AdjustBLNR(node *Node, x *DiscreteModel, patternvals []float64, t *Tree, wks int, threshold float64) {
 	numstates := x.NumStates
 	xmin := 10e-8
@@ -679,7 +679,7 @@ func OptimizeGTRDNA(t *Tree, x *DiscreteModel, patternvals []float64,
 	return res
 }
 
-//OptimizeBF optimizing the basefreq model but for a clade
+// OptimizeBF optimizing the basefreq model but for a clade
 func OptimizeBF(t *Tree, x *DiscreteModel, patternvals []float64, log bool, wks int) {
 	numstates := x.NumStates
 	var lkfun func(*Tree, *DiscreteModel, []float64, int) float64
@@ -769,7 +769,7 @@ func OptimizeBF(t *Tree, x *DiscreteModel, patternvals []float64, log bool, wks 
 	x.SetupQGTR()
 }
 
-//OptimizeGTRDNASubClade optimizing the GTR model but for a subclade
+// OptimizeGTRDNASubClade optimizing the GTR model but for a subclade
 func OptimizeGTRDNASubClade(t *Tree, n *Node, excl bool, x *DiscreteModel, patternvals []float64, wks int) {
 	count := 0
 	start := time.Now()
@@ -814,7 +814,7 @@ func OptimizeGTRDNASubClade(t *Tree, n *Node, excl bool, x *DiscreteModel, patte
 	x.SetRateMatrix(res)
 }
 
-//OptimizeBFSubClade optimizing the basefreq model but for a subclade
+// OptimizeBFSubClade optimizing the basefreq model but for a subclade
 func OptimizeBFSubClade(t *Tree, n *Node, excl bool, x *DiscreteModel, patternvals []float64, log bool, wks int) {
 	numstates := x.NumStates
 	var lkfun func(*Tree, *Node, bool, *DiscreteModel, []float64, int) float64
@@ -955,7 +955,7 @@ func OptimizeBFSubCladeNLOPT(t *Tree, n *Node, excl bool, x *DiscreteModel, patt
 	x.SetupQGTR()
 }
 
-//OptimizeBFDNARMSubClade optimizing the basefreq model but for a subclade
+// OptimizeBFDNARMSubClade optimizing the basefreq model but for a subclade
 func OptimizeBFDNARMSubClade(t *Tree, n *Node, excl bool, x *DiscreteModel, patternvals []float64, wks int) {
 	count := 0
 	fcn := func(mds []float64) float64 {
@@ -992,7 +992,7 @@ func OptimizeBFDNARMSubClade(t *Tree, n *Node, excl bool, x *DiscreteModel, patt
 	x.SetupQGTR()
 }
 
-//OptimizeGamma ...
+// OptimizeGamma ...
 func OptimizeGamma(t *Tree, x *DiscreteModel, patternvals []float64, log bool, wks int) {
 	var lkfun func(*Tree, *DiscreteModel, []float64, int) float64
 	if log {
@@ -1037,7 +1037,7 @@ func OptimizeGamma(t *Tree, x *DiscreteModel, patternvals []float64, log bool, w
 	fmt.Fprintln(os.Stderr, "gamma:", minf, res[0])
 }
 
-//OptimizeGammaAndBL ...
+// OptimizeGammaAndBL ...
 func OptimizeGammaAndBL(t *Tree, x *DiscreteModel, patternvals []float64, log bool, wks int) {
 	OptimizeGamma(t, x, patternvals, log, wks)
 	OptimizeGammaBLSNL(t, x, patternvals, wks)
@@ -1053,7 +1053,7 @@ func OptimizeGammaAndBL(t *Tree, x *DiscreteModel, patternvals []float64, log bo
 func OptimizeMS1R(t *Tree, x *DiscreteModel, patternvals []float64, wks int) {
 	count := 0
 	//start := time.Now()
-	fcn := func(mds []float64) float64 {
+	fcn := func(mds, gradient []float64) float64 {
 		if mds[0] < 0 {
 			return 1000000000000
 		}
@@ -1074,20 +1074,28 @@ func OptimizeMS1R(t *Tree, x *DiscreteModel, patternvals []float64, wks int) {
 	//settings.FunctionThreshold = 0.1
 	//settings.GradientThreshold = 0.00001
 	settings.Recorder = nil
-	p := optimize.Problem{Func: fcn, Grad: nil, Hess: nil}
 	p0 := []float64{0.0441} //1. / float64(x.GetNumStates())}
-	res, err := optimize.Minimize(p, p0, nil, nil)
+
+	opt, err := nlopt.NewNLopt(nlopt.LN_AUGLAG, uint(len(p0)))
+	fmt.Println(x.BF)
+	opt.SetMaxEval(1000)
+	opt.SetFtolAbs(10e-5)
+	opt.SetMinObjective(fcn)
+	res, _, err := opt.Optimize(p0)
 	if err != nil {
 		fmt.Println(err)
 	}
-	x.SetupQJC1Rate(res.X[0])
+	fmt.Println(res)
+	x.SetupQJC1Rate(res[0])
 }
 
 // OptimizeMKMS optimize GTR
-//    symmetrical and scale the last rate to 1
+//
+//	symmetrical and scale the last rate to 1
 func OptimizeMKMS(t *Tree, x *DiscreteModel, startv float64, patternvals []float64, sym bool, wks int) {
 	count := 0
-	fcn := func(mds []float64) float64 {
+
+	fcn := func(mds, gradient []float64) float64 {
 		for _, i := range mds {
 			if i < 0 {
 				return 1000000000000
@@ -1098,7 +1106,7 @@ func OptimizeMKMS(t *Tree, x *DiscreteModel, startv float64, patternvals []float
 		count++
 		return -lnl
 	}
-	p := optimize.Problem{Func: fcn, Grad: nil, Hess: nil}
+	//p := optimize.Problem{Func: fcn, Grad: nil, Hess: nil}
 	if x.GetNumStates() < 3 && sym == true {
 		fmt.Println("NEED TO DO 2 STATES")
 		os.Exit(0)
@@ -1111,10 +1119,15 @@ func OptimizeMKMS(t *Tree, x *DiscreteModel, startv float64, patternvals []float
 	for i := range p0 {
 		p0[i] = startv
 	}
-	res, err := optimize.Minimize(p, p0, nil, nil)
+
+	opt, err := nlopt.NewNLopt(nlopt.LN_AUGLAG, uint(len(p0)))
+	fmt.Println(x.BF)
+	opt.SetMaxEval(1000)
+	opt.SetFtolAbs(10e-5)
+	opt.SetMinObjective(fcn)
+	res, _, err := opt.Optimize(p0)
 	if err != nil {
 		fmt.Println(err)
 	}
-	//fmt.Println(res.F, res.X)
-	x.SetupQMk(res.X, sym)
+	x.SetupQMk(res, sym)
 }
