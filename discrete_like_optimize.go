@@ -1067,26 +1067,68 @@ func OptimizeMS1R(t *Tree, x *DiscreteModel, patternvals []float64, wks int) {
 		count++
 		return -lnl
 	}
-	settings := optimize.Settings{}
-	//settings.MajorIterations = 100
-	settings.Concurrent = 0
-	//settings.FuncEvaluations = 100
-	//settings.FunctionThreshold = 0.1
-	//settings.GradientThreshold = 0.00001
-	settings.Recorder = nil
-	p0 := []float64{0.0441} //1. / float64(x.GetNumStates())}
+	/*
+		settings := optimize.Settings{}
+		//settings.MajorIterations = 100
+		settings.Concurrent = 0
+		//settings.FuncEvaluations = 100
+		//settings.FunctionThreshold = 0.1
+		//settings.GradientThreshold = 0.00001
+		settings.Recorder = nil
+		p0 := []float64{0.0441} //1. / float64(x.GetNumStates())}
 
-	opt, err := nlopt.NewNLopt(nlopt.LN_AUGLAG, uint(len(p0)))
-	fmt.Println(x.BF)
-	opt.SetMaxEval(1000)
-	opt.SetFtolAbs(10e-5)
-	opt.SetMinObjective(fcn)
-	res, _, err := opt.Optimize(p0)
+		opt, err := nlopt.NewNLopt(nlopt.LN_AUGLAG, uint(len(p0)))
+		fmt.Println(x.BF)
+		opt.SetMaxEval(1000)
+		opt.SetFtolAbs(10e-5)
+		opt.SetMinObjective(fcn)
+		res, _, err := opt.Optimize(p0)
+		if err != nil {
+			fmt.Println(err)
+		}
+		fmt.Println(res)
+		x.SetupQJC1Rate(res[0])
+	*/
+	dim := 1
+
+	opt, err := nlopt.NewNLopt(nlopt.LN_AUGLAG, uint(dim))
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println("Error creating main optimizer:", err)
+		return
 	}
-	fmt.Println(res)
-	x.SetupQJC1Rate(res[0])
+	defer opt.Destroy() // Ensure the optimizer is always destroyed
+
+	localOpt, err := nlopt.NewNLopt(nlopt.LN_BOBYQA, uint(dim))
+	if err != nil {
+		fmt.Println("Error creating local optimizer:", err)
+		return
+	}
+	defer localOpt.Destroy()
+
+	// Set tolerances for the local optimizer
+	localOpt.SetFtolRel(1e-6)
+
+	err = opt.SetLocalOptimizer(localOpt)
+	if err != nil {
+		fmt.Println("Error setting local optimizer:", err)
+		return
+	}
+
+	opt.SetMaxEval(1000)
+	opt.SetMinObjective(fcn)
+	opt.SetLowerBounds([]float64{0.0}) // Set bounds directly in NLopt
+
+	p0 := []float64{0.0441}
+
+	// 4. Run the optimization
+	res, minf, err := opt.Optimize(p0)
+	if err != nil {
+		// This error is the one that indicates a runtime failure
+		fmt.Println("Optimization failed:", err)
+	} else {
+		fmt.Println("Optimization finished. Result:", res, "Minimum value:", minf)
+		x.SetupQJC1Rate(res[0])
+	}
 }
 
 // OptimizeMKMS optimize GTR
@@ -1106,28 +1148,89 @@ func OptimizeMKMS(t *Tree, x *DiscreteModel, startv float64, patternvals []float
 		count++
 		return -lnl
 	}
-	//p := optimize.Problem{Func: fcn, Grad: nil, Hess: nil}
+	/*
+		//p := optimize.Problem{Func: fcn, Grad: nil, Hess: nil}
+		if x.GetNumStates() < 3 && sym == true {
+			fmt.Println("NEED TO DO 2 STATES")
+			os.Exit(0)
+		}
+		//p0 := make([]float64, (((x.GetNumStates()*x.GetNumStates())-x.GetNumStates())/2)-1) // scaled
+		p0 := make([]float64, (((x.GetNumStates() * x.GetNumStates()) - x.GetNumStates()) / 2)) //unscaled
+		if sym == false {
+			p0 = make([]float64, ((x.GetNumStates() * x.GetNumStates()) - x.GetNumStates())) // unsym
+		}
+		for i := range p0 {
+			p0[i] = startv
+		}
+
+		opt, err := nlopt.NewNLopt(nlopt.LN_AUGLAG, uint(len(p0)))
+		fmt.Println(x.BF)
+		opt.SetMaxEval(1000)
+		opt.SetFtolAbs(10e-5)
+		opt.SetMinObjective(fcn)
+		res, _, err := opt.Optimize(p0)
+		if err != nil {
+			fmt.Println(err)
+		}
+		x.SetupQMk(res, sym)
+	*/
 	if x.GetNumStates() < 3 && sym == true {
-		fmt.Println("NEED TO DO 2 STATES")
+		fmt.Println("NEED TO DO 2 STATES - EXITING")
 		os.Exit(0)
 	}
-	//p0 := make([]float64, (((x.GetNumStates()*x.GetNumStates())-x.GetNumStates())/2)-1) // scaled
-	p0 := make([]float64, (((x.GetNumStates() * x.GetNumStates()) - x.GetNumStates()) / 2)) //unscaled
-	if sym == false {
-		p0 = make([]float64, ((x.GetNumStates() * x.GetNumStates()) - x.GetNumStates())) // unsym
+
+	// Determine the number of parameters to optimize (the dimension of the problem)
+	var dim int
+	if sym {
+		// Symmetric model
+		dim = ((x.GetNumStates() * x.GetNumStates()) - x.GetNumStates()) / 2
+	} else {
+		// Asymmetric model
+		dim = (x.GetNumStates() * x.GetNumStates()) - x.GetNumStates()
 	}
+
+	// Set the initial guess vector
+	p0 := make([]float64, dim)
 	for i := range p0 {
 		p0[i] = startv
 	}
 
-	opt, err := nlopt.NewNLopt(nlopt.LN_AUGLAG, uint(len(p0)))
-	fmt.Println(x.BF)
-	opt.SetMaxEval(1000)
-	opt.SetFtolAbs(10e-5)
-	opt.SetMinObjective(fcn)
-	res, _, err := opt.Optimize(p0)
+	opt, err := nlopt.NewNLopt(nlopt.LN_AUGLAG, uint(dim))
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println("Error creating main optimizer:", err)
+		return
 	}
-	x.SetupQMk(res, sym)
+	defer opt.Destroy() // Use defer to ensure memory is freed
+
+	localOpt, err := nlopt.NewNLopt(nlopt.LN_BOBYQA, uint(dim))
+	if err != nil {
+		fmt.Println("Error creating local optimizer:", err)
+		return
+	}
+	defer localOpt.Destroy() // Also destroy the local optimizer
+
+	// Configure the local optimizer
+	localOpt.SetFtolRel(1e-6)
+
+	err = opt.SetLocalOptimizer(localOpt)
+	if err != nil {
+		fmt.Println("Error setting local optimizer:", err)
+		return
+	}
+
+	opt.SetMaxEval(1000)
+	opt.SetMinObjective(fcn)
+
+	lowerBounds := make([]float64, dim) // Creates a slice of zeros: [0.0, 0.0, ...]
+	opt.SetLowerBounds(lowerBounds)
+
+	res, minf, err := opt.Optimize(p0)
+	if err != nil {
+		fmt.Println("Optimization failed with error:", err)
+	} else {
+		fmt.Println("Optimization finished successfully.")
+		fmt.Printf("Result: %v\n", res)
+		fmt.Printf("Minimum function value: %f\n", minf)
+		x.SetupQMk(res, sym)
+	}
 }
